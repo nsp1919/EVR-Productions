@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create the EVR Client Google Form</title>
+<style>
+body { margin: 0; color: #23362e; background: #f4f1eb; font: 16px/1.65 Arial, sans-serif; }
+main { max-width: 860px; margin: auto; padding: 40px 22px; }
+h1 { font: 44px/1.1 Georgia, serif; } h2 { margin-top: 32px; }
+a { color: #174cb0; } li { margin: 12px 0; }
+.note { padding: 18px; border-left: 4px solid #a35440; background: #fff; }
+code { background: #e6eae3; padding: 2px 5px; overflow-wrap: anywhere; }
+@media print { body { background: white; } main { padding: 0; } }
+</style>
+</head>
+<body><main>lease confirm which options customers should be able to select.
+
+WEDDING OPTIONS
+• Event types.
+• Shoot days.
+• Dates and sessions.
+• Photography and cinematography crew.
+• Drone.
+• Live streaming.
+• Other equipment/services actually offered.
+• Pre-wedding duration.
+• Films, teasers and invitations.
+• Albums.
+• Raw-file requests.
+• Storage media.
+
+CORPORATE OPTIONS
+• Production type.
+• Shoot days.
+• Crew and equipment.
+• Brand films and reels.
+• YouTube and podcast edits.
+• Captions.
+• Thumbnails.
+• Delivery formats.
+• Intended usage.
+
+Please identify any options you do not offer so they can be removed.
+
+CUSTOMER DETAILS
+Please confirm which should be required:
+• Name.
+• Phone.
+• Email, if needed.
+• Couple/brand/project name.
+• Event or shoot date.
+• City/venue.
+• Brief.
+• Preferred callback time.
+
+The website will show:
+“Pricing will be discussed on a call.”
+<h1>Your EVR Google Form setup</h1>
+<p>This creates a shorter, two-section Google Form in your account. Fill business details, read the content list, then paste one Drive folder link. The form remains an unpublished draft until you review and publish it.</p>
+<p class="note"><b>Updating from the long form:</b> replace all code in your existing Apps Script project with the revised script, save and run <code>createEvrClientForm</code> again. Version 2 creates a NEW short form and prints its new links. The old form and its responses are left untouched. Publish and share the new responder link instead of the old one.</p>
+<p><a href="CREATE-EVR-GOOGLE-FORM.gs" download>Download the ready-to-run Apps Script</a></p>
+<h2>Setup steps</h2>
+<ol>
+<li>Sign into the Google account that should own the form. Open <a href="https://script.google.com/home/start">Google Apps Script</a> and choose <b>New project</b>.</li>
+<li>Name the project <b>EVR Client Content Form</b>.</li>
+<li>Open the downloaded <b>CREATE-EVR-GOOGLE-FORM.gs</b> in VS Code or a text editor. Copy all its contents.</li>
+<li>In Apps Script, replace the default contents of <b>Code.gs</b> with the copied script. Save.</li>
+<li>Select <code>createEvrClientForm</code> from the function dropdown, then click <b>Run</b>.</li>
+<li>Review Google's authorisation request and approve only if you are comfortable granting your own script Google Forms access. Do not send anyone your password or OTP. If your organisation blocks authorisation, ask the account administrator rather than trying to bypass the restriction.</li>
+<li>After execution completes, open the <b>Execution log</b>. It contains an <b>EDIT LINK</b> and a <b>RESPONDER LINK</b>.</li>
+<li>Open the EDIT LINK privately. Check the two sections, use Preview and choose the appearance you want. No logo is uploaded automatically.</li>
+<li>Click <b>Publish</b> and check responder access. Restrict access to your client where supported, or choose an appropriate link-access setting. Workspace rules may limit external access.</li>
+<li>Copy the responder link and send that to the client. Do not send the edit link. Test the published link using the intended client access conditions before sending.</li>
+</ol>
+<h2>Included sections</h2>
+<ol>
+<li><b>Business details:</b> 13 fields for business name, tagline, WhatsApp, email, address, Maps, timings, locations, Instagram, YouTube and short business/service descriptions.</li>
+<li><b>Content list + one Drive link:</b> read-only instructions list all 60 photos by category and orientation, the 12 videos and durations, logo, six project stories, 4-6 reviews and optional 2-4 video testimonials. This section has just ONE answer field: the main Google Drive folder link.</li>
+</ol>
+<p class="note"><b>No pricing questions.</b> The form states: "Pricing will be discussed on a call." It uses only the requested content categories, without adding domain, hosting, legal-policy or payment questions.</p>
+<h2>How media collection works</h2>
+<p>No readiness grids, individual upload links, project-by-project answers or quote-option selection tables. Clients put all content in one Drive folder, optionally organised into subfolders, and paste one link at the end. They can add missing files to that same folder later. Quote-form choices can be discussed on a call. The script does not upload files or change folder permissions.</p>
+<p>Keep client media private. The client should grant the developer access directly to the supplied folders, without making them public. Submitting a folder URL does not automatically grant permission or copy its contents.</p>
+<h2>Responses and privacy</h2>
+<p>Responses are saved by Google Forms in the owner's account. Use the <b>Responses</b> tab to read them. Linking a Google Sheet and enabling owner notifications are optional manual settings. Response summaries are not public. Respondents can edit their response using their edit-response link.</p>
+<p>The script does not force one response per signed-in user or collect account emails automatically. It asks explicitly for the business email address. Your account's responder-access policies still apply.</p>
+<h2>If you run the script again</h2>
+<p>The first run of version 2 creates the short form even when version 1 was already run in the same project. Further runs return the existing short form's links, without duplicate questions, deleted responses or overwritten edits. If setup fails partway, it stops with the partial draft's link. Do not publish the incomplete draft. To start fresh without deleting anything, use a new Apps Script project.</p>
+<p>If you delete the form or lose access, the script will report Google's error instead of silently creating a replacement. Use a new project when you intentionally want another form.</p>
+<h2>Verification</h2>
+<p>The script's structure, required counts, question choices and repeat-run behaviour were tested locally against an Apps Script service mock. Official Forms API method names were checked. Live Google authorisation, form creation and responder access must still be verified when you run it in your account.</p>
+<p class="note">No live Google Form has been created by providing these files. The shareable form link is generated when you run the script successfully.</p>
+<p>API references: <a href="https://developers.google.com/apps-script/reference/forms/form-app">FormApp</a>, <a href="https://developers.google.com/apps-script/reference/forms/form">Form</a>, <a href="https://developers.google.com/apps-script/reference/forms/grid-item">GridItem</a>.</p>
+</main></body></html>

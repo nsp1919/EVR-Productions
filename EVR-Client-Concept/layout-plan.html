@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EVR | Website Layout & Plan</title>
+<style>
+:root { --ink:#23372e; --paper:#f7f4ed; --warm:#a6523e; --blue:#245ddd; --muted:#526359; --scale:1; }
+* { box-sizing:border-box; }
+body { margin:0; background:#dce0db; font-family:Arial,Helvetica,sans-serif; color:var(--ink); }
+.slide { width:1440px; height:900px; padding:38px 54px 66px; margin:24px auto; background:var(--paper); position:relative; zoom:var(--scale); }
+.top { display:flex; justify-content:space-between; border-bottom:1px solid #ccd3c8; padding-bottom:17px; font-size:12px; letter-spacing:2px; }
+.top b { letter-spacing:4px; }
+.eyebrow { font-size:12px; letter-spacing:2px; color:var(--warm); font-weight:700; margin:26px 0 12px; text-transform:uppercase; }
+h1,h2 { font:normal 56px/1.08 Georgia,serif; letter-spacing:-1.2px; margin:0 0 15px; }
+h2 { font-size:49px; }
+h3 { margin:0 0 10px; font-size:23px; line-height:1.2; }
+em { font-weight:normal; color:var(--warm); }
+p { font-size:19px; line-height:1.5; margin:0 0 16px; color:var(--muted); }
+.sub { max-width:1120px; font-size:20px; }
+.footer { position:absolute; bottom:25px; left:54px; right:54px; display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:#586b60; border-top:1px solid #ccd3c8; padding-top:12px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+.three { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+.body { margin-top:24px; }
+.browser { border:1px solid #cdd5cd; border-radius:12px; overflow:hidden; background:white; box-shadow:0 10px 25px #243c2b10; }
+.browser-bar { height:25px; padding:6px 13px; background:#e8ece5; font-size:10px; color:#445b4c; letter-spacing:1px; }
+.browser img { width:100%; height:auto; display:block; }
+.caption { font-size:13px; line-height:1.5; margin:12px 0 0; }
+.tone { display:flex; gap:8px; margin:14px 0; align-items:center; }
+.swatch { width:20px; height:20px; border-radius:50%; border:1px solid #0001; }
+.tone span:last-child { font-size:14px; margin-left:5px; }
+.pill { display:inline-block; border:1px solid #b7c5b8; padding:9px 15px; border-radius:24px; font-size:12px; font-weight:bold; }
+.blue { --warm:var(--blue); background:#f2f6fe; }
+.blue em,.business em { color:var(--blue); }
+.business { --warm:var(--blue); }
+.card { padding:25px; border:1px solid #ccd5ca; border-radius:16px; background:#fffdf8; }
+.card p { font-size:17px; margin-bottom:0; }
+.card small { display:block; color:var(--warm); font-size:12px; font-weight:bold; letter-spacing:1px; margin-bottom:12px; }
+.business.card { background:#f4f7ff; border-color:#c6d5f3; }
+.switch { display:flex; justify-content:center; gap:8px; margin:20px auto 25px; }
+.switch span { border-radius:25px; padding:13px 26px; font-size:16px; font-weight:bold; background:var(--warm); color:white; }
+.switch span:last-child { background:var(--blue); }
+.site-map .root { font:30px Georgia,serif; padding-bottom:15px; margin-bottom:13px; border-bottom:1px solid #d8ddd1; }
+.site-map .row { display:flex; gap:20px; border-bottom:1px solid #e2e6db; padding:13px 0; align-items:baseline; }
+.site-map .row b { min-width:170px; font-size:18px; }
+.site-map .row span { font-size:15px; color:var(--muted); }
+.shared { margin-top:20px; padding:17px; background:#e5eadf; border-radius:12px; text-align:center; font-size:17px; }
+.layout { display:grid; grid-template-columns:390px 1fr; gap:32px; }
+.layout .browser img { height:420px; object-fit:contain; background:#fafaf7; }
+.flow { border-left:2px solid #c9d1c3; padding-left:19px; }
+.flow article { padding:11px 15px; background:#fffdf9; border:1px solid #d1d9ca; border-radius:9px; margin-bottom:9px; }
+.flow b { display:block; font-size:16px; margin-bottom:3px; }
+.flow span { font-size:13px; color:var(--muted); }
+.flow .highlight { border-color:var(--warm); background:#f1e8dd; }
+.blue .flow .highlight { background:#e5edff; }
+.note { padding:17px 21px; border-left:3px solid var(--warm); background:#eaeede; font-size:16px; line-height:1.5; margin-top:19px; }
+.blue .note { background:#e4edfd; }
+.screens-small img { height:276px; object-fit:contain; background:#fafaf7; }
+.compact { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:18px; }
+.compact article { border-top:1px solid #cbd5c7; padding:12px 8px 5px 0; }
+.compact b { display:block; font-size:17px; margin-bottom:5px; }
+.compact p { font-size:15px; line-height:1.45; }
+.motion img { height:266px; object-fit:cover; object-position:top; }
+.motion h3 { margin-top:18px; }
+.motion p { font-size:17px; }
+.motion .number { color:var(--warm); font-weight:bold; font-size:12px; letter-spacing:2px; margin-bottom:10px; }
+.rail { display:flex; margin-top:23px; border-top:1px solid #cad3c5; padding-top:20px; gap:24px; }
+.rail > div { flex:1; font-size:15px; line-height:1.5; }
+.rail b { display:block; margin-bottom:6px; font-size:17px; }
+.quote-flow { display:flex; gap:12px; align-items:center; margin:24px 0; }
+.quote-flow div { flex:1; padding:18px; border:1px solid #cbd5c6; background:#fffdf8; border-radius:12px; font-size:16px; }
+.quote-flow div b { display:block; font-size:12px; color:var(--warm); margin-bottom:8px; }
+.wire-form { border:1px solid #cbd5c6; background:white; border-radius:16px; padding:25px; }
+.wire-form .fields { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+.wire-field { padding:13px; border:1px solid #d5dbd0; border-radius:7px; font-size:14px; min-height:61px; }
+.wire-field small { display:block; color:#617266; font-size:11px; margin-bottom:6px; }
+.call-pricing { margin-top:17px; background:#eaf0e4; border-radius:10px; padding:18px; font-size:18px; line-height:1.4; }
+.cta { display:inline-block; margin-top:17px; padding:13px 22px; background:var(--warm); color:white; border-radius:25px; font-size:14px; font-weight:bold; }
+.mobile-grid { display:grid; grid-template-columns:280px 280px 1fr; gap:32px; align-items:start; }
+.phone { border:7px solid #283d32; border-radius:28px; overflow:hidden; background:white; width:250px; margin:auto; }
+.phone img { width:100%; display:block; }
+.phone-caption { text-align:center; font-size:14px; margin-top:12px; }
+.mobile-notes article { padding:18px 0; border-bottom:1px solid #cbd5c6; }
+.mobile-notes h3 { font-size:22px; }
+.mobile-notes p { font-size:17px; margin:0; }
+.roadmap { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:25px; }
+.roadmap article { padding:23px; border:1px solid #c6d1c2; background:white; border-radius:12px; min-height:245px; }
+.roadmap small { color:var(--warm); font-size:12px; font-weight:bold; }
+.roadmap h3 { font-size:22px; margin:18px 0 12px; }
+.roadmap p { font-size:16px; }
+.approval { background:#233d30; color:white; padding:25px 30px; margin-top:24px; border-radius:12px; }
+.approval h3 { font-size:26px; font-weight:normal; }
+.approval p { color:#e4ecd9; font-size:17px; margin:0; }
+.toolbar { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); z-index:10; background:#1e332cef; color:white; display:flex; align-items:center; gap:12px; padding:9px 14px; border-radius:30px; box-shadow:0 4px 20px #0003; }
+.toolbar button { border:1px solid #8a9d8d; color:white; background:transparent; border-radius:20px; padding:7px 13px; cursor:pointer; min-height:34px; }
+.toolbar button:disabled { opacity:.4; cursor:default; }
+.toolbar button:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+.toolbar output { font-size:12px; white-space:nowrap; }
+@media print {
+  @page { size:1440px 900px; margin:0; }
+  body { background:white; }
+  .slide { margin:0; zoom:1; break-after:page; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .slide:last-of-type { break-after:auto; }
+  .toolbar { display:none; }
+}
+</style>
+</head>
+<body>
+<section class="slide" aria-label="1. Design direction">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>WEBSITE LAYOUT & PLAN / DESIGN REVIEW</span></div>
+ <p class="eyebrow">01 / The direction</p>
+ <h1>One brand.<br><em>Two ways to tell a story.</em></h1>
+ <p class="sub">A warm wedding experience and a focused brand-production experience, connected by one simple switch.</p>
+ <div class="two body">
+  <div><div class="browser"><div class="browser-bar">HOME / WEDDINGS</div><img src="assets/floating-quote-wedding-1440.png" alt="EVR wedding-led homepage with stacked hero artwork and warm accents"></div><div class="tone"><i class="swatch" style="background:#f7f4ed"></i><i class="swatch" style="background:#a6523e"></i><i class="swatch" style="background:#23372e"></i><span>Editorial type. Warm colour. Emotional storytelling.</span></div></div>
+  <div><div class="browser"><div class="browser-bar">BRANDS & CORPORATE</div><img src="assets/floating-quote-corporate-1440.png" alt="EVR corporate homepage with blue accents and large production media"></div><div class="tone"><i class="swatch" style="background:#f2f6fe"></i><i class="swatch" style="background:#245ddd"></i><i class="swatch" style="background:#152039"></i><span>Bold type. Blue accents. Production clarity.</span></div></div>
+ </div>
+ <div class="footer"><span>ILLUSTRATIONS ARE PLACEHOLDERS FOR APPROVED EVR PHOTOS AND FILMS</span><span>01 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="2. Website structure">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>WEBSITE STRUCTURE</span></div>
+ <p class="eyebrow">02 / The page map</p>
+ <h2>Separate menus.<br><em>A connected website.</em></h2>
+ <p class="sub">Each menu item opens a dedicated page, not just a section of the homepage.</p>
+ <div class="switch"><span>Home / Weddings</span><span>Brands & Corporate</span></div>
+ <div class="two site-map">
+  <div class="card"><div class="root">Wedding-led home</div>
+   <div class="row"><b>Weddings</b><span>Coverage, style and the experience</span></div>
+   <div class="row"><b>Selected work</b><span>Wedding, pre-wedding and celebration stories</span></div>
+   <div class="row"><b>Our process</b><span>From first conversation to final delivery</span></div>
+   <div class="row"><b>Wedding quote</b><span>Requirements only; discuss pricing on a call</span></div>
+  </div>
+  <div class="card business"><div class="root">Corporate home</div>
+   <div class="row"><b>Services</b><span>Brand films, reels, YouTube and podcasts</span></div>
+   <div class="row"><b>Our approach</b><span>Brief, plan, shoot, edit and handover</span></div>
+   <div class="row"><b>Brand work</b><span>Relevant projects and production examples</span></div>
+   <div class="row"><b>Production quote</b><span>Requirements only; discuss pricing on a call</span></div>
+  </div>
+ </div>
+ <div class="shared"><b>Shared contact journey:</b> requirements &rarr; enquiry &rarr; a conversation with EVR</div>
+ <p class="caption">Customer-facing plan: 2 landing experiences + 8 menu pages + a shared enquiry page. Final quote-button wording: request a quote, not an instant price.</p>
+ <div class="footer"><span>LAYOUT APPROVAL / PAGE NAMES AND NAVIGATION</span><span>02 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="3. Wedding homepage layout">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>HOME / WEDDING EXPERIENCE</span></div>
+ <p class="eyebrow">03 / Homepage layout</p>
+ <h2>Make them feel the story.<br><em>Then guide the next step.</em></h2>
+ <div class="layout body">
+  <div class="flow">
+   <article><b>01 / Header & experience switch</b><span>Wedding menu and access to the corporate world.</span></article>
+   <article class="highlight"><b>02 / Opening story & three media cards</b><span>Click a rear card to bring it forward; scroll unfolds the story.</span></article>
+   <article><b>03 / Services & selected stories</b><span>Help visitors find relevant wedding work.</span></article>
+   <article><b>04 / Date enquiry & film feature</b><span>A clear next action and an explicit-play film.</span></article>
+   <article class="highlight"><b>05 / Your project, step by step</b><span>Scroll reveals the five-stage planning journey.</span></article>
+   <article><b>06 / Team, reviews & useful answers</b><span>Approved real people, genuine feedback and FAQs.</span></article>
+   <article><b>07 / Quote request & contact</b><span>Warm floating button plus a clear closing action.</span></article>
+  </div>
+  <div>
+   <div class="browser"><div class="browser-bar">CURRENT HOMEPAGE DESIGN / OPENING VIEW</div><img src="assets/floating-quote-wedding-1440.png" alt="Wedding home opening layout"></div>
+   <div class="note"><b>Planned media treatment:</b> the three illustrated cards become approved EVR video moments after the visual direction is signed off.</div>
+   <p class="caption">Section order shown at left is a simplified overview. Real content replaces illustration and review placeholders before launch.</p>
+  </div>
+ </div>
+ <div class="footer"><span>READ THE LAYOUT FROM TOP TO BOTTOM</span><span>03 / 09</span></div>
+</section>
+
+<section class="slide blue" aria-label="4. Corporate homepage layout">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>BRANDS & CORPORATE EXPERIENCE</span></div>
+ <p class="eyebrow">04 / Corporate layout</p>
+ <h2>Show what EVR makes.<br><em>And why the approach matters.</em></h2>
+ <div class="layout body">
+  <div class="flow">
+   <article><b>01 / Corporate header & switch</b><span>A different menu and blue visual treatment.</span></article>
+   <article><b>02 / Bold introduction & showreel</b><span>Message-led opening with a play-controlled film.</span></article>
+   <article class="highlight"><b>03 / Four-service scroll showcase</b><span>Brand films, reels, YouTube and podcasts.</span></article>
+   <article><b>04 / Approach & production strengths</b><span>A varied card grid explaining the working style.</span></article>
+   <article><b>05 / Vertical reels & brand work</b><span>Short-form examples followed by project stories.</span></article>
+   <article><b>06 / Journey, reviews & FAQs</b><span>Make the production process easy to understand.</span></article>
+   <article class="highlight"><b>07 / Production enquiry</b><span>Blue floating quote button and a closing invitation.</span></article>
+  </div>
+  <div>
+   <div class="browser"><div class="browser-bar">CURRENT CORPORATE DESIGN / OPENING VIEW</div><img src="assets/floating-quote-corporate-1440.png" alt="Corporate home opening layout"></div>
+   <div class="note"><b>Focused scope:</b> filmmaking and content production. Do not imply advertising, SEO or social management unless EVR confirms those services.</div>
+  </div>
+ </div>
+ <div class="footer"><span>A DIFFERENT CUSTOMER JOURNEY, WITH THE SAME EVR IDENTITY</span><span>04 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="5. Dedicated page layouts">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>DEDICATED PAGE DESIGN</span></div>
+ <p class="eyebrow">05 / Beyond the homepage</p>
+ <h2>Give every page <em>a clear purpose.</em></h2>
+ <p class="sub">Keep the visual language consistent while changing the content for the visitor's intention.</p>
+ <div class="two body screens-small">
+  <div class="browser"><div class="browser-bar">WEDDING SERVICE PAGE / EDITORIAL HERO</div><img src="assets/detail-weddings-1440.png" alt="Dedicated wedding page with large editorial heading and arched image"></div>
+  <div class="browser"><div class="browser-bar">BRAND WORK / FEATURED PROJECT & FILTERS</div><img src="assets/detail-brand-work-1440.png" alt="Dedicated brand work page with project presentation"></div>
+ </div>
+ <div class="compact">
+  <article><b>Weddings + Services</b><p>Introduction &rarr; scroll-driven service chapters &rarr; scope guidance &rarr; FAQ &rarr; enquiry.</p></article>
+  <article><b>Selected work + Brand work</b><p>Featured story &rarr; category filters &rarr; project preview with brief, media and deliverables.</p></article>
+  <article><b>Our process + Our approach</b><p>Stage-by-stage journey &rarr; responsibilities and principles &rarr; handover guidance.</p></article>
+  <article><b>Wedding quote + Production quote</b><p>Separate requirements planners for each audience. No online prices or automatic totals.</p></article>
+ </div>
+ <div class="footer"><span>ILLUSTRATIVE PROJECTS WILL BE REPLACED WITH PERMITTED REAL WORK</span><span>05 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="6. Scroll animation plan">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>SCROLL & INTERACTION PLAN</span></div>
+ <p class="eyebrow">06 / Movement with a purpose</p>
+ <h2>The scroll <em>tells the story.</em></h2>
+ <p class="sub">Major scenes follow the visitor's scroll position. Scrolling backwards restores the earlier stage.</p>
+ <div class="three body motion">
+  <article><div class="number">01 / HERO CARD STORY</div><div class="browser"><img src="assets/floating-quote-wedding-1440.png" alt="Opening stacked card state"></div><h3>Open. Select. Unfold.</h3><p>The card stack introduces EVR. Select a card, then scroll through the gallery and the next story sections.</p></article>
+  <article><div class="number">02 / PLANNING JOURNEY</div><div class="browser"><img src="assets/detail-process-1440-scroll.png" alt="Process scene at a scroll-selected chapter"></div><h3>One stage at a time.</h3><p>Process chapters change as visitors scroll. Clear progress and direct chapter buttons keep the sequence usable.</p></article>
+  <article class="business"><div class="number">03 / CORPORATE SERVICES</div><div class="browser"><img src="assets/detail-services-1440-scroll.png" alt="Services scene showing marketing reels"></div><h3>Artwork meets explanation.</h3><p>The featured service changes with its artwork, supporting copy and progress indicator.</p></article>
+ </div>
+ <div class="rail">
+  <div><b>Lighter movement elsewhere</b>Section reveals, gentle media movement and scroll-progress heading accents.</div>
+  <div><b>Comfort comes first</b>Skip controls, keyboard access and static layouts for reduced motion or short screens.</div>
+  <div><b>Keep forms stable</b>No moving input fields. Longer films play only when the visitor chooses to watch.</div>
+ </div>
+ <p class="caption">These are still frames of the interaction plan. A PDF cannot demonstrate live scrolling; review the working prototype separately when approving motion.</p>
+ <div class="footer"><span>NO FORCED SCROLLING / NO AUTOPLAY SOUND</span><span>06 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="7. Quote request journey">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>CUSTOMER QUOTE-REQUEST LAYOUT</span></div>
+ <p class="eyebrow">07 / From interest to a conversation</p>
+ <h2>Collect the brief.<br><em>Discuss the price on a call.</em></h2>
+ <div class="quote-flow">
+  <div><b>01 / ENTER</b>Wedding quote or Brand quote</div><span>&rarr;</span>
+  <div><b>02 / SELECT</b>Events, shoot days and outputs</div><span>&rarr;</span>
+  <div><b>03 / REVIEW</b>Requirements summary</div><span>&rarr;</span>
+  <div><b>04 / DISCUSS</b>Enquiry and a call with EVR</div>
+ </div>
+ <div class="two body">
+  <div class="wire-form">
+   <h3>Requirements planner</h3>
+   <p class="caption" style="margin:0 0 17px">Simplified layout diagram, not a live form.</p>
+   <div class="fields">
+    <div class="wire-field"><small>CLIENT DETAILS</small>Name / project / location</div>
+    <div class="wire-field"><small>PROJECT TYPE</small>Wedding event or brand production</div>
+    <div class="wire-field"><small>COVERAGE</small>Dates / days / crew</div>
+    <div class="wire-field"><small>DELIVERABLES</small>Films / photographs / edits</div>
+   </div>
+   <div class="call-pricing"><b>Pricing will be discussed on a call.</b><br><span style="font-size:14px">Summary and PDF show requirements, not prices.</span></div>
+   <span class="cta">Discuss my requirements</span>
+  </div>
+  <div>
+   <div class="card"><small>WEDDING QUOTE / WARM BUTTON</small><h3>Events and keepsakes.</h3><p>Event types, coverage, crew, films, albums and additional requests.</p></div>
+   <div class="card business" style="margin-top:16px"><small>BRAND QUOTE / BLUE BUTTON</small><h3>Production and outputs.</h3><p>Shoot formats, crew, equipment, edits, delivery formats and usage.</p></div>
+   <p class="caption">Bottom-right floating button on browsing pages. Hidden while completing quote or enquiry forms. Final live enquiry delivery is connected and tested during implementation.</p>
+  </div>
+ </div>
+ <div class="footer"><span>NO PUBLIC RATE CARD / NO ONLINE PAYMENT OR BOOKING PROMISE</span><span>07 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="8. Mobile layout">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>MOBILE EXPERIENCE</span></div>
+ <p class="eyebrow">08 / Designed for the small screen</p>
+ <h2>Same personality.<br><em>Less friction.</em></h2>
+ <div class="mobile-grid body">
+  <div><div class="phone"><img src="assets/floating-quote-wedding-390.png" alt="Wedding homepage on a phone with visible experience switch"></div><p class="phone-caption">HOME / WEDDINGS</p></div>
+  <div><div class="phone"><img src="assets/floating-quote-corporate-390.png" alt="Corporate homepage on a phone with blue floating quote button"></div><p class="phone-caption">BRANDS & CORPORATE</p></div>
+  <div class="mobile-notes">
+   <article><h3>A switch that stays easy to find.</h3><p>Visitors can move between the two experiences without searching through the menu.</p></article>
+   <article><h3>Compact navigation.</h3><p>A mobile menu keeps the header clean while preserving the correct links for each audience.</p></article>
+   <article><h3>Comfortable browsing.</h3><p>Single-column content, readable text, accessible controls and mobile-specific image crops.</p></article>
+   <article><h3>Motion that adapts.</h3><p>Shorter sequences where useful; normal readable sections when a pinned scene would be cramped.</p></article>
+   <article><h3>One clear next action.</h3><p>A contextual quote button while browsing, with no floating obstruction over the forms.</p></article>
+  </div>
+ </div>
+ <div class="footer"><span>DESKTOP AND MOBILE SHARE THE SAME PAGE STRUCTURE</span><span>08 / 09</span></div>
+</section>
+
+<section class="slide" aria-label="9. Delivery plan and approval">
+ <div class="top"><b>EVR / PRODUCTIONS</b><span>PLAN & APPROVAL</span></div>
+ <p class="eyebrow">09 / How the concept becomes the website</p>
+ <h2>Approve the direction.<br><em>Then build with real stories.</em></h2>
+ <p class="sub">The visual concept is ready for review. Production content, live connections and launch checks follow approval.</p>
+ <div class="roadmap">
+  <article><small>STEP 01</small><h3>Layout sign-off</h3><p>Confirm both visual directions, page order, navigation, motion approach and the quote-request journey.</p></article>
+  <article><small>STEP 02</small><h3>Content integration</h3><p>Replace illustrations with approved EVR media. Finalise copy, project stories and genuine reviews.</p></article>
+  <article><small>STEP 03</small><h3>Live implementation</h3><p>Optimise media, connect the agreed enquiry channel and prepare the approved hosting and domain.</p></article>
+  <article><small>STEP 04</small><h3>Review & launch</h3><p>Test mobile layouts, media, motion and enquiry delivery. Obtain final approval before publishing.</p></article>
+ </div>
+ <div class="approval"><h3>For this meeting, approve only the layout and plan.</h3><p>1. Wedding and corporate visual directions &nbsp; / &nbsp; 2. Page structure<br>3. Scroll interactions &nbsp; / &nbsp; 4. Mobile experience &nbsp; / &nbsp; 5. Call-based quotation flow</p></div>
+ <p class="caption" style="margin-top:18px">Planning sequence, not a fixed delivery schedule. The current prototype does not send enquiries, take payment or confirm bookings. Optional operational systems are outside this layout review.</p>
+ <div class="footer"><span>EVR PRODUCTIONS / CLIENT DESIGN PRESENTATION</span><span>09 / 09</span></div>
+</section>
+<nav class="toolbar" aria-label="Presentation controls">
+ <button type="button" id="previous" aria-label="Previous slide">Previous</button>
+ <output id="position" aria-live="polite">1 / 9</output>
+ <button type="button" id="next" aria-label="Next slide">Next</button>
+ <button type="button" id="print">Print / PDF</button>
+</nav>
+<script>
+(() => {
+  const slides = [...document.querySelectorAll('.slide')];
+  let current = 0;
+  function scale() {
+    document.documentElement.style.setProperty('--scale', Math.min(1, (innerWidth - 24) / 1440));
+  }
+  function update() {
+    let distance = Infinity;
+    slides.forEach((slide, index) => {
+      const nextDistance = Math.abs(slide.getBoundingClientRect().top - 24);
+      if (nextDistance < distance) { current = index; distance = nextDistance; }
+    });
+    document.getElementById('position').value = `${current + 1} / ${slides.length}`;
+    document.getElementById('previous').disabled = current === 0;
+    document.getElementById('next').disabled = current === slides.length - 1;
+  }
+  function go(delta) {
+    current = Math.max(0, Math.min(slides.length - 1, current + delta));
+    scrollTo({ top: slides[current].getBoundingClientRect().top + scrollY - 24, behavior:'instant' });
+    update();
+  }
+  document.getElementById('previous').addEventListener('click', () => go(-1));
+  document.getElementById('next').addEventListener('click', () => go(1));
+  document.getElementById('print').addEventListener('click', () => print());
+  addEventListener('keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      go(event.key === 'ArrowRight' ? 1 : -1);
+    }
+  });
+  addEventListener('resize', () => { scale(); update(); });
+  addEventListener('scroll', update, { passive:true });
+  scale();
+  update();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+{
+  "input": "mouse wheel only; no step clicks",
+  "states": [
+    {
+      "step": 0,
+      "progress": 0.0249,
+      "top": 108,
+      "phone": "translateY(-0.624311px) rotateX(3.82594deg) rotateY(-11.4032deg) rotateZ(-1.90054deg)",
+      "line": "scaleX(0.0248658)"
+    },
+    {
+      "step": 1,
+      "progress": 0.2501,
+      "top": 108,
+      "phone": "translateY(-5.65896px) rotateX(2.24917deg) rotateY(-5.99716deg) rotateZ(-0.999527deg)",
+      "line": "scaleX(0.250118)"
+    },
+    {
+      "step": 2,
+      "progress": 0.4749,
+      "top": 108,
+      "phone": "translateY(-7.97507px) rotateX(0.675939deg) rotateY(-0.60322deg) rotateZ(-0.100537deg)",
+      "line": "scaleX(0.474866)"
+    },
+    {
+      "step": 3,
+      "progress": 0.7001,
+      "top": 108,
+      "phone": "translateY(-6.47039px) rotateX(-0.900829deg) rotateY(4.80284deg) rotateZ(0.800473deg)",
+      "line": "scaleX(0.700118)"
+    },
+    {
+      "step": 4,
+      "progress": 0.9249,
+      "top": 108,
+      "phone": "translateY(-1.87084px) rotateX(-2.47406deg) rotateY(10.1968deg) rotateZ(1.69946deg)",
+      "line": "scaleX(0.924866)"
+    },
+    {
+      "step": 3,
+      "progress": 0.7001,
+      "top": 108,
+      "phone": "translateY(-6.47039px) rotateX(-0.900829deg) rotateY(4.80284deg) rotateZ(0.800473deg)",
+      "line": "scaleX(0.700118)"
+    },
+    {
+      "step": 2,
+      "progress": 0.4749,
+      "top": 108,
+      "phone": "translateY(-7.97507px) rotateX(0.675939deg) rotateY(-0.60322deg) rotateZ(-0.100537deg)",
+      "line": "scaleX(0.474866)"
+    },
+    {
+      "step": 1,
+      "progress": 0.2501,
+      "top": 108,
+      "phone": "translateY(-5.65896px) rotateX(2.24917deg) rotateY(-5.99716deg) rotateZ(-0.999527deg)",
+      "line": "scaleX(0.250118)"
+    },
+    {
+      "step": 0,
+      "progress": 0.0249,
+      "top": 108,
+      "phone": "translateY(-0.624311px) rotateX(3.82594deg) rotateY(-11.4032deg) rotateZ(-1.90054deg)",
+      "line": "scaleX(0.0248658)"
+    }
+  ],
+  "video_decode": "passed"
+}

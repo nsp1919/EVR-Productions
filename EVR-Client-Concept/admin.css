@@ -1,0 +1,135 @@
+.admin-editor {
+  padding: 28px 4%;
+  color: var(--ink);
+  background: #f4f0e8;
+  border-bottom: 1px solid #d8d2c5;
+}
+.admin-copy {
+  max-width: 760px;
+}
+.admin-copy .eyebrow {
+  margin-bottom: 10px;
+  color: #8b693f;
+}
+.admin-copy h1 {
+  margin-bottom: 10px;
+  font-size: clamp(36px, 5vw, 58px);
+}
+.admin-copy>p:last-child {
+  max-width: 700px;
+  color: #5f6a69;
+  font-size: 13px;
+}
+.admin-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 2fr minmax(170px, .8fr);
+  gap: 14px;
+  align-items: end;
+  padding: 18px;
+  background: #fffdf9;
+  border: 1px solid #ddd8cd;
+}
+.admin-controls label {
+  color: #3d4949;
+}
+.admin-controls select {
+  margin-top: 6px;
+}
+.admin-controls input[type="color"] {
+  height: 42px;
+  padding: 4px;
+  margin-top: 6px;
+}
+.admin-tools,.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-photo-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.admin-photo-controls[hidden] {
+  display: none;
+}
+.admin-photo-controls label {
+  flex: 1 1 260px;
+}
+.admin-photo-controls .admin-tool {
+  min-height: 42px;
+}
+.admin-tool {
+  padding: 10px 12px;
+  border: 1px solid #c8c5bc;
+  background: #fff;
+  color: #263333;
+  font-size: 11px;
+}
+.admin-tool.is-active {
+  color: #fffdf9;
+  background: #263333;
+  border-color: #263333;
+}
+.admin-actions {
+  grid-column: 1 / -1;
+}
+.admin-actions .button {
+  padding: 11px 14px;
+}
+.admin-status,.admin-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+}
+.admin-status {
+  color: #254c3e;
+}
+.admin-status[data-error="true"] {
+  color: #9b3228;
+}
+.admin-note {
+  color: #727b79;
+  font-size: 10px;
+}
+body.admin-active [contenteditable="true"] {
+  outline: 2px dashed #d8a848;
+  outline-offset: 3px;
+  cursor: text;
+}
+body.admin-active .hero-art.collage {
+  pointer-events: auto;
+}
+body.admin-active .hero-art.collage .card-select {
+  pointer-events: none;
+}
+body.admin-active .hero-art.collage .scene-card img {
+  cursor: pointer;
+}
+body.admin-active .admin-selected {
+  outline: 3px solid #d8a848 !important;
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .admin-controls {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+  .admin-tools {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 480px) {
+  .admin-controls {
+    grid-template-columns: 1fr;
+  }
+  .admin-tools,.admin-actions,.admin-status,.admin-note {
+    grid-column: 1;
+  }
+  .admin-tool {
+    flex: 1 1 100%;
+  }
+}

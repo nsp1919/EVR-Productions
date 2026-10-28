@@ -1,0 +1,33 @@
+{
+  "duration_seconds": 80.135625,
+  "size_bytes": 2249881,
+  "narration": "Locally synthesised Microsoft Zira Desktop, English",
+  "chapters": [
+    {
+      "slide": 1,
+      "start_seconds": 0,
+      "duration_seconds": 16.09
+    },
+    {
+      "slide": 2,
+      "start_seconds": 16.09,
+      "duration_seconds": 15.77
+    },
+    {
+      "slide": 3,
+      "start_seconds": 31.86,
+      "duration_seconds": 14.83
+    },
+    {
+      "slide": 4,
+      "start_seconds": 46.69,
+      "duration_seconds": 16.17
+    },
+    {
+      "slide": 5,
+      "start_seconds": 62.86,
+      "duration_seconds": 17.25
+    }
+  ],
+  "full_decode": "passed"
+}

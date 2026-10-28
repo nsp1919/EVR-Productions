@@ -1,0 +1,11 @@
+{
+  "name": "evr-client-concept",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:admin-media": "playwright test tests/admin-media.spec.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

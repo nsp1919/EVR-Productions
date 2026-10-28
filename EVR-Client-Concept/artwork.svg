@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#344e53"/><stop offset="1" stop-color="#142329"/></linearGradient><radialGradient id="lens"><stop stop-color="#456168"/><stop offset=".6" stop-color="#172d35"/><stop offset="1" stop-color="#0d1b22"/></radialGradient><linearGradient id="gold"><stop stop-color="#f0d29e"/><stop offset=".5" stop-color="#947348"/><stop offset="1" stop-color="#e7c996"/></linearGradient></defs>
+<rect width="900" height="900" fill="url(#bg)"/><path d="M0 650L900 50V320L0 920Z" fill="#ffffff03"/>
+<g fill="none" stroke="#b3d1cf" opacity=".12"><path d="M50 50H850V850H50Z"/><path d="M80 80H820V820H80Z"/><path d="M0 450H900M450 0V900"/></g>
+<circle cx="520" cy="375" r="262" fill="#0e1e25" stroke="#7a9695" stroke-width="2"/><circle cx="520" cy="375" r="237" fill="url(#lens)" stroke="#506a6c" stroke-width="14"/><circle cx="520" cy="375" r="205" fill="none" stroke="#a4c8c4" opacity=".25"/>
+<g fill="none" stroke="#9cbdb7" opacity=".35"><path d="M520 185L685 280V470L520 565L355 470V280Z"/><path d="M520 185L600 335L685 470L520 450L355 470L438 330Z"/></g>
+<circle cx="520" cy="375" r="75" fill="#0a1720" stroke="#5b787b"/><circle cx="540" cy="345" r="27" fill="#d3ebe2" opacity=".08"/>
+<g fill="none" stroke="url(#gold)" stroke-width="12" transform="rotate(-25 300 650)"><ellipse cx="250" cy="600" rx="125" ry="150"/><ellipse cx="410" cy="675" rx="125" ry="150"/></g>
+<path d="M105 160H170M105 160V225M730 705H795V640" stroke="#e4bd80" stroke-width="3" fill="none"/><text x="112" y="120" fill="#d7dfd9" font-size="13" letter-spacing="5" font-family="Arial">MOMENTS / MESSAGES</text>
+</svg>

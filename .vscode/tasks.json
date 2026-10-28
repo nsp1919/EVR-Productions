@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run EVR concept website",
+			"type": "shell",
+			"command": "py",
+			"args": [
+				"-m",
+				"http.server",
+				"8000",
+				"--directory",
+				"EVR-Client-Concept"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}
