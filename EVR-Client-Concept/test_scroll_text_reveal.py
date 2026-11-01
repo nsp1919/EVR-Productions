@@ -4,7 +4,6 @@ from playwright.sync_api import sync_playwright
 
 URL = Path(__file__).resolve().with_name("index.html").as_uri() + "#/home"
 INSIGHTS = ".hero-story .story-insights .scroll-word"
-DECISIONS = ".hero-story .story-decisions .scroll-word"
 checks = []
 
 
@@ -52,19 +51,16 @@ with sync_playwright() as playwright:
         page.goto(URL, wait_until="load")
         page.wait_for_function(
             "document.querySelector('.hero-story').classList.contains('is-animated') && "
-            "document.querySelector('.story-insights .scroll-word') && "
-            "document.querySelector('.story-decisions .scroll-word')"
+            "document.querySelector('.story-insights .scroll-word')"
         )
         page.wait_for_timeout(100)
 
         insight_count = page.locator(INSIGHTS).count()
-        decision_count = page.locator(DECISIONS).count()
         check(insight_count > 30, f"{width}px insights text wraps word by word")
-        check(decision_count > 25, f"{width}px decisions text wraps word by word")
         check(
             page.locator(".hero-story .scroll-word").count()
-            == insight_count + decision_count,
-            f"{width}px only the two selected hero panels receive word reveals",
+            == insight_count,
+            f"{width}px only the story-insights panel receives word reveals",
         )
         check(
             page.locator("#home > [data-scroll-word-group], #weddings .scroll-word").count()
@@ -144,9 +140,6 @@ with sync_playwright() as playwright:
                 )) == 1,
                 "Insights section stays fully visible through the longer reading hold",
             )
-            check(revealed_count(page, DECISIONS) == 0,
-                  "Decisions text stays faint before its own scroll phase")
-
             insight_opacity = page.locator(INSIGHTS).evaluate_all(
                 "words => words.map(word => Number(word.style.opacity))"
             )
@@ -210,18 +203,12 @@ with sync_playwright() as playwright:
                   f"{width}px the pinned stage holds the full final card in view")
 
         if width == 1440:
-            set_story_progress(page, 0.94)
-            decisions_early = revealed_count(page, DECISIONS)
             set_story_progress(page, 0.99)
-            decisions_late = revealed_count(page, DECISIONS)
-            check(0 < decisions_early < decisions_late < decision_count,
-                  "Decisions words brighten progressively in their own scroll phase")
-            check(
-                float(page.locator(".story-decisions").evaluate(
-                    "element => getComputedStyle(element).opacity"
-                )) > 0.7,
-                "Decision cards remain visible while their final words reveal",
-            )
+            check(page.locator(".story-decisions").count() == 0,
+                  "Celebration choices do not duplicate inside the intro")
+            check(float(page.locator(".story-notes").evaluate(
+                "element => getComputedStyle(element).opacity"
+            )) == 1, "Story notes remain visible at the end of the intro")
             check(revealed_count(page, INSIGHTS) == insight_count,
                   "Insights text is fully readable after its scroll phase")
 

@@ -1,23 +1,15 @@
 'use strict';
-const templates = {
-  wedding: { project: 'Wedding coverage', items: [
-    { name: 'Photography coverage / day', qty: 1, rate: 18000 },
-    { name: 'Cinematography / day', qty: 1, rate: 22000 },
-    { name: 'Wedding film edit', qty: 1, rate: 12000 },
-    { name: 'Teaser edit', qty: 1, rate: 5000 }
-  ] },
-  corporate: { project: 'Brand content production', items: [
-    { name: 'Production crew / shoot day', qty: 1, rate: 20000 },
-    { name: 'Camera & audio kit / day', qty: 1, rate: 8000 },
-    { name: 'Brand film edit', qty: 1, rate: 10000 },
-    { name: 'Short-form cutdowns', qty: 3, rate: 2500 }
-  ] }
-};
 const byId = id => document.getElementById(id);
-const money = value => 'INR ' + value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const round = value => Math.round((value + Number.EPSILON) * 100) / 100;
-let items = structuredClone(templates.wedding.items);
 let activeExperience = 'home';
+function enableVideoReplay(node) {
+  if (node instanceof HTMLVideoElement) node.loop = true;
+  if (node instanceof Element) node.querySelectorAll('video').forEach(video => { video.loop = true; });
+}
+document.querySelectorAll('video').forEach(enableVideoReplay);
+new MutationObserver(records => {
+  records.forEach(record => record.addedNodes.forEach(enableVideoReplay));
+}).observe(document.documentElement, { childList: true, subtree: true });
+
 function route() {
   const requested = location.hash.replace(/^#\/?/, '') || 'home';
   const target = document.querySelectorAll('.route');
@@ -32,6 +24,7 @@ function route() {
     });
   }
   for (const section of target) section.hidden = section.id !== activeRoute;
+  syncCelebrationFilm(activeRoute);
   if (typeof window.syncHomeHeroVideo === 'function') window.syncHomeHeroVideo();
   const page = byId(activeRoute);
   const mount = page.querySelector('[data-estimate-mount]');
@@ -50,6 +43,9 @@ function route() {
   else if (savedExperience === 'home' || savedExperience === 'corporate') activeExperience = savedExperience;
   history.replaceState({ ...history.state, evrExperience: activeExperience }, '');
   document.body.classList.toggle('corporate-view', activeExperience === 'corporate');
+  document.title = activeRoute === 'studio'
+    ? 'Private Quotation Studio | EVR Productions'
+    : activeExperience === 'corporate' ? 'NBrands | EVR Productions' : 'Weddings & Functions | EVR Productions';
   document.querySelector('.experience-switch').dataset.active = activeExperience;
   document.querySelectorAll('[data-experience]').forEach(link => {
     if (link.dataset.experience === activeRoute) link.setAttribute('aria-current', 'page');
@@ -58,7 +54,7 @@ function route() {
   document.querySelectorAll('[data-nav-experience]').forEach(menu => {
     menu.hidden = menu.dataset.navExperience !== activeExperience;
   });
-  byId('main-nav').setAttribute('aria-label', activeExperience === 'corporate' ? 'Brand Video Production navigation' : 'Wedding and Event Photography navigation');
+  byId('main-nav').setAttribute('aria-label', activeExperience === 'corporate' ? 'NBrands navigation' : 'Weddings and Functions navigation');
   byId('main-nav').querySelectorAll('a').forEach(link => {
     if (link.hash === '#/' + activeRoute) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
@@ -69,6 +65,31 @@ function route() {
 }
 window.addEventListener('hashchange', route);
 window.addEventListener('load', () => requestAnimationFrame(() => window.scrollTo(0, 0)));
+const celebrationVideo = document.querySelector('#celebration-film video');
+function syncCelebrationFilm(activeRoute) {
+  if (!celebrationVideo) return;
+  if (activeRoute !== 'weddings') {
+    celebrationVideo.pause();
+    return;
+  }
+  celebrationVideo.muted = true;
+  const startPlayback = () => {
+    if (byId('weddings').hidden) return;
+    if (celebrationVideo.duration > 29 && celebrationVideo.currentTime < 29) {
+      celebrationVideo.currentTime = 29;
+    }
+    celebrationVideo.play().catch(error => {
+      console.warn('Wedding celebration film autoplay was blocked.', error);
+    });
+  };
+  if (celebrationVideo.readyState >= HTMLMediaElement.HAVE_METADATA) startPlayback();
+  else celebrationVideo.addEventListener('loadedmetadata', startPlayback, { once: true });
+}
+if (celebrationVideo) celebrationVideo.addEventListener('play', () => {
+  if (celebrationVideo.currentTime < 29 && celebrationVideo.duration > 29) {
+    celebrationVideo.currentTime = 29;
+  }
+});
 byId('menu-toggle').addEventListener('click', () => {
   const open = byId('main-nav').classList.toggle('is-open');
   byId('menu-toggle').setAttribute('aria-expanded', String(open));
@@ -90,163 +111,43 @@ document.querySelectorAll('[data-filter]').forEach(button => button.addEventList
     item.hidden = button.dataset.filter !== 'all' && item.dataset.category !== button.dataset.filter;
   });
 }));
-byId('inquiry-form').addEventListener('submit', event => {
+const inquiryForm = byId('inquiry-form');
+const inquiryStatus = byId('inquiry-status');
+const enquirySendOptions = byId('enquiry-send-options');
+const whatsappEnquiryLink = byId('send-enquiry-whatsapp');
+const emailEnquiryLink = byId('send-enquiry-email');
+inquiryForm.addEventListener('input', () => {
+  enquirySendOptions.hidden = true;
+  whatsappEnquiryLink.href = 'https://wa.me/919951718375';
+  emailEnquiryLink.href = 'mailto:evrproductionss@gmail.com';
+  inquiryStatus.textContent = '';
+});
+inquiryForm.addEventListener('submit', event => {
   event.preventDefault();
-  byId('inquiry-status').textContent = 'Demo confirmation: your requirements would now be sent to EVR for review. Nothing was transmitted or saved.';
+  if (!inquiryForm.reportValidity()) return;
+  const fields = new FormData(inquiryForm);
+  const value = name => String(fields.get(name) || '').trim();
+  const message = [
+    'New EVR Productions website enquiry',
+    '',
+    `Service: ${inquiryForm.elements.service.selectedOptions[0].textContent.trim()}`,
+    `Preferred date: ${value('date') || 'Not specified'}`,
+    `Name: ${value('name')}`,
+    `Phone: ${value('phone')}`,
+    `Email: ${value('email')}`,
+    `Brand / project: ${value('brand') || 'Not specified'}`,
+    `Budget: ${inquiryForm.elements.budget.selectedOptions[0].textContent.trim()}`,
+    `Location: ${value('location')}`,
+    '',
+    'What they would like to create:',
+    value('brief')
+  ].join('\n');
+  const subject = `EVR project enquiry: ${value('name')}`;
+  whatsappEnquiryLink.href = `https://wa.me/919951718375?text=${encodeURIComponent(message)}`;
+  emailEnquiryLink.href = `mailto:evrproductionss@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  enquirySendOptions.hidden = false;
+  inquiryStatus.textContent = 'Your enquiry is ready. Choose WhatsApp or email, review the message, then press Send to contact EVR.';
 });
-function renderItems() {
-  const rows = byId('quote-rows');
-  rows.replaceChildren();
-  items.forEach((item, index) => {
-    const tr = document.createElement('tr');
-    const name = document.createElement('td');
-    name.textContent = item.name;
-    tr.append(name);
-    for (const key of ['qty', 'rate']) {
-      const cell = document.createElement('td');
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.min = '0';
-      input.max = key === 'qty' ? '100' : '10000000';
-      input.step = key === 'qty' ? '1' : '0.01';
-      input.value = item[key];
-      input.setAttribute('aria-label', `${item.name} ${key}`);
-      input.addEventListener('input', () => {
-        items[index][key] = input.valueAsNumber;
-        updateTotals();
-      });
-      cell.append(input);
-      tr.append(cell);
-    }
-    const amount = document.createElement('td');
-    amount.dataset.amount = index;
-    tr.append(amount);
-    rows.append(tr);
-  });
-  updateTotals();
-}
-function totals() {
-  const discount = byId('discount').valueAsNumber;
-  const taxRate = byId('tax').valueAsNumber;
-  const validItems = items.every(item => Number.isInteger(item.qty) && item.qty >= 0 && item.qty <= 100 && Number.isFinite(item.rate) && item.rate >= 0 && item.rate <= 10000000);
-  const subtotal = round(items.reduce((sum, item) => sum + round(item.qty * item.rate), 0));
-  if (!validItems || !Number.isFinite(discount) || discount < 0 || discount > subtotal || !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) return null;
-  const tax = round((subtotal - discount) * taxRate / 100);
-  return { subtotal, discount, tax, total: round(subtotal - discount + tax) };
-}
-function updateTotals() {
-  const sum = totals();
-  document.querySelectorAll('[data-amount]').forEach(cell => {
-    const item = items[Number(cell.dataset.amount)];
-    cell.textContent = Number.isFinite(item.qty * item.rate) ? money(round(item.qty * item.rate)) : 'Invalid';
-  });
-  for (const [id, key] of [['subtotal', 'subtotal'], ['discount-value', 'discount'], ['tax-value', 'tax'], ['total', 'total']]) byId(id).textContent = sum ? money(sum[key]) : 'Check inputs';
-  byId('quote-status').textContent = sum ? '' : 'Enter valid quantities (0-100), non-negative rates, a discount no greater than the subtotal and tax between 0% and 100%.';
-  byId('preview-quote').disabled = !sum;
-  byId('save-draft').disabled = !sum;
-}
-byId('quote-type').addEventListener('change', () => {
-  items = structuredClone(templates[byId('quote-type').value].items);
-  byId('quote-project').value = templates[byId('quote-type').value].project;
-  byId('discount').value = '0';
-  byId('tax').value = '0';
-  renderItems();
-});
-byId('discount').addEventListener('input', updateTotals);
-byId('tax').addEventListener('input', updateTotals);
-byId('save-draft').addEventListener('click', () => {
-  if (!totals()) { updateTotals(); return; }
-  const draft = { version: 1, type: byId('quote-type').value, client: byId('quote-client').value, project: byId('quote-project').value, reference: byId('quote-ref').value, discount: byId('discount').value, tax: byId('tax').value, items };
-  try {
-    localStorage.setItem('evr-concept-draft', JSON.stringify(draft));
-    byId('quote-status').textContent = 'Demo draft saved in this browser only. It is not a cloud-backed quotation.';
-  } catch (error) {
-    console.error('EVR demo draft save failed', error);
-    byId('quote-status').textContent = 'Could not save the demo draft. Browser storage may be unavailable.';
-  }
-});
-byId('load-draft').addEventListener('click', () => {
-  try {
-    const raw = localStorage.getItem('evr-concept-draft');
-    if (!raw) { byId('quote-status').textContent = 'No saved demo draft in this browser.'; return; }
-    const draft = JSON.parse(raw);
-    const valid = draft && draft.version === 1 && Object.hasOwn(templates, draft.type) &&
-      ['client', 'project', 'reference', 'discount', 'tax'].every(key => typeof draft[key] === 'string') &&
-      Array.isArray(draft.items) && draft.items.length === 4 &&
-      draft.items.every(item => item && typeof item.name === 'string' && item.name.length <= 160 && Number.isInteger(item.qty) && item.qty >= 0 && item.qty <= 100 && Number.isFinite(item.rate) && item.rate >= 0 && item.rate <= 10000000);
-    if (!valid) throw new Error('Invalid draft format');
-    const subtotal = round(draft.items.reduce((sum, item) => sum + round(item.qty * item.rate), 0));
-    if (draft.discount.trim() === '' || draft.tax.trim() === '' || !Number.isFinite(Number(draft.discount)) || Number(draft.discount) < 0 || Number(draft.discount) > subtotal || !Number.isFinite(Number(draft.tax)) || Number(draft.tax) < 0 || Number(draft.tax) > 100) throw new Error('Invalid draft pricing');
-    items = draft.items;
-    for (const [id, key] of [['quote-type', 'type'], ['quote-client', 'client'], ['quote-project', 'project'], ['quote-ref', 'reference'], ['discount', 'discount'], ['tax', 'tax']]) byId(id).value = draft[key];
-    renderItems();
-    byId('quote-status').textContent = 'Demo draft loaded from this browser.';
-  } catch (error) {
-    console.error('EVR demo draft load failed', error);
-    byId('quote-status').textContent = 'Could not load this demo draft. The stored data is invalid or unavailable.';
-  }
-});
-function buildQuote() {
-  const sum = totals();
-  if (!sum) { updateTotals(); return; }
-  const fields = [['pdf-ref', 'quote-ref'], ['pdf-client', 'quote-client'], ['pdf-project', 'quote-project']];
-  if (fields.some(([, source]) => !byId(source).value.trim())) {
-    byId('quote-status').textContent = 'Enter a client name, project and quotation reference before previewing.';
-    return;
-  }
-  for (const [target, source] of fields) byId(target).textContent = byId(source).value;
-  presentQuotation(items.filter(item => item.qty > 0), sum);
-}
-function presentQuotation(lines, sum, scope = [], notes = '') {
-  const scopeOnly = sum === null;
-  const headings = document.querySelector('#quote-document .pdf-table thead tr');
-  headings.replaceChildren();
-  for (const text of scopeOnly ? ['Requested scope & deliverables', 'Quantity'] : ['Scope & deliverables', 'Qty', 'Rate', 'Amount']) {
-    const cell = document.createElement('th');
-    cell.textContent = text;
-    headings.append(cell);
-  }
-  document.querySelector('#quote-document .sample-stamp').textContent = scopeOnly ? 'QUOTE REQUEST / PRICING WILL BE DISCUSSED ON A CALL' : 'DEMONSTRATION ONLY / NOT VALID FOR BOOKING';
-  document.querySelector('#quote-document .quote-top > div:last-child').firstChild.textContent = scopeOnly ? 'QUOTE REQUEST' : 'SAMPLE QUOTATION';
-  document.querySelector('#quote-document .quote-bottom span').textContent = scopeOnly ? 'Requirements for discussion. No payment requested.' : 'Sample details and illustrative rates. No payment requested.';
-  let detail = byId('pdf-scope');
-  if (!detail) {
-    detail = document.createElement('div');
-    detail.id = 'pdf-scope';
-    document.querySelector('#quote-document .pdf-table').before(detail);
-  }
-  detail.replaceChildren();
-  for (const text of [...scope, notes].filter(Boolean)) {
-    const paragraph = document.createElement('p');
-    paragraph.textContent = text;
-    detail.append(paragraph);
-  }
-  const rows = byId('pdf-rows');
-  rows.replaceChildren();
-  for (const item of lines) {
-    const row = document.createElement('tr');
-    for (const value of scopeOnly ? [item.name, item.qty] : [item.name, item.qty, money(item.rate), money(round(item.qty * item.rate))]) {
-      const cell = document.createElement('td');
-      cell.textContent = value;
-      row.append(cell);
-    }
-    rows.append(row);
-  }
-  const total = byId('pdf-total');
-  total.replaceChildren();
-  if (scopeOnly) {
-    total.textContent = 'Pricing will be discussed on a call. EVR will confirm the scope and quotation after speaking with you.';
-  } else {
-    for (const text of [`Subtotal: ${money(sum.subtotal)}`, `Discount: ${money(sum.discount)} | Tax: ${money(sum.tax)}`]) {
-      const line = document.createElement('div'); line.textContent = text; total.append(line);
-    }
-    const grand = document.createElement('strong'); grand.textContent = `Total: ${money(sum.total)}`; total.append(grand);
-  }
-  byId('quote-dialog').showModal();
-}
-byId('preview-quote').addEventListener('click', buildQuote);
-byId('close-quote').addEventListener('click', () => byId('quote-dialog').close());
-byId('print-quote').addEventListener('click', () => window.print());
 const projectDetails = {
   wedding: { title: 'A celebration, remembered', image: 'wedding-scene.svg', brief: 'Example: document the people and moments across an agreed wedding celebration.', deliverables: 'Example: selected photographs, a wedding film and a teaser. Final scope supplied by EVR.' },
   prewedding: { title: 'Before the celebrations', image: 'wedding-scene.svg', brief: 'Example: create a relaxed pre-wedding story in a meaningful location, with the couple choosing a direction they feel comfortable with.', deliverables: 'Example: an agreed selection of edited photographs and an optional short film. Locations, permissions and travel confirmed separately.' },
@@ -370,6 +271,5 @@ byId('estimate-request').addEventListener('click', () => {
   location.hash = '/request';
 });
 route();
-renderItems();
 estimate();
 initialiseMotion();

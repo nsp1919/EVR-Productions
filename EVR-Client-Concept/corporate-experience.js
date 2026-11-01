@@ -15,7 +15,7 @@
   const funnelSteps = Array.from(corporate.querySelectorAll('[data-funnel-stage]'));
   const funnelPosition = corporate.querySelector('.corp-funnel-position');
   const header = document.querySelector('header');
-  const ambientVideos = Array.from(corporate.querySelectorAll('.corp-hero-bg video, .corp-final-video'));
+  const ambientVideos = Array.from(corporate.querySelectorAll('.corp-hero-bg video'));
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
   const clamp = value => Math.max(0, Math.min(1, value));
   let frame = 0;
@@ -201,7 +201,7 @@
   const reelDialog = document.getElementById('corp-reel-dialog');
   const reelDialogVideo = reelDialog.querySelector('video');
   const reelDialogStatus = reelDialog.querySelector('p');
-  const demoVideo = 'assets/demo-studio.mp4';
+  reelDialogVideo.muted = true;
   function stopReelPreview(card) {
     const video = card.querySelector('video');
     if (!video.hasAttribute('src')) return;
@@ -210,10 +210,11 @@
     card.classList.remove('is-playing');
   }
   function startReelPreview(card) {
-    if (preference.matches) return;
+    if (preference.matches || !card.dataset.r2VideoUrl) return;
     const video = card.querySelector('video');
+    video.muted = true;
     if (!video.hasAttribute('src')) {
-      video.src = demoVideo;
+      video.src = card.dataset.r2VideoUrl;
       video.load();
     }
     card.classList.add('is-playing');
@@ -223,26 +224,64 @@
     });
   }
   function openReel(card) {
-    if (!reelDialogVideo.hasAttribute('src') && !reelDialogVideo.querySelector('source[src]')) reelDialogVideo.src = demoVideo;
-    reelDialogVideo.poster = 'assets/demo-studio-poster.png';
-    reelDialogStatus.textContent = 'Original concept illustration, not client footage.';
+    if (!card.dataset.r2VideoUrl) return;
+    stopReelPreview(card);
+    reelDialogVideo.pause();
+    reelDialogVideo.removeAttribute('src');
+    reelDialogVideo.replaceChildren();
+    reelDialogVideo.src = card.dataset.r2VideoUrl;
+    reelDialogVideo.poster = card.querySelector('img')?.currentSrc || '';
+    reelDialogStatus.textContent = 'EVR-produced video served from Cloudflare R2.';
     reelDialog.showModal();
     reelDialogVideo.play().catch(() => {
       reelDialogStatus.textContent = 'Use the video controls to start the motion sample.';
     });
   }
-  reels.querySelectorAll('[data-reel-card]').forEach(card => {
-    card.addEventListener('pointerenter', event => {
-      if (event.pointerType !== 'touch') startReelPreview(card);
+  const reelVisibilityObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !corporate.hidden && !preference.matches && !document.hidden) {
+        startReelPreview(entry.target);
+      } else {
+        stopReelPreview(entry.target);
+      }
     });
-    card.addEventListener('pointerleave', () => stopReelPreview(card));
-    card.addEventListener('focus', () => startReelPreview(card));
-    card.addEventListener('blur', () => stopReelPreview(card));
+  }, { threshold: .15, rootMargin: '100px' });
+  reels.querySelectorAll('[data-reel-card]').forEach(card => {
+    const video = card.querySelector('video');
+    video.muted = true;
+    video.playsInline = true;
     card.addEventListener('click', () => openReel(card));
-    card.querySelector('video').addEventListener('error', () => {
+    video.addEventListener('error', () => {
       card.classList.remove('is-playing');
       card.title = 'Motion preview unavailable. Select to check the video player.';
     });
+  });
+  reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => reelVisibilityObserver.observe(card));
+  addEventListener('hashchange', () => {
+    if (corporate.hidden) {
+      reelCards.forEach(stopReelPreview);
+    } else {
+      reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => {
+        reelVisibilityObserver.unobserve(card);
+        reelVisibilityObserver.observe(card);
+      });
+    }
+  });
+  preference.addEventListener('change', () => {
+    if (preference.matches) reelCards.forEach(stopReelPreview);
+    else reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => {
+      reelVisibilityObserver.unobserve(card);
+      reelVisibilityObserver.observe(card);
+    });
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) reelCards.forEach(stopReelPreview);
+    else if (!corporate.hidden && !preference.matches) {
+      reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => {
+        reelVisibilityObserver.unobserve(card);
+        reelVisibilityObserver.observe(card);
+      });
+    }
   });
   reelDialog.querySelector('[data-close-reel]').addEventListener('click', () => reelDialog.close());
   reelDialog.addEventListener('close', () => {
@@ -250,7 +289,7 @@
     reelDialogVideo.currentTime = 0;
   });
   reelDialogVideo.addEventListener('error', () => {
-    reelDialogStatus.textContent = 'The local motion sample could not load. Keep the assets folder beside this website.';
+    reelDialogStatus.textContent = 'The selected video could not load. Check the media URL and storage access.';
   });
 
   const metrics = corporate.querySelector('.corp-metrics');

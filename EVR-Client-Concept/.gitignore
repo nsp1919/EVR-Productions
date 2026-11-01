@@ -1,3 +1,19 @@
 node_modules/
 test-results/
+.vercel/
+.tsupgrader/
+.env
+.env.*
+!.env.example
+admin-media-client.js
+hls-client.js
+
+# Large media - do not upload to GitHub
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wav
+*.mp3
+*.webm
 *.zip

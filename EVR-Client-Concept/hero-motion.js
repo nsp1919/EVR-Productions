@@ -17,8 +17,6 @@
   const insightCards = Array.from(insights.querySelectorAll('.insight-grid article'));
   const notes = story.querySelector('.story-notes');
   const noteCards = Array.from(notes.querySelectorAll('article'));
-  const decisions = story.querySelector('.story-decisions');
-  const choices = Array.from(story.querySelectorAll('.story-choice'));
   const chapters = Array.from(story.querySelectorAll('[data-chapter]'));
   const meter = story.querySelector('.story-meter span');
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
@@ -62,10 +60,6 @@
   const insightWords = wrapWords(
     insights,
     '.eyebrow, h2, .insight-grid article > span, .insight-grid h3, .insight-grid p'
-  );
-  const decisionWords = wrapWords(
-    decisions,
-    '.eyebrow, h2, .story-choice > span, .story-choice h3, .story-choice p, .story-choice b'
   );
   function revealWords(words, progress) {
     const position = progress * (words.length + 1);
@@ -175,14 +169,11 @@
     const insightIn = phase(progress, 0.54, 0.60);
     const insightOut = phase(progress, 0.76, 0.82);
     const notesIn = phase(progress, 0.76, 0.81);
-    const notesOut = phase(progress, 0.985, 1);
-    const ending = phase(progress, 0.97, 1);
     updateCardControls(progress < .16);
     revealWords(insightWords, phase(progress, .60, .76));
-    revealWords(decisionWords, phase(progress, .93, 1));
 
     story.dataset.progress = progress.toFixed(4);
-    story.dataset.phase = progress < .24 ? 'intro' : progress < .56 ? 'stories' : progress < .72 ? 'perspective' : progress < .97 ? 'notes' : 'choices';
+    story.dataset.phase = progress < .24 ? 'intro' : progress < .56 ? 'stories' : progress < .72 ? 'perspective' : 'notes';
     syncFeatureVideo();
     intro.style.opacity = String(1 - introExit);
     intro.style.transform = mobile
@@ -226,20 +217,12 @@
       card.style.opacity = String(arrival);
       card.style.transform = `translate3d(${direction * (1 - arrival) * offset}px, ${(1 - arrival) * 22}px, 0)`;
     });
-    notes.style.opacity = String(notesIn * (1 - notesOut));
-    notes.setAttribute('aria-hidden', String(notesIn < .95 || notesOut > .05));
+    notes.style.opacity = String(notesIn);
+    notes.setAttribute('aria-hidden', String(notesIn < .95));
     noteCards.forEach((card, index) => {
       const arrival = phase(progress, .81 + index * .04, .84 + index * .04);
       card.style.opacity = String(arrival);
-      card.style.transform = `translateY(${(1 - arrival) * (65 + index * 20) - notesOut * (40 + index * 16)}px)`;
-    });
-    decisions.style.opacity = String(ending);
-    decisions.style.transform = `translateY(${(1 - ending) * 40}px)`;
-    decisions.inert = ending < .95;
-    decisions.setAttribute('aria-hidden', String(ending < .95));
-    choices.forEach((choice, index) => {
-      const arrival = phase(progress, .96 + index * .01, .98 + index * .01);
-      choice.style.transform = `translateY(${(1 - arrival) * 40}px)`;
+      card.style.transform = `translateY(${(1 - arrival) * (65 + index * 20)}px)`;
     });
     chapters.forEach((chapter, index) => {
       chapter.classList.toggle('current', index === (progress < .24 ? 0 : progress < .86 ? 1 : 2));
@@ -257,13 +240,11 @@
     const enabled = !preference.matches && !(innerWidth <= 700 && innerHeight < 700);
     story.classList.toggle('is-animated', enabled);
     if (!enabled) {
-      for (const element of [intro, ...cards, statement, insights, ...insightCards, notes, ...noteCards, decisions, ...choices, meter]) element.removeAttribute('style');
+      for (const element of [intro, ...cards, statement, insights, ...insightCards, notes, ...noteCards, meter]) element.removeAttribute('style');
       insights.setAttribute('aria-hidden', 'true');
       notes.setAttribute('aria-hidden', 'true');
       intro.inert = false;
       intro.removeAttribute('aria-hidden');
-      decisions.inert = true;
-      decisions.setAttribute('aria-hidden', 'true');
       story.dataset.progress = '0';
       story.dataset.phase = 'static';
       chapters.forEach((chapter, index) => chapter.classList.toggle('current', index === 0));

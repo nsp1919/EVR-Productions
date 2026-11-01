@@ -1,0 +1,11 @@
+@media (max-width: 700px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  #menu-toggle,
+  #main-nav a {
+    min-height: 44px;
+  }
+}

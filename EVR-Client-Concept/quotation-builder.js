@@ -263,6 +263,8 @@
 
   const floating = node('a', '', 'quote-float');
   floating.id = 'floating-quote';
+  const footer = document.querySelector('.site-footer');
+  let footerVisible = false;
   const icon = node('span', '+');
   icon.setAttribute('aria-hidden', 'true');
   const label = node('span');
@@ -274,8 +276,15 @@
     label.textContent = corporate ? 'Brand quote' : 'Wedding quote';
     floating.setAttribute('aria-label', corporate ? 'Build a brand production quotation' : 'Build a wedding quotation');
     const route = document.querySelector('.route:not([hidden])').id;
-    floating.hidden = ['estimate', 'production-quote', 'request', 'studio'].includes(route);
+    floating.hidden = footerVisible || ['estimate', 'production-quote', 'request', 'studio'].includes(route);
     document.body.classList.toggle('has-quote-float', !floating.hidden);
+  }
+  if ('IntersectionObserver' in window) {
+    const footerObserver = new IntersectionObserver(entries => {
+      footerVisible = entries.some(entry => entry.isIntersecting);
+      syncFloating();
+    });
+    footerObserver.observe(footer);
   }
   floating.addEventListener('click', () => {
     const type = document.body.classList.contains('corporate-view') ? 'corporate' : 'wedding';

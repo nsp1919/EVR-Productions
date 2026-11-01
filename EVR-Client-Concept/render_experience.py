@@ -38,7 +38,7 @@ with sync_playwright() as pw:
         page.goto(URL)
         page.wait_for_function("document.querySelector('.hero-story').dataset.progress==='0.0000'")
         page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
-        for progress, selector in [(.49, ".story-statement"), (.65, ".story-insights"), (.80, ".story-notes"), (.95, ".story-decisions")]:
+        for progress, selector in [(.49, ".story-statement"), (.65, ".story-insights"), (.80, ".story-notes"), (.95, ".story-notes")]:
             seek(page, ".hero-story", ".hero-stage", progress)
             check(page.locator(selector).evaluate("(el)=>Number(getComputedStyle(el).opacity)>.99"), f"{selector} fully visible at {width}px")
             overflow(page, f"{width}px / hero {progress}")

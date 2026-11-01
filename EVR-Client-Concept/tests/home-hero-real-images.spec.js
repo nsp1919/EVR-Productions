@@ -29,5 +29,17 @@ test('home hero animation initializes and responds to scrolling without a hero v
   await expect(page.locator('.hero-story')).toHaveClass(/is-animated/);
   await page.evaluate(() => window.scrollTo(0, window.innerHeight * 0.6));
   await expect.poll(() => page.locator('.hero-story').getAttribute('data-progress').then(Number)).toBeGreaterThan(0);
+  const story = page.locator('.hero-story');
+  await story.evaluate(element => {
+    const stage = element.querySelector('.hero-stage');
+    const top = parseFloat(getComputedStyle(stage).top) || 0;
+    const start = element.getBoundingClientRect().top + window.scrollY - top;
+    const travel = element.offsetHeight - stage.offsetHeight;
+    window.scrollTo(0, start + travel * .99);
+  });
+  await expect.poll(() => story.getAttribute('data-progress').then(Number)).toBeGreaterThan(.98);
+  await expect(story.locator('.story-decisions')).toHaveCount(0);
+  await expect(story.locator('.story-notes')).toHaveAttribute('aria-hidden', 'false');
+  await expect(story.locator('.story-notes')).toHaveCSS('opacity', '1');
   expect(pageErrors).toEqual([]);
 });

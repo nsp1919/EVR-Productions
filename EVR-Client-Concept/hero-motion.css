@@ -178,37 +178,6 @@ header {
 .story-statement h2 em { color: #9b624d; }
 .story-statement .eyebrow { margin-bottom: 18px; font-size: 8px; }
 .story-statement > p:last-child { font-size: 13px; color: #7b8277; margin: 20px 0 0; }
-.story-decisions {
-  position: absolute;
-  z-index: 5;
-  inset: 0;
-  padding: 5% 14% 90px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-  opacity: 0;
-}
-.story-decisions h2 { font-size: clamp(34px, 3.5vw, 55px); margin: 0 0 30px; }
-.story-decisions h2 em { color: #9b624d; }
-.story-decisions .eyebrow { font-size: 9px; margin-bottom: 18px; }
-.story-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
-.story-choice {
-  display: block;
-  text-align: left;
-  padding: 30px;
-  border: 1px solid #e0d5c4;
-  border-radius: 24px;
-  background: #f0e5d7;
-  box-shadow: 0 18px 35px #213d3410;
-}
-.story-choice > span { font-size: 9px; letter-spacing: 1.2px; color: #9b6a4d; }
-.story-choice h3 { font: normal 35px/1.12 Georgia, serif; margin: 25px 0 18px; letter-spacing: -.7px; }
-.story-choice p { font-size: 12px; color: #697466; line-height: 1.7; }
-.story-choice b { display: inline-block; margin-top: 18px; font-size: 12px; }
-.corporate-choice { background: #e0ebee; border-color: #ccdce0; }
-.corporate-choice h3 { font-family: Arial, sans-serif; font-weight: bold; font-size: 32px; }
-.corporate-choice > span { color: #587b8c; }
 .story-controls { position: absolute; z-index: 9; bottom: 25px; left: 6%; right: 6%; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .story-chapters { display: flex; gap: 18px; }
 .story-chapters span { font-size: 8px; color: #a5aba0; letter-spacing: 1px; }
@@ -227,9 +196,6 @@ header {
   .hero-story .hero-copy .lede { font-size: 12px; }
   .hero-story .hero-copy .hero-note { margin-top: 15px; }
   .scene-card { width: min(18vw, 215px); }
-  .story-decisions { padding-top: 20px; }
-  .story-choice { padding: 22px; }
-  .story-choice h3 { font-size: 29px; margin: 18px 0 12px; }
 }
 @media (max-width: 1000px) and (min-width: 701px) {
   .hero-story .hero h1 { font-size: 49px; }
@@ -238,7 +204,6 @@ header {
   .hero-story .hero-copy .actions { flex-wrap: wrap; }
   .hero-story .hero-copy .button { font-size: 10px; }
   .story-art-note { display: none; }
-  .story-decisions { padding-inline: 7%; }
 }
 @media (max-width: 700px) {
   header { top: 8px; }
@@ -263,17 +228,6 @@ header {
   .story-statement h2 { font-size: clamp(29px, 8vw, 38px); }
   .story-statement .eyebrow { margin-bottom: 14px; }
   .story-statement > p:last-child { font-size: 11px; margin-top: 14px; }
-  .story-decisions { padding: 22px 7% 78px; }
-  .story-decisions h2 { font-size: 29px; margin-bottom: 20px; }
-  .story-decisions .eyebrow { font-size: 7px; margin-bottom: 12px; }
-  .story-choice-grid { grid-template-columns: 1fr; gap: 12px; }
-  .story-choice { padding: 20px; border-radius: 18px; }
-  .story-choice > span { font-size: 7px; }
-  .story-choice h3 { font-size: 27px; margin: 12px 0 9px; }
-  .corporate-choice h3 { font-size: 25px; }
-  .story-choice h3 br { display: none; }
-  .story-choice p { font-size: 10px; margin-bottom: 10px; }
-  .story-choice b { font-size: 10px; margin-top: 0; }
   .story-controls { bottom: 18px; left: 6%; right: 6%; gap: 8px; }
   .story-chapters { gap: 9px; }
   .story-chapters span { font-size: 6px; letter-spacing: .3px; }

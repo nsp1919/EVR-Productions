@@ -49,7 +49,8 @@ with sync_playwright() as pw:
     page.wait_for_function("document.querySelector('.hero-story').dataset.progress !== undefined")
     check(page.locator(".hero-story").evaluate("(el)=>el.classList.contains('is-animated')"), "Hero enables sticky scroll sequence")
     check(page.locator(".hero-copy").evaluate("(el)=>getComputedStyle(el).opacity==='1' && !el.inert"), "Initial hero copy and links are visible and interactive")
-    check(page.locator(".story-decisions").evaluate("(el)=>el.inert"), "Invisible service links are not keyboard reachable")
+    check(page.locator(".story-decisions").count() == 0, "Celebration choices are kept outside the intro")
+    check(page.locator(".celebration-choice-section #celebration-choice-title").count() == 1, "Celebration choices remain in their homepage section")
     check(page.locator(".reveal-ready").count() > 10, "Below-hero section reveals remain enabled")
     page.screenshot(path=str(ASSETS / "hero-step-01-intro.png"))
     page.wait_for_timeout(1200)
@@ -62,7 +63,7 @@ with sync_playwright() as pw:
     page.locator('[data-select-card="2"]').evaluate("(el)=>el.blur()")
     initial = page.locator('[data-card="2"]').evaluate("(el)=>getComputedStyle(el).transform")
     pinned_positions = []
-    for progress, filename in [(0.20, "02-stack"), (0.49, "03-gallery"), (0.65, "04-statement"), (0.80, "06-notes"), (0.95, "05-choices")]:
+    for progress, filename in [(0.20, "02-stack"), (0.49, "03-gallery"), (0.65, "04-statement"), (0.80, "06-notes"), (0.95, "05-notes")]:
         seek(page, progress, 1600)
         pinned_positions.append(page.locator(".hero-stage").bounding_box()["y"])
         check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"No desktop overflow at progress {progress}")
@@ -75,8 +76,8 @@ with sync_playwright() as pw:
             check(page.locator(".hero-copy").evaluate("(el)=>el.inert"), "Faded intro links are removed from keyboard order")
         page.wait_for_timeout(700)
     check(max(pinned_positions) - min(pinned_positions) < 2, "Stage stays pinned throughout the four sampled phases")
-    check(page.locator(".story-decisions").evaluate("(el)=>!el.inert && getComputedStyle(el).opacity==='1'"), "Final service choices are visible and interactive")
-    check(page.locator('[data-card="2"]').evaluate("(el)=>getComputedStyle(el).opacity==='0'"), "Gallery exits before final choices")
+    check(page.locator(".story-notes").evaluate("(el)=>getComputedStyle(el).opacity==='1' && el.getAttribute('aria-hidden')==='false'"), "Final story notes stay visible and accessible")
+    check(page.locator('[data-card="2"]').evaluate("(el)=>getComputedStyle(el).opacity==='0'"), "Gallery exits before final story notes")
     seek(page, 0, 1600)
     check(page.locator('[data-card="2"]').evaluate("(el)=>getComputedStyle(el).transform") == initial, "Reverse scroll restores the original card transform")
     check(page.locator(".hero-copy").evaluate("(el)=>!el.inert && getComputedStyle(el).opacity==='1'"), "Reverse scroll restores the intro and CTA links")
@@ -98,11 +99,11 @@ with sync_playwright() as pw:
             seek(device, progress, 1000)
             check(device.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"No overflow at {width}x{height}, phase {progress}")
             if width == 390 and progress in [.49, .95]:
-                device.screenshot(path=str(ASSETS / f"hero-mobile-{'gallery' if progress == .49 else 'choices'}.png"))
-        choice = device.locator(".wedding-choice")
-        box = choice.bounding_box()
-        check(box["y"] > 0 and box["y"] + box["height"] < height, f"Wedding choice fits viewport at {width}x{height}")
-        check(device.locator(".corporate-choice").bounding_box()["y"] + device.locator(".corporate-choice").bounding_box()["height"] < height, f"Corporate choice fits viewport at {width}x{height}")
+                device.screenshot(path=str(ASSETS / f"hero-mobile-{'gallery' if progress == .49 else 'notes'}.png"))
+        device.locator(".celebration-choice-section").scroll_into_view_if_needed()
+        choice = device.locator(".celebration-choice-section .world.wedding")
+        check(choice.is_visible(), f"Wedding choice stays in the homepage section at {width}px")
+        check(device.locator(".celebration-choice-section .world.functions").is_visible(), f"Family choice stays in the homepage section at {width}px")
         choice.click()
         device.locator("#weddings").wait_for(state="visible")
         check(device.locator("#weddings").is_visible(), f"Scene CTA navigates at {width}px")
@@ -150,7 +151,7 @@ for index, (name, label) in enumerate([
     ("01-intro", "01 / INTRO"),
     ("02-stack", "02 / GATHER"),
     ("03-gallery", "03 / EXPAND + REVEAL"),
-    ("05-choices", "04 / CHOOSE YOUR WORLD"),
+    ("05-notes", "04 / STORY NOTES"),
 ]):
     x, y = (index % 2) * 720, (index // 2) * 510
     image = Image.open(ASSETS / f"hero-step-{name}.png").resize((720, 450))

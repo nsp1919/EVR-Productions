@@ -2,10 +2,23 @@
   "name": "evr-client-concept",
   "private": true,
   "scripts": {
-    "test": "playwright test",
-    "test:admin-media": "playwright test tests/admin-media.spec.js"
+    "build": "npm run build:admin-media",
+    "build:admin-media": "esbuild admin-media-client-entry.js --bundle --platform=browser --target=es2020 --format=iife --outfile=admin-media-client.js && esbuild hls-client-entry.js --bundle --platform=browser --target=es2020 --format=iife --outfile=hls-client.js",
+    "test": "npm run build && npm run test:server && playwright test",
+    "test:server": "node --test tests/server-api.test.js",
+    "test:admin-media": "npm run build && playwright test tests/admin-media.spec.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
+    "@vercel/blob": "^2.0.0",
+    "hls.js": "^1.7.4"
+  },
+  "overrides": {
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "^1.55.0",
+    "esbuild": "^0.25.0"
   }
 }

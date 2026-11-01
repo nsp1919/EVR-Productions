@@ -12,7 +12,14 @@
   const videoPicker = document.getElementById('admin-video-file');
   const importPicker = document.getElementById('admin-import-file');
   const status = document.getElementById('admin-status');
-  const textSelector = 'h1,h2,h3,h4,p,a,span,figcaption,summary,label,button,li,dt,dd,b,strong,em';
+  const settingsStatus = document.getElementById('admin-settings-status');
+  const settingsPanel = document.getElementById('admin-settings');
+  const settingsOpen = document.getElementById('admin-settings-open');
+  const loginPanel = document.getElementById('admin-login');
+  const loginStatus = document.getElementById('admin-login-status');
+  const passwordInput = document.getElementById('admin-password');
+  const controls = document.querySelector('.admin-controls');
+  const textSelector = 'h1,h2,h3,h4,p,a,span,figcaption,summary,label,button,li,dt,dd,blockquote,cite,b,strong,em';
   const backgroundSelector = 'section,article,a,figure,aside,header,footer,div';
   const allowedMarkup = new Set(['BR', 'EM', 'STRONG', 'B', 'I', 'SPAN', 'SMALL', 'SUB', 'SUP']);
   const assetDatabase = 'evr-site-content-assets';
@@ -21,30 +28,29 @@
   let selectedElement = null;
   let edits = {};
   const videoUrls = new Map();
+  const hlsPlayers = new Map();
+  const videoSourceVersions = new WeakMap();
   const pendingVideos = new Map();
-  let loadError = null;
-  const assetDb = new Promise((resolve, reject) => {
-    const request = indexedDB.open(assetDatabase, 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(assetStore)) request.result.createObjectStore(assetStore, { keyPath: 'id' });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('Could not open local video storage.'));
-    request.onblocked = () => reject(new Error('Local video storage is blocked by another browser tab.'));
-  });
+  let assetDb;
+  let hlsClientPromise;
 
-  function storeVideo(id, blob) {
-    return assetDb.then(db => new Promise((resolve, reject) => {
-      const transaction = db.transaction(assetStore, 'readwrite');
-      transaction.objectStore(assetStore).put({ id, blob });
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error || new Error('Could not save the video file.'));
-      transaction.onabort = () => reject(transaction.error || new Error('Saving the video file was cancelled.'));
-    }));
+  function openAssetDb() {
+    if (!assetDb) {
+      assetDb = new Promise((resolve, reject) => {
+        const request = indexedDB.open(assetDatabase, 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains(assetStore)) request.result.createObjectStore(assetStore, { keyPath: 'id' });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Could not open legacy browser video storage.'));
+        request.onblocked = () => reject(new Error('Legacy browser video storage is blocked by another tab.'));
+      });
+    }
+    return assetDb;
   }
 
   function getVideo(id) {
-    return assetDb.then(db => new Promise((resolve, reject) => {
+    return openAssetDb().then(db => new Promise((resolve, reject) => {
       const transaction = db.transaction(assetStore, 'readonly');
       const request = transaction.objectStore(assetStore).get(id);
       request.onsuccess = () => resolve(request.result && request.result.blob);
@@ -52,18 +58,8 @@
     }));
   }
 
-  function deleteVideo(id) {
-    return assetDb.then(db => new Promise((resolve, reject) => {
-      const transaction = db.transaction(assetStore, 'readwrite');
-      transaction.objectStore(assetStore).delete(id);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error || new Error('Could not remove the imported video.'));
-      transaction.onabort = () => reject(transaction.error || new Error('Removing the imported video was cancelled.'));
-    }));
-  }
-
   function clearVideoAssets() {
-    return assetDb.then(db => new Promise((resolve, reject) => {
+    return openAssetDb().then(db => new Promise((resolve, reject) => {
       const transaction = db.transaction(assetStore, 'readwrite');
       transaction.objectStore(assetStore).clear();
       transaction.oncomplete = () => resolve();
@@ -81,63 +77,171 @@
     });
   }
 
-  async function dataUrlToBlob(value) {
-    const match = /^data:(video\/[^;,]+);base64,([a-z0-9+/]*={0,2})$/is.exec(typeof value === 'string' ? value : '');
-    if (!match) throw new Error('The exported video data is invalid.');
-    const mimeType = match[1].toLowerCase();
-    const encoded = match[2].replace(/\s/g, '');
-    let binary;
-    try {
-      binary = atob(encoded);
-    } catch {
-      throw new Error('The exported video data is not valid Base64.');
+  async function validateVideoContainer(file) {
+    const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const fourCC = String.fromCharCode(...header.slice(4, 8));
+    const isIsoMedia = fourCC === 'ftyp';
+    const isEbml = header[0] === 0x1a && header[1] === 0x45 && header[2] === 0xdf && header[3] === 0xa3;
+    const isAvi = String.fromCharCode(...header.slice(0, 4)) === 'RIFF' &&
+      String.fromCharCode(...header.slice(8, 12)) === 'AVI ';
+    const isMpeg = (header[0] === 0 && header[1] === 0 && header[2] === 1) ||
+      (header[0] === 0x47 && header.length >= 12);
+    if (!isIsoMedia && !isEbml && !isAvi && !isMpeg) {
+      throw new Error('The selected file is not recognizable video content.');
     }
-    const bytes = new Uint8Array(binary.length);
-    for (let offset = 0; offset < binary.length; offset += 0x8000) {
-      const chunk = binary.slice(offset, offset + 0x8000);
-      for (let index = 0; index < chunk.length; index++) bytes[offset + index] = chunk.charCodeAt(index);
-    }
-    return new Blob([bytes], { type: mimeType });
   }
 
-  function validatePlayableVideo(blob) {
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(blob);
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.muted = true;
-      let settled = false;
-      const cleanup = () => {
-        if (settled) return;
-        settled = true;
-        video.removeAttribute('src');
+  function setVideoSource(video, source) {
+    const previousPlayer = hlsPlayers.get(video);
+    if (previousPlayer) {
+      previousPlayer.destroy();
+      hlsPlayers.delete(video);
+    }
+
+    const sourceVersion = Symbol();
+    videoSourceVersions.set(video, sourceVersion);
+    video.pause();
+    video.removeAttribute('src');
+    video.replaceChildren();
+    let cloudinaryHlsSource = null;
+    try {
+      const url = new URL(source);
+      if (url.protocol === 'https:' && url.hostname === 'res.cloudinary.com' &&
+          url.pathname.includes('/video/upload/') && /\.(?:mp4|mov|webm|mkv|avi|mpeg|3gp)$/i.test(url.pathname)) {
+        url.pathname = url.pathname.replace('/video/upload/', '/video/upload/sp_auto/')
+          .replace(/\.[^/.]+$/i, '.m3u8');
+        cloudinaryHlsSource = url.toString();
+      }
+    } catch {
+      cloudinaryHlsSource = null;
+    }
+    const hlsSource = /^https:\/\/customer-[\w-]+\.cloudflarestream\.com\/[\w-]+\/manifest\/video\.m3u8(?:\?.*)?$/i.test(source)
+      ? source
+      : cloudinaryHlsSource;
+    if (hlsSource) {
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = hlsSource;
         video.load();
-        URL.revokeObjectURL(url);
-      };
-      const pass = () => {
-        if (settled) return;
-        cleanup();
-        resolve();
-      };
-      const fail = () => {
-        if (settled) return;
-        cleanup();
-        reject(new Error('The selected file is not playable video content.'));
-      };
-      video.onloadedmetadata = pass;
-      video.onerror = fail;
-      const timeout = window.setTimeout(fail, 15000);
-      video.addEventListener('loadedmetadata', () => window.clearTimeout(timeout), { once: true });
-      video.addEventListener('error', () => window.clearTimeout(timeout), { once: true });
-      video.src = url;
+      } else {
+        loadHlsClient().then(Hls => {
+          if (videoSourceVersions.get(video) !== sourceVersion) return;
+          if (!Hls.isSupported()) {
+            setStatus('This browser does not support HLS video playback.', true);
+            return;
+          }
+          const player = new Hls({ enableWorker: true });
+          player.loadSource(hlsSource);
+          player.attachMedia(video);
+          hlsPlayers.set(video, player);
+        }).catch(error => {
+          if (videoSourceVersions.get(video) === sourceVersion) {
+            setStatus(`Could not load HLS video playback: ${error.message}`, true);
+          }
+        });
+      }
+    } else {
+      video.src = source;
       video.load();
-    });
+    }
+  }
+
+  function markUploadedVideo(video) {
+    const preview = video.closest('.preview-media');
+    if (preview) {
+      preview.classList.add('has-project-video');
+      preview.querySelector('img')?.removeAttribute('aria-hidden');
+      video.hidden = false;
+      const disclaimer = preview.querySelector('.media-disclaimer');
+      if (disclaimer) disclaimer.textContent = 'EVR VIDEO / PROJECT SAMPLE';
+      video.setAttribute('aria-label', 'EVR-produced project video sample');
+      const play = preview.querySelector('.preview-play');
+      if (play) {
+        play.setAttribute('aria-label', 'Play EVR-produced project video');
+        play.hidden = true;
+      }
+    }
+
+    const reel = video.closest('.corp-reel-card');
+    if (reel) {
+      reel.classList.add('has-project-video');
+      const title = reel.querySelector(':scope > span:last-child')?.textContent.trim() || 'NBrands';
+      reel.setAttribute('aria-label', `Play EVR-produced ${title.toLowerCase()} video`);
+    }
+
+    const testimonial = video.closest('.voice-grid article');
+    if (testimonial) video.hidden = false;
+  }
+
+  function loadHlsClient() {
+    if (window.evrHls) return Promise.resolve(window.evrHls);
+    if (!hlsClientPromise) {
+      hlsClientPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'hls-client.js';
+        script.async = true;
+        script.onload = () => window.evrHls
+          ? resolve(window.evrHls)
+          : reject(new Error('The HLS playback library did not initialize.'));
+        script.onerror = () => reject(new Error('The HLS playback library could not be downloaded.'));
+        document.head.appendChild(script);
+      }).catch(error => {
+        hlsClientPromise = null;
+        throw error;
+      });
+    }
+    return hlsClientPromise;
   }
 
   function setStatus(message, error = false) {
     status.textContent = message;
     status.dataset.error = String(error);
+    settingsStatus.textContent = message;
+    settingsStatus.dataset.error = String(error);
   }
+
+  async function apiRequest(path, options = {}) {
+    const response = await fetch(path, {
+      ...options,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', ...options.headers }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `Request failed (${response.status}).`);
+    return result;
+  }
+
+  async function uploadMedia(file, type) {
+    if (typeof window.evrUploadMedia !== 'function') throw new Error('The secure media uploader did not load. Reload the page and try again.');
+    return window.evrUploadMedia(file, type);
+  }
+
+  async function uploadR2Video(file, onProgress = () => {}) {
+    if (typeof window.evrUploadR2Video !== 'function') {
+      throw new Error('The Cloudflare R2 video uploader did not load. Reload the page and try again.');
+    }
+    return window.evrUploadR2Video(file, onProgress);
+  }
+
+  async function saveSharedContent(content) {
+    return apiRequest('/api/content', {
+      method: 'PUT',
+      body: JSON.stringify(content)
+    });
+  }
+
+  function showEditor(authenticated) {
+    loginPanel.hidden = authenticated;
+    controls.hidden = !authenticated;
+    settingsOpen.hidden = !authenticated;
+    if (!authenticated) settingsPanel.hidden = true;
+  }
+
+  function setLoginStatus(message, error = false) {
+    loginStatus.textContent = message;
+    loginStatus.dataset.error = String(error);
+  }
+
   window.applyAdminEdits = applyEdits;
 
   function elementKey(element) {
@@ -223,28 +327,13 @@
     }
   }
 
-  function loadEdits() {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return {};
-      const saved = JSON.parse(raw);
-      if (!saved || saved.version !== 1 || !saved.entries || typeof saved.entries !== 'object' || Array.isArray(saved.entries)) {
-        throw new Error('Saved content has an unsupported format.');
-      }
-      return validateEntries(saved.entries);
-    } catch (error) {
-      loadError = error.message;
-      return {};
-    }
-  }
-
   function validateEntries(entries) {
     const checked = {};
     for (const [key, entry] of Object.entries(entries)) {
       if (!entry || typeof entry.value !== 'string') throw new Error('An edit entry is incomplete.');
       if (entry.type === 'text') checked[key] = { type: 'text', value: safeMarkup(entry.value) };
       else if (entry.type === 'image' && safeImageSource(entry.value)) checked[key] = { type: 'image', value: entry.value };
-      else if (entry.type === 'video' && /^[\w-]{1,80}$/.test(entry.value)) checked[key] = { type: 'video', value: entry.value };
+      else if (entry.type === 'video' && (/^https?:\/\//i.test(entry.value) || /^[\w-]{1,80}$/.test(entry.value))) checked[key] = { type: 'video', value: entry.value };
       else if (entry.type === 'background' && CSS.supports('color', entry.value)) checked[key] = { type: 'background', value: entry.value };
       else throw new Error('An edit entry contains an unsupported value.');
     }
@@ -259,11 +348,10 @@
       if (!edit) continue;
       if (edit.type === 'text') element.innerHTML = edit.value;
       else if (edit.type === 'image' && element instanceof HTMLImageElement) element.src = edit.value;
-      else if (edit.type === 'video' && element instanceof HTMLVideoElement && videoUrls.has(edit.value) && element.dataset.adminVideoAsset !== edit.value) {
-        element.pause();
-        element.src = videoUrls.get(edit.value);
+      else if (edit.type === 'video' && element instanceof HTMLVideoElement && element.dataset.adminVideoAsset !== edit.value) {
+        setVideoSource(element, videoUrls.get(edit.value) || edit.value);
         element.dataset.adminVideoAsset = edit.value;
-        element.load();
+        markUploadedVideo(element);
       }
       else if (edit.type === 'background') element.style.backgroundColor = edit.value;
     }
@@ -323,7 +411,8 @@
       const section = video.closest('section');
       const sectionTitle = section && (section.getAttribute('aria-label') || section.getAttribute('aria-labelledby'));
       const titleElement = sectionTitle && document.getElementById(sectionTitle);
-      const label = video.getAttribute('aria-label') || reel?.getAttribute('aria-label') || titleElement?.textContent.trim() || section?.id || `Video ${index + 1}`;
+      const label = video.dataset.r2SlotLabel || video.getAttribute('aria-label') ||
+        reel?.getAttribute('aria-label') || titleElement?.textContent.trim() || section?.id || `Video ${index + 1}`;
       option.value = String(index);
       option.textContent = `${index + 1}. ${label}`;
       videoSelect.append(option);
@@ -374,6 +463,8 @@
   window.addEventListener('hashchange', () => {
     const isAdmin = location.hash === '#/admin';
     document.body.classList.toggle('admin-active', isAdmin);
+    if (isAdmin) checkAuthentication();
+    else showEditor(false);
     if (!isAdmin) {
       clearSelection();
       document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
@@ -466,7 +557,7 @@
 
   document.addEventListener('input', event => {
     if (event.target instanceof HTMLElement && event.target.dataset.adminTextEdited) {
-      setStatus('Unsaved text edits. Choose Save changes to keep them in this browser.');
+      setStatus('Unsaved text edits. Choose Save changes to publish them to the shared website.');
     }
   });
 
@@ -477,7 +568,7 @@
     }
     selectedElement.style.backgroundColor = colorPicker.value;
     selectedElement.dataset.adminBackgroundEdited = 'true';
-    setStatus('Unsaved background edit. Choose Save changes to keep it in this browser.');
+    setStatus('Unsaved background edit. Choose Save changes to publish it to the shared website.');
   });
 
   photoPicker.addEventListener('change', async () => {
@@ -504,9 +595,10 @@
         decoded.close();
       }
       if (!safeImageSource(photo)) throw new Error('The browser could not process this image.');
-      selectedElement.src = photo;
+      const photoBlob = await (await fetch(photo)).blob();
+      selectedElement.src = await uploadMedia(photoBlob, 'image/webp');
       selectedElement.dataset.adminImageEdited = 'true';
-      setStatus('Unsaved photo edit. Choose Save changes to keep it in this browser.');
+      setStatus('Photo uploaded. Choose Save changes to publish it to the shared website.');
     } catch (error) {
       setStatus(`Could not process this photo: ${error.message}`, true);
     } finally {
@@ -517,32 +609,27 @@
   videoPicker.addEventListener('change', async () => {
     const file = videoPicker.files && videoPicker.files[0];
     if (!file || !selectedElement || !(selectedElement instanceof HTMLVideoElement)) return;
-    if (!file.type.startsWith('video/') || file.size > 250 * 1024 * 1024) {
-      setStatus('Choose a video file smaller than 250 MB.', true);
+    if (!file.type.startsWith('video/') || file.size > 30 * 1024 * 1024 * 1024) {
+      setStatus('Choose a supported video file smaller than 30 GB.', true);
       videoPicker.value = '';
       return;
     }
     try {
-      await validatePlayableVideo(file);
-      const assetId = crypto.randomUUID();
-      const previewUrl = URL.createObjectURL(file);
+      await validateVideoContainer(file);
       const elementKeyValue = elementKey(selectedElement);
-      const previousAsset = selectedElement.dataset.adminVideoAsset;
-      selectedElement.pause();
-      selectedElement.removeAttribute('src');
-      selectedElement.replaceChildren();
-      selectedElement.src = previewUrl;
+      setStatus(`Preparing secure Cloudflare R2 upload for ${file.name}…`);
+      const uploaded = await uploadR2Video(file, (loaded, total) => {
+        const percent = total ? Math.floor(loaded / total * 100) : 0;
+        const uploadedMb = (loaded / (1024 * 1024)).toFixed(0);
+        const totalMb = (total / (1024 * 1024)).toFixed(0);
+        setStatus(`Uploading to Cloudflare R2: ${percent}% (${uploadedMb} / ${totalMb} MB). If interrupted, choose the same file again to resume.`);
+      });
       selectedElement.dataset.adminVideoEdited = 'true';
-      selectedElement.dataset.adminVideoAsset = assetId;
-      selectedElement.load();
-      videoUrls.set(assetId, previewUrl);
-      pendingVideos.set(elementKeyValue, { id: assetId, blob: file });
-      if (previousAsset && !Object.values(edits).some(edit => edit.type === 'video' && edit.value === previousAsset)) {
-        const oldUrl = videoUrls.get(previousAsset);
-        if (oldUrl && oldUrl !== previewUrl) URL.revokeObjectURL(oldUrl);
-        videoUrls.delete(previousAsset);
-      }
-      setStatus('Video ready to preview. Choose Save changes to keep it in this browser.');
+      selectedElement.dataset.adminVideoAsset = uploaded.playbackUrl;
+      setVideoSource(selectedElement, uploaded.playbackUrl);
+      markUploadedVideo(selectedElement);
+      pendingVideos.set(elementKeyValue, uploaded);
+      setStatus('Video uploaded to Cloudflare R2. Choose Save changes to publish the video.');
     } catch (error) {
       setStatus(`Could not prepare this video: ${error.message}`, true);
     } finally {
@@ -554,45 +641,62 @@
     const next = { ...edits };
     document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
       next[elementKey(element)] = { type: 'text', value: safeMarkup(element.innerHTML) };
-      element.innerHTML = next[elementKey(element)].value;
-      element.contentEditable = 'false';
-      delete element.dataset.adminTextEdited;
     });
     document.querySelectorAll('[data-admin-image-edited="true"]').forEach(element => {
       if (element instanceof HTMLImageElement && safeImageSource(element.src)) {
         next[elementKey(element)] = { type: 'image', value: element.src };
       }
-      delete element.dataset.adminImageEdited;
     });
     document.querySelectorAll('[data-admin-background-edited="true"]').forEach(element => {
       next[elementKey(element)] = { type: 'background', value: element.style.backgroundColor };
-      delete element.dataset.adminBackgroundEdited;
     });
     try {
-      for (const video of pendingVideos.values()) await validatePlayableVideo(video.blob);
       for (const [key, video] of pendingVideos) {
-        await storeVideo(video.id, video.blob);
-        next[key] = { type: 'video', value: video.id };
+        setStatus('Saving video playback details to the shared website…');
+        next[key] = { type: 'video', value: video.playbackUrl };
       }
-      localStorage.setItem(storageKey, JSON.stringify({ version: 1, entries: next }));
-      edits = next;
+      const saved = await saveSharedContent({ version: 1, entries: next });
+      edits = validateEntries(saved.entries);
       pendingVideos.clear();
+      document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
+        element.innerHTML = safeMarkup(element.innerHTML);
+        element.contentEditable = 'false';
+        delete element.dataset.adminTextEdited;
+      });
+      document.querySelectorAll('[data-admin-image-edited="true"]').forEach(element => {
+        delete element.dataset.adminImageEdited;
+      });
+      document.querySelectorAll('[data-admin-background-edited="true"]').forEach(element => {
+        delete element.dataset.adminBackgroundEdited;
+      });
       document.querySelectorAll('[data-admin-video-edited="true"]').forEach(element => {
+        const key = elementKey(element);
+        const savedVideo = edits[key];
+        if (savedVideo) {
+          setVideoSource(element, savedVideo.value);
+          element.dataset.adminVideoAsset = savedVideo.value;
+          markUploadedVideo(element);
+        }
         delete element.dataset.adminVideoEdited;
       });
       clearSelection();
-      setStatus('Changes saved in this browser. Export a copy to move them to another browser.');
+      setStatus('Changes saved to the shared website.');
     } catch (error) {
-      setStatus(`Could not save changes: ${error.message}. Export or remove some large photos and try again.`, true);
+      setStatus(`Could not save changes: ${error.message}`, true);
     }
   });
 
-  document.getElementById('admin-export').addEventListener('click', async () => {
+  async function exportContentBackup() {
     try {
       const entries = { ...edits };
       for (const [key, edit] of Object.entries(entries)) {
-        if (edit.type !== 'video') continue;
-        const blob = await getVideo(edit.value);
+        if (edit.type !== 'video' || /^https:\/\//i.test(edit.value)) continue;
+        const blob = /^[\w-]{1,80}$/.test(edit.value)
+          ? await getVideo(edit.value)
+          : await fetch(edit.value).then(response => {
+            if (!response.ok) throw new Error(`Could not download saved video (${response.status}).`);
+            return response.blob();
+          });
         if (!blob) throw new Error(`Saved video asset "${edit.value}" is missing.`);
         entries[key] = { type: 'video', value: await blobToDataUrl(blob) };
       }
@@ -607,6 +711,20 @@
     } catch (error) {
       setStatus(`Could not export content: ${error.message}`, true);
     }
+  }
+
+  document.getElementById('admin-export').addEventListener('click', exportContentBackup);
+  document.getElementById('admin-settings-export').addEventListener('click', exportContentBackup);
+  document.getElementById('admin-settings-import').addEventListener('click', () => importPicker.click());
+  settingsOpen.addEventListener('click', () => {
+    controls.hidden = true;
+    settingsPanel.hidden = false;
+    settingsOpen.setAttribute('aria-expanded', 'true');
+  });
+  document.getElementById('admin-settings-close').addEventListener('click', () => {
+    settingsPanel.hidden = true;
+    controls.hidden = false;
+    settingsOpen.setAttribute('aria-expanded', 'false');
   });
 
   document.getElementById('admin-import').addEventListener('click', () => importPicker.click());
@@ -619,29 +737,18 @@
         throw new Error('This is not a supported EVR content export.');
       }
       const entries = { ...imported.entries };
-      const stagedVideos = [];
       for (const [key, entry] of Object.entries(entries)) {
-        if (entry?.type !== 'video' || !/^data:video\//i.test(entry.value)) continue;
-        const blob = await dataUrlToBlob(entry.value);
-        if (blob.size > 250 * 1024 * 1024) throw new Error('An exported video is larger than 250 MB.');
-        await validatePlayableVideo(blob);
-        const id = crypto.randomUUID();
-        stagedVideos.push({ id, blob, key });
-        entries[key] = { type: 'video', value: id };
+        if (entry?.type === 'image' && /^data:image\//i.test(entry.value)) {
+          const blob = await fetch(entry.value).then(response => response.blob());
+          entries[key] = { type: 'image', value: await uploadMedia(blob, blob.type) };
+        } else if (entry?.type === 'video' && /^data:video\//i.test(entry.value)) {
+          throw new Error('Video files are kept in Cloudflare R2, not inside content backups. Upload the video in the editor, then import a backup containing its R2 playback link.');
+        } else if (entry?.type === 'video' && /^[\w-]{1,80}$/.test(entry.value)) {
+          throw new Error(`Legacy browser video "${entry.value}" must be uploaded again with the Cloudflare R2 video uploader before importing.`);
+        }
       }
       const checked = validateEntries(entries);
-      const storedIds = [];
-      try {
-        for (const video of stagedVideos) {
-          await storeVideo(video.id, video.blob);
-          storedIds.push(video.id);
-          checked[video.key] = { type: 'video', value: video.id };
-        }
-        localStorage.setItem(storageKey, JSON.stringify({ version: 1, entries: checked }));
-      } catch (error) {
-        await Promise.allSettled(storedIds.map(deleteVideo));
-        throw error;
-      }
+      await saveSharedContent({ version: 1, entries: checked });
       window.location.reload();
     } catch (error) {
       setStatus(`Could not import this file: ${error.message}`, true);
@@ -650,38 +757,115 @@
     }
   });
 
-  document.getElementById('admin-reset').addEventListener('click', async () => {
-    if (!window.confirm('Reset all saved website edits in this browser? This cannot be undone.')) return;
+  async function resetSavedEdits() {
+    if (!window.confirm('Reset the shared website content to its original version? This cannot be undone.')) return;
     try {
-      localStorage.removeItem(storageKey);
       const urls = Array.from(videoUrls.values());
+      await saveSharedContent({ version: 1, entries: {} });
+      localStorage.removeItem(storageKey);
       await clearVideoAssets();
       urls.forEach(url => URL.revokeObjectURL(url));
       window.location.reload();
     } catch (error) {
       setStatus(`Could not reset saved edits: ${error.message}`, true);
     }
-  });
+  }
 
-  edits = loadEdits();
+  document.getElementById('admin-reset').addEventListener('click', resetSavedEdits);
+  document.getElementById('admin-settings-reload').addEventListener('click', resetSavedEdits);
+
   window.adminPreviewPage = pageSelect.value;
   window.route();
   refreshImageOptions();
   refreshVideoOptions();
   setMode('text');
-  if (loadError) setStatus(`Could not load saved edits: ${loadError}`, true);
-  else if (Object.keys(edits).length) setStatus('Saved edits loaded. Choose a tool to keep editing or reset all content.');
-  if (Object.values(edits).some(edit => edit.type === 'video')) {
-    assetDb.then(async db => {
-      for (const edit of Object.values(edits)) {
-        if (edit.type !== 'video' || videoUrls.has(edit.value)) continue;
-        const blob = await getVideo(edit.value);
-        if (!blob) throw new Error(`Saved video asset "${edit.value}" is missing.`);
-        videoUrls.set(edit.value, URL.createObjectURL(blob));
-      }
+  showEditor(false);
+  loadSharedContent();
+  if (location.hash === '#/admin') checkAuthentication();
+
+  async function loadSharedContent() {
+    try {
+      const saved = await apiRequest('/api/content');
+      edits = validateEntries(saved.entries);
       applyEdits();
-    }).catch(error => setStatus(`Could not load saved videos: ${error.message}`, true));
-  } else {
-    applyEdits();
+      const migrateButton = document.getElementById('admin-migrate-local');
+      migrateButton.hidden = Object.keys(edits).length > 0 || !localStorage.getItem(storageKey);
+      setStatus(Object.keys(edits).length
+        ? 'Shared website content loaded. Choose a tool to edit it.'
+        : 'Shared website content is ready to edit.');
+    } catch (error) {
+      setStatus(`Could not load shared website content: ${error.message}`, true);
+    }
   }
+
+  document.getElementById('admin-migrate-local').addEventListener('click', async () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (!saved || saved.version !== 1 || !saved.entries || typeof saved.entries !== 'object' || Array.isArray(saved.entries)) {
+        throw new Error('No supported browser-saved edits were found.');
+      }
+      const migrated = { ...saved.entries };
+      for (const [key, entry] of Object.entries(migrated)) {
+        if (entry?.type === 'image' && /^data:image\//i.test(entry.value)) {
+          const blob = await fetch(entry.value).then(response => response.blob());
+          migrated[key] = { type: 'image', value: await uploadMedia(blob, blob.type) };
+        } else if (entry?.type === 'video' && !/^https:\/\//i.test(entry.value)) {
+          throw new Error(`Legacy browser video "${entry.value}" must be uploaded again with the Cloudflare R2 video uploader before migration.`);
+        }
+      }
+      const checked = validateEntries(migrated);
+      await saveSharedContent({ version: 1, entries: checked });
+      localStorage.removeItem(storageKey);
+      await clearVideoAssets();
+      window.location.reload();
+    } catch (error) {
+      setStatus(`Could not migrate browser-saved edits: ${error.message}`, true);
+    }
+  });
+
+  async function checkAuthentication() {
+    showEditor(false);
+    try {
+      const result = await apiRequest('/api/auth');
+      if (!result.configured) {
+        setLoginStatus(result.error || 'Server-side admin access is not configured.', true);
+        return;
+      }
+      if (result.authenticated) {
+        showEditor(true);
+      } else {
+        setLoginStatus('Enter your admin password to continue.');
+      }
+    } catch (error) {
+      setLoginStatus(`Could not connect to the server: ${error.message}`, true);
+    }
+  }
+
+  loginPanel.addEventListener('submit', async event => {
+    event.preventDefault();
+    setLoginStatus('Signing in…');
+    try {
+      await apiRequest('/api/auth', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'login', password: passwordInput.value })
+      });
+      passwordInput.value = '';
+      showEditor(true);
+      await loadSharedContent();
+    } catch (error) {
+      setLoginStatus(error.message, true);
+    }
+  });
+
+  document.getElementById('admin-logout').addEventListener('click', async () => {
+    try {
+      await apiRequest('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) });
+      showEditor(false);
+      setLoginStatus('You have signed out.');
+      settingsPanel.hidden = true;
+    } catch (error) {
+      setStatus(`Could not sign out: ${error.message}`, true);
+    }
+  });
+
 })();

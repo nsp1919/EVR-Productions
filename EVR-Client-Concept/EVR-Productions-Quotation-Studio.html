@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172622">
+  <title>EVR Productions | Quotation Studio</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1d2b28;
+      --muted: #64716d;
+      --paper: #fffefa;
+      --canvas: #f0f2ed;
+      --line: #dce2dc;
+      --accent: #286254;
+      --accent-dark: #183e35;
+      --gold: #c69b58;
+      --danger: #a33b2c;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); }
+    button, input, select, textarea { font: inherit; }
+    button, summary { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
+      outline: 3px solid #c69b5880;
+      outline-offset: 2px;
+    }
+    .masthead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px clamp(18px, 5vw, 72px);
+      color: #fffefa;
+      background: var(--ink);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--gold);
+      border-radius: 50%;
+      color: var(--gold);
+      font: 20px Georgia, serif;
+    }
+    .brand-name { font: 700 17px Georgia, serif; letter-spacing: .12em; }
+    .brand-name span {
+      display: block;
+      margin-top: 4px;
+      font: 700 9px Arial, sans-serif;
+      letter-spacing: .3em;
+    }
+    .masthead-note { color: #d7dfd9; font-size: 12px; }
+    main { width: min(1320px, 100%); padding: 34px clamp(16px, 4vw, 54px) 72px; margin: auto; }
+    .intro { max-width: 760px; margin-bottom: 26px; }
+    .eyebrow { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .17em; }
+    h1 { margin: 9px 0; font: 400 clamp(34px, 5vw, 56px)/1.08 Georgia, serif; }
+    h1 em { color: var(--accent); font-weight: 400; }
+    .intro p:last-child { color: var(--muted); line-height: 1.65; }
+    .privacy-note {
+      padding: 12px 15px;
+      margin: 16px 0 22px;
+      color: #48534e;
+      background: #e4e9e3;
+      border-left: 3px solid var(--gold);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+    .left-column { min-width: 0; }
+    .card, .summary { padding: clamp(17px, 2.5vw, 26px); margin-bottom: 18px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; }
+    .card-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 18px; }
+    .card-number {
+      display: grid;
+      place-items: center;
+      flex: 0 0 31px;
+      height: 31px;
+      border-radius: 50%;
+      color: var(--accent-dark);
+      background: #e3ebe5;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    h2 { margin: 0; font: 400 21px Georgia, serif; }
+    h3 { margin: 0 0 12px; font: 600 16px Georgia, serif; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    label { display: grid; gap: 6px; color: #45524d; font-size: 12px; font-weight: 650; }
+    input, select, textarea {
+      width: 100%;
+      min-width: 0;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid #cbd4ce;
+      border-radius: 7px;
+      color: var(--ink);
+      background: #fff;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    .choice-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .choice {
+      display: flex;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid #cbd4ce;
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .choice:has(input:checked) { color: var(--accent-dark); border-color: var(--accent); background: #edf4ef; }
+    .choice input, .check-row input { width: 17px; min-height: 17px; height: 17px; margin: 0; accent-color: var(--accent); }
+    .event-panel { padding: 16px; margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; }
+    .event-panel legend { padding: 0 6px; font: 600 16px Georgia, serif; }
+    .event-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .crew-heading { margin: 17px 0 9px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .item-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .quantity-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 76px;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 11px;
+      border-radius: 8px;
+      background: #f0f3ef;
+      color: #33423c;
+      font-size: 12px;
+    }
+    .quantity-row input { min-height: 37px; padding: 6px 8px; text-align: right; }
+    .helper { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .custom-list { display: grid; gap: 10px; }
+    .custom-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 130px 70px; gap: 8px; align-items: end; }
+    .custom-row button { min-height: 42px; }
+    .button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px 15px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 750;
+      text-decoration: none;
+    }
+    .button.primary { color: #fff; background: var(--accent); }
+    .button.primary:hover { background: var(--accent-dark); }
+    .button.ghost { color: var(--ink); background: #fff; border-color: #cbd4ce; }
+    .button.danger { color: var(--danger); background: #fff; border-color: #e2c7c1; }
+    .button:disabled { opacity: .48; cursor: not-allowed; }
+    .summary { position: sticky; top: 16px; border-top: 4px solid var(--accent); }
+    .summary-title { margin-bottom: 8px; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+    .summary h2 { margin-bottom: 16px; }
+    .summary-lines { display: grid; gap: 0; max-height: 340px; overflow: auto; }
+    .summary-line { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #e6e9e5; font-size: 11px; }
+    .summary-line span { overflow-wrap: anywhere; }
+    .summary-line strong { flex: 0 0 auto; }
+    .adjustments { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .totals { margin: 15px 0; }
+    .totals div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; color: #52605a; font-size: 12px; }
+    .totals dd { margin: 0; color: var(--ink); text-align: right; }
+    .totals .grand { padding-top: 12px; margin-top: 6px; border-top: 1px solid var(--ink); color: var(--ink); font-size: 17px; font-weight: 800; }
+    .totals .grand dd { font-weight: 800; }
+    .summary-actions { display: grid; gap: 8px; }
+    .status { min-height: 34px; margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .status[data-error="true"] { color: var(--danger); }
+    details.settings { padding-top: 15px; margin-top: 17px; border-top: 1px solid var(--line); }
+    details.settings summary { font-size: 13px; font-weight: 750; }
+    .settings-intro { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .rate-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; }
+    .rate-group legend { padding: 0 5px; font-size: 12px; font-weight: 750; }
+    .rate-group label { font-size: 10px; }
+    .check-row { display: flex; grid-template-columns: auto 1fr; align-items: start; gap: 9px; margin: 12px 0; line-height: 1.5; }
+    .print-dialog {
+      width: min(920px, calc(100vw - 24px));
+      max-width: none;
+      max-height: calc(100vh - 24px);
+      padding: 16px;
+      border: 0;
+      background: #edf0ec;
+    }
+    .print-dialog::backdrop { background: #17231fcc; }
+    .print-actions { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; gap: 8px; padding-bottom: 12px; background: #edf0ec; }
+    .quotation {
+      width: min(794px, 100%);
+      min-height: 1050px;
+      padding: 48px;
+      margin: auto;
+      color: #1d2b28;
+      background: #fff;
+      box-shadow: 0 6px 28px #17231f24;
+      font-family: Arial, sans-serif;
+    }
+    .quotation-head { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 2px solid var(--accent); }
+    .quotation-brand { font: 700 24px Georgia, serif; letter-spacing: .12em; }
+    .quotation-brand span { display: block; margin-top: 5px; font: 700 9px Arial, sans-serif; letter-spacing: .32em; }
+    .quotation-ref { display: grid; gap: 4px; text-align: right; font-size: 10px; }
+    .quotation-kicker { margin: 27px 0 7px; color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .15em; }
+    .quotation h2 { margin: 0 0 20px; font: 400 38px/1.1 Georgia, serif; }
+    .quotation h2 em { color: var(--accent); }
+    .client-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 15px; background: #f0f3ef; }
+    .client-grid div { display: grid; gap: 5px; font-size: 9px; letter-spacing: .08em; }
+    .client-grid strong { font-size: 12px; letter-spacing: 0; overflow-wrap: anywhere; }
+    .quotation h3 { margin: 23px 0 9px; font-size: 14px; }
+    .scope-text { font-size: 10px; line-height: 1.6; }
+    .proposal-table { width: 100%; margin-top: 16px; border-collapse: collapse; font-size: 10px; }
+    .proposal-table th, .proposal-table td { padding: 8px 6px; border-bottom: 1px solid #dfe4df; text-align: left; overflow-wrap: anywhere; }
+    .proposal-table th:not(:first-child), .proposal-table td:not(:first-child) { text-align: right; }
+    .proposal-totals { width: min(310px, 100%); margin: 17px 0 0 auto; font-size: 10px; }
+    .proposal-totals div { display: flex; justify-content: space-between; gap: 15px; padding: 6px 0; }
+    .proposal-totals .proposal-grand { margin-top: 4px; padding-top: 9px; border-top: 2px solid var(--ink); font-size: 14px; }
+    .proposal-notes { margin-top: 19px; padding: 12px; background: #f0f3ef; font-size: 10px; line-height: 1.6; white-space: pre-line; }
+    .proposal-terms { padding-top: 5px; margin-top: 22px; border-top: 1px solid #dfe4df; font-size: 9px; line-height: 1.6; white-space: pre-line; }
+    .proposal-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; margin-top: 24px; border-top: 2px solid var(--accent); font-size: 9px; }
+    .proposal-footer span { text-align: right; }
+    .bottom-note { padding-top: 20px; color: var(--muted); text-align: center; font-size: 10px; }
+    @media (max-width: 960px) { .layout { grid-template-columns: minmax(0, 1fr); } .summary { position: static; } }
+    @media (max-width: 640px) {
+      .masthead { align-items: flex-start; }
+      .masthead-note { max-width: 125px; text-align: right; }
+      .field-grid, .field-grid.three, .event-grid, .item-list, .rate-group, .client-grid { grid-template-columns: minmax(0, 1fr); }
+      .custom-row { grid-template-columns: minmax(0, 1fr) 70px 100px; }
+      .custom-row button { grid-column: 1 / -1; }
+      .quotation { min-height: 0; padding: 24px; }
+      .quotation h2 { font-size: 30px; }
+    }
+    @media print {
+      body:has(.print-dialog[open]) > * { visibility: hidden !important; }
+      .print-dialog[open], .print-dialog[open] * { visibility: visible !important; }
+      .print-dialog[open] { position: absolute !important; inset: 0 !important; display: block !important; width: 100% !important; max-height: none !important; padding: 0 !important; overflow: visible !important; background: #fff !important; }
+      .print-actions { display: none !important; }
+      .quotation { width: 100%; min-height: 0; padding: 8mm; box-shadow: none; }
+      .proposal-table tr, .proposal-totals div, .client-grid { break-inside: avoid; }
+      @page { size: A4; margin: 9mm; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">E</div><div class="brand-name">EVR<span>PRODUCTIONS</span></div></div>
+    <div class="masthead-note">Quotation Studio · Hyderabad, India</div>
+  </header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">PRIVATE WORKSPACE / EVR PRODUCTIONS</p>
+      <h1>Build a thoughtful<br><em>project proposal.</em></h1>
+      <p>Prepare wedding, celebration, or brand-production quotations with a clear scope, reviewed pricing, and terms. Preview the document, then print or save it as a PDF.</p>
+    </section>
+    <p class="privacy-note"><strong>Local-only tool:</strong> quotations, rates, terms, and drafts are stored in this browser. Nothing is sent to EVR or a client. Do not publish this standalone file or use it on a shared device without protecting access.</p>
+    <form id="quote-form" class="layout">
+      <div class="left-column">
+        <section class="card">
+          <div class="card-heading"><span class="card-number">01</span><h2>Client &amp; project</h2></div>
+          <div class="field-grid">
+            <label>Quotation type<select id="quote-type"><option value="wedding">Wedding &amp; celebration</option><option value="corporate">NBrands / corporate production</option></select></label>
+            <label>Client name<input id="client" maxlength="100" autocomplete="name" required></label>
+            <label>Couple / brand / project<input id="project" maxlength="160" required></label>
+            <label>Quotation reference<input id="reference" maxlength="60" required></label>
+            <label>Quotation date<input id="date" type="date" required></label>
+            <label>City / venue<input id="location" maxlength="160"></label>
+            <label>Email (optional)<input id="email" type="email" maxlength="160" autocomplete="email"></label>
+            <label>Phone (optional)<input id="phone" type="tel" maxlength="30" autocomplete="tel"></label>
+            <label id="partner-one-label">Partner one's name<input id="partner-one" maxlength="100"></label>
+            <label id="partner-two-label">Partner two's name<input id="partner-two" maxlength="100"></label>
+          </form>
+        </section>
+        <section class="card">
+          <div class="card-heading"><span class="card-number">02</span><h2>Events &amp; production days</h2></div>
+          <p class="helper">Select the events or shoot types you want to include, then set the schedule and crew. You can add custom line items below.</p>
+          <div id="event-choices" class="choice-grid"></div>
+          <div id="event-panels"></div>
+        </section>
+        <section class="card">
+          <div class="card-heading"><span class="card-number">03</span><h2>Deliverables &amp; notes</h2></div>
+          <div id="deliverables" class="item-list"></div>
+          <div style="padding-top:18px;margin-top:18px;border-top:1px solid var(--line)">
+            <h3>Additional items</h3>
+            <div id="custom-items" class="custom-list"></div>
+            <button type="button" class="button ghost" id="add-item">Add a custom item</button>
+          </div>
+          <label style="margin-top:18px">Scope notes, inclusions, and exclusions<textarea id="notes" maxlength="1400" placeholder="Add agreed coverage details, deliverables, travel, permissions, usage, or other notes"></textarea></label>
+        </section>
+      </div>
+      <aside class="summary" aria-label="Quotation summary">
+        <p class="summary-title">EVR / QUOTATION</p>
+        <h2>Scope &amp; pricing</h2>
+        <div id="summary-lines" class="summary-lines"><p class="helper">Choose a crew member or deliverable to begin.</p></div>
+        <div class="adjustments"><label>Discount (INR)<input id="discount" type="number" min="0" max="100000000" step="1" value="0"></label><label>Tax (%)<input id="tax" type="number" min="0" max="100" step="0.01" value="0"></label></div>
+        <dl class="totals">
+          <div><dt>Subtotal</dt><dd id="subtotal">INR 0.00</dd></div>
+          <div><dt>Discount</dt><dd id="discount-total">INR 0.00</dd></div>
+          <div><dt>Tax</dt><dd id="tax-total">INR 0.00</dd></div>
+          <div class="grand"><dt>Total</dt><dd id="total">INR 0.00</dd></div>
+        </dl>
+        <div class="summary-actions">
+          <button type="button" class="button primary" id="preview" disabled>Preview &amp; print</button>
+          <button type="button" class="button ghost" id="save-draft">Save draft on this device</button>
+          <button type="button" class="button ghost" id="load-draft">Load saved draft</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite">Set and review rates before preparing a quotation.</p>
+        <details class="settings">
+          <summary>Rates &amp; quotation terms</summary>
+          <p class="settings-intro">EVR's current approved rates are not prefilled. Configure them below; entries remain only in this browser. A quote cannot be previewed until rates and terms are saved and reviewed.</p>
+          <div id="rate-settings"></div>
+          <label>Quotation terms<textarea id="terms" maxlength="4000" rows="6"></textarea></label>
+          <label class="check-row"><input id="reviewed" type="checkbox"> I checked these rates and terms for this quotation.</label>
+          <button type="button" class="button ghost" id="save-settings">Save rates &amp; terms</button>
+        </details>
+      </aside>
+    </div>
+    <p class="bottom-note">EVR Productions · Hyderabad, Telangana · Available across India</p>
+  </main>
+  <dialog id="print-dialog" class="print-dialog" aria-labelledby="print-title">
+    <div class="print-actions"><button type="button" class="button primary" id="print-button">Print / Save as PDF</button><button type="button" class="button ghost" id="close-preview">Close preview</button></div>
+    <article class="quotation">
+      <header class="quotation-head"><div class="quotation-brand">EVR<span>PRODUCTIONS</span></div><div class="quotation-ref"><strong>QUOTATION</strong><span id="print-reference"></span><span id="print-date"></span></div></header>
+      <p class="quotation-kicker">A PROPOSAL PREPARED FOR YOU</p>
+      <h2 id="print-title">A clear plan.<br><em>A memorable result.</em></h2>
+      <div class="client-grid"><div>PREPARED FOR<strong id="print-client"></strong></div><div>PROJECT<strong id="print-project"></strong></div><div>LOCATION<strong id="print-location"></strong></div></div>
+      <p id="print-contact" class="scope-text"></p>
+      <h3>Schedule &amp; coverage</h3><div id="print-scope" class="scope-text"></div>
+      <h3>Services &amp; deliverables</h3>
+      <table class="proposal-table"><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody id="print-rows"></tbody></table>
+      <div id="print-totals" class="proposal-totals"></div>
+      <div id="print-notes" class="proposal-notes" hidden></div>
+      <section class="proposal-terms"><h3>Terms &amp; next steps</h3><p id="print-terms"></p></section>
+      <footer class="proposal-footer"><strong>EVR PRODUCTIONS</strong><span>Hyderabad, Telangana · evrproductionss@gmail.com · +91 99517 18375</span></footer>
+    </article>
+  </dialog>
+  <script>
+    'use strict';
+    (() => {
+      const catalogues = {
+        wedding: {
+          events: ['Engagement', 'Groom haldi', 'Bride haldi', 'Groom rituals', 'Bride rituals', 'Sangeet', 'Wedding', 'Reception', 'Pre-wedding shoot', 'Custom celebration'],
+          crew: [
+            ['traditional-photo', 'Traditional photographer / day'],
+            ['traditional-video', 'Traditional videographer / day'],
+            ['candid-photo', 'Candid photographer / day'],
+            ['cinematographer', 'Cinematographer / day'],
+            ['drone', 'Drone unit / day'],
+            ['led-wall', 'LED wall / day'],
+            ['live-stream', 'Live-stream setup / day']
+          ],
+          outputs: [
+            ['invitation', 'Digital invitation'], ['teaser', 'Teaser edit'],
+            ['wedding-film', 'Wedding film edit'], ['traditional-film', 'Full traditional video edit'],
+            ['album-25', 'Album 25'], ['album-30', 'Album 30'], ['storage-drive', '1 TB storage drive']
+          ]
+        },
+        corporate: {
+          events: ['Brand / corporate film', 'Product / marketing reels', 'YouTube production', 'Podcast recording', 'Corporate event', 'Custom production'],
+          crew: [
+            ['producer', 'Producer / director / day'], ['camera', 'Camera operator / day'],
+            ['camera-kit', 'Camera & lighting kit / day'], ['sound', 'Sound recordist & kit / day'],
+            ['assistant', 'Production assistant / day'], ['teleprompter', 'Teleprompter / day']
+          ],
+          outputs: [
+            ['brand-film', 'Brand film edit'], ['reel', 'Vertical reel / cutdown'],
+            ['youtube-episode', 'YouTube episode edit'], ['podcast-episode', 'Podcast episode edit'],
+            ['captioned-version', 'Captioned language version'], ['thumbnail', 'Thumbnail design']
+          ]
+        }
+      };
+      const settingsKey = 'evr-standalone-quotes.settings.v1';
+      const draftKey = 'evr-standalone-quotes.draft.v1';
+      const id = name => document.getElementById(name);
+      const settings = {
+        rates: {},
+        reviewed: false,
+        terms: 'This quotation is subject to date availability and written confirmation by EVR Productions.\nFinal coverage hours, locations, deliverables, and payment milestones must be agreed in writing before booking.\nTravel, accommodation, permissions, taxes, and additional services are included only when listed in this quotation.\nThis quotation is valid for 15 days from its issue date unless EVR confirms otherwise in writing.'
+      };
+      let rateInputs = new Map();
+      let settingsSaved = false;
+      const today = new Date();
+      const dateText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      id('date').value = dateText;
+      id('reference').value = `EVR-${dateText.replaceAll('-', '')}-${String(Date.now()).slice(-5)}`;
+      const money = value => `INR ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const round = value => Math.round((value + Number.EPSILON) * 100) / 100;
+      const keyFor = (type, group, item) => `${type}:${group}:${item}`;
+
+      function setStatus(message, error = false) {
+        id('status').textContent = message;
+        id('status').dataset.error = String(error);
+      }
+
+      function definitions() {
+        return Object.entries(catalogues).flatMap(([type, catalogue]) => [
+          ...catalogue.crew.map(([key, label]) => ({ type, group: 'crew', key, label })),
+          ...catalogue.outputs.map(([key, label]) => ({ type, group: 'output', key, label }))
+        ]);
+      }
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem(settingsKey);
+          if (!raw) return;
+          const saved = JSON.parse(raw);
+          const validKeys = new Set(definitions().map(item => keyFor(item.type, item.group, item.key)));
+          if (!saved || saved.version !== 1 || !saved.rates || typeof saved.rates !== 'object' ||
+              Array.isArray(saved.rates) || typeof saved.terms !== 'string' || !saved.terms.trim() ||
+              saved.terms.length > 4000 || typeof saved.reviewed !== 'boolean' ||
+              Object.entries(saved.rates).some(([key, value]) => !validKeys.has(key) ||
+                !(value === '' || (Number.isFinite(value) && value >= 0 && value <= 100000000)))) {
+            throw new Error('Stored quotation settings have an unsupported format.');
+          }
+          settings.rates = saved.rates;
+          settings.terms = saved.terms;
+          settings.reviewed = saved.reviewed;
+          settingsSaved = true;
+        } catch (error) {
+          console.error('Could not load quotation settings:', error);
+          setStatus('Saved rates or terms could not be loaded. Review and save your settings again.', true);
+        }
+      }
+
+      function renderSettings() {
+        const mount = id('rate-settings');
+        mount.replaceChildren();
+        rateInputs = new Map();
+        for (const type of Object.keys(catalogues)) {
+          const group = document.createElement('fieldset');
+          group.className = 'rate-group';
+          const legend = document.createElement('legend');
+          legend.textContent = type === 'wedding' ? 'Weddings & celebrations' : 'NBrands / corporate';
+          group.append(legend);
+          for (const item of definitions().filter(entry => entry.type === type)) {
+            const key = keyFor(type, item.group, item.key);
+            const label = document.createElement('label');
+            label.textContent = `${item.label} · INR`;
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.max = '100000000';
+            input.step = '0.01';
+            input.value = settings.rates[key] ?? '';
+            input.dataset.rateKey = key;
+            input.addEventListener('input', () => {
+              id('reviewed').checked = false;
+              settings.reviewed = false;
+              settingsSaved = false;
+              update();
+            });
+            label.append(input);
+            group.append(label);
+            rateInputs.set(key, input);
+          }
+          mount.append(group);
+        }
+        id('terms').value = settings.terms;
+        id('reviewed').checked = settings.reviewed;
+      }
+
+      function renderEvents() {
+        const type = id('quote-type').value;
+        const catalogue = catalogues[type];
+        const choices = id('event-choices');
+        choices.replaceChildren();
+        id('event-panels').replaceChildren();
+        id('deliverables').replaceChildren();
+        id('custom-items').replaceChildren();
+        catalogue.events.forEach((name, index) => {
+          const panelId = `${type}-event-${index}`;
+          const label = document.createElement('label');
+          label.className = 'choice';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.dataset.eventName = name;
+          checkbox.dataset.panelId = panelId;
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) createEventPanel(name, panelId, catalogue);
+            else id(`${panelId}-panel`)?.remove();
+            update();
+          });
+          label.append(checkbox, document.createTextNode(name));
+          choices.append(label);
+        });
+        for (const [itemKey, labelText] of catalogue.outputs) {
+          const row = document.createElement('label');
+          row.className = 'quantity-row';
+          row.append(document.createTextNode(labelText));
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.min = '0';
+          input.max = '20';
+          input.step = '1';
+          input.value = '0';
+          input.dataset.outputKey = keyFor(type, 'output', itemKey);
+          input.setAttribute('aria-label', `${labelText} quantity`);
+          input.addEventListener('input', update);
+          row.append(input);
+          id('deliverables').append(row);
+        }
+        id('partner-one-label').hidden = type !== 'wedding';
+        id('partner-two-label').hidden = type !== 'wedding';
+        id('project').value = type === 'wedding' ? 'Wedding coverage' : 'Brand content production';
+        update();
+      }
+
+      function createEventPanel(name, panelId, catalogue) {
+        const panel = document.createElement('fieldset');
+        panel.className = 'event-panel';
+        panel.id = `${panelId}-panel`;
+        const legend = document.createElement('legend');
+        legend.textContent = name;
+        panel.append(legend);
+        const grid = document.createElement('div');
+        grid.className = 'event-grid';
+        const daysLabel = document.createElement('label');
+        daysLabel.textContent = name === 'Pre-wedding shoot' ? 'Requested duration' : 'Shoot days';
+        const days = document.createElement('select');
+        days.dataset.eventDays = '';
+        const maxDays = name === 'Pre-wedding shoot' ? 3 : 5;
+        for (let count = 1; count <= maxDays; count++) {
+          const option = document.createElement('option');
+          option.value = String(count);
+          option.textContent = `${count} day${count === 1 ? '' : 's'}`;
+          days.append(option);
+        }
+        days.addEventListener('change', () => renderCrew(panel, catalogue, Number(days.value)));
+        daysLabel.append(days);
+        grid.append(daysLabel);
+        const dateLabel = document.createElement('label');
+        dateLabel.textContent = 'Date (optional)';
+        const date = document.createElement('input');
+        date.type = 'date';
+        date.dataset.eventDate = '';
+        dateLabel.append(date);
+        grid.append(dateLabel);
+        const sessionLabel = document.createElement('label');
+        sessionLabel.textContent = 'Session';
+        const session = document.createElement('select');
+        session.dataset.eventSession = '';
+        for (const value of ['To be confirmed', 'Morning', 'Evening', 'Morning & evening', 'Full day']) {
+          const option = document.createElement('option');
+          option.textContent = value;
+          session.append(option);
+        }
+        sessionLabel.append(session);
+        grid.append(sessionLabel);
+        panel.append(grid);
+        const crew = document.createElement('div');
+        crew.dataset.crewMount = '';
+        panel.append(crew);
+        renderCrew(panel, catalogue, Number(days.value));
+        id('event-panels').append(panel);
+      }
+
+      function renderCrew(panel, catalogue, dayCount) {
+        const mount = panel.querySelector('[data-crew-mount]');
+        mount.replaceChildren();
+        for (let day = 1; day <= dayCount; day++) {
+          const heading = document.createElement('p');
+          heading.className = 'crew-heading';
+          heading.textContent = `Day ${day} / Crew & equipment`;
+          mount.append(heading);
+          const grid = document.createElement('div');
+          grid.className = 'item-list';
+          for (const [key, label] of catalogue.crew) {
+            const row = document.createElement('label');
+            row.className = 'quantity-row';
+            row.append(document.createTextNode(label));
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.max = '20';
+            input.step = '1';
+            input.value = '0';
+            input.dataset.crewKey = key;
+            input.dataset.day = String(day);
+            input.setAttribute('aria-label', `${label}, day ${day}, quantity`);
+            input.addEventListener('input', update);
+            row.append(input);
+            grid.append(row);
+          }
+          mount.append(grid);
+        }
+      }
+
+      function addCustomItem(value = {}) {
+        const row = document.createElement('div');
+        row.className = 'custom-row';
+        const label = document.createElement('label');
+        label.textContent = 'Description';
+        const name = document.createElement('input');
+        name.maxLength = 120;
+        name.value = value.name || '';
+        name.dataset.customName = '';
+        label.append(name);
+        row.append(label);
+        for (const [title, key, initial, max, step] of [
+          ['Qty', 'customQty', value.qty ?? '0', '20', '1'],
+          ['Rate · INR', 'customRate', value.rate ?? '', '100000000', '0.01']
+        ]) {
+          const field = document.createElement('label');
+          field.textContent = title;
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.min = '0';
+          input.max = max;
+          input.step = step;
+          input.value = initial;
+          input.dataset[key] = '';
+          field.append(input);
+          row.append(field);
+        }
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'button danger';
+        remove.textContent = 'Remove';
+        remove.addEventListener('click', () => { row.remove(); update(); });
+        row.append(remove);
+        row.querySelectorAll('input').forEach(input => input.addEventListener('input', update));
+        id('custom-items').append(row);
+      }
+
+      function validNumber(input, minimum, maximum, integer = false) {
+        const value = input.valueAsNumber;
+        return Number.isFinite(value) && value >= minimum && value <= maximum && (!integer || Number.isInteger(value));
+      }
+
+      function collectLines() {
+        const type = id('quote-type').value;
+        const lines = [];
+        const missing = [];
+        let invalid = false;
+        const add = (label, rateKey, quantity) => {
+          if (!Number.isInteger(quantity) || quantity < 0 || quantity > 20) { invalid = true; return; }
+          if (!quantity) return;
+          const input = rateInputs.get(rateKey);
+          const value = input?.value.trim();
+          const rate = Number(value);
+          if (!value || !Number.isFinite(rate) || rate < 0 || rate > 100000000) { missing.push(label); return; }
+          lines.push({ label, quantity, rate: round(rate), amount: round(quantity * rate) });
+        };
+        for (const panel of id('event-panels').querySelectorAll('.event-panel')) {
+          const eventName = panel.querySelector('legend').textContent;
+          const days = Number(panel.querySelector('[data-event-days]').value);
+          const date = panel.querySelector('[data-event-date]').value || 'Date to be confirmed';
+          const session = panel.querySelector('[data-event-session]').selectedOptions[0].textContent;
+          panel.dataset.scope = `${eventName}: ${days} day${days === 1 ? '' : 's'}, ${date}, ${session}.`;
+          for (const input of panel.querySelectorAll('[data-crew-key]')) {
+            if (!validNumber(input, 0, 20, true)) { invalid = true; continue; }
+            const crew = catalogues[type].crew.find(([key]) => key === input.dataset.crewKey);
+            add(`${eventName} / Day ${input.dataset.day} / ${crew[1]}`, keyFor(type, 'crew', input.dataset.crewKey), input.valueAsNumber);
+          }
+        }
+        for (const input of id('deliverables').querySelectorAll('[data-output-key]')) {
+          if (!validNumber(input, 0, 20, true)) { invalid = true; continue; }
+          const item = catalogues[type].outputs.find(([key]) => keyFor(type, 'output', key) === input.dataset.outputKey);
+          add(item[1], input.dataset.outputKey, input.valueAsNumber);
+        }
+        for (const row of id('custom-items').querySelectorAll('.custom-row')) {
+          const name = row.querySelector('[data-custom-name]').value.trim();
+          const quantity = row.querySelector('[data-customQty]');
+          const rate = row.querySelector('[data-customRate]');
+          if (!validNumber(quantity, 0, 20, true) ||
+              (quantity.valueAsNumber > 0 && (!name || !validNumber(rate, 0, 100000000)))) {
+            invalid = true;
+            continue;
+          }
+          if (quantity.valueAsNumber > 0) lines.push({
+            label: name,
+            quantity: quantity.valueAsNumber,
+            rate: round(rate.valueAsNumber),
+            amount: round(quantity.valueAsNumber * rate.valueAsNumber)
+          });
+        }
+        return { lines, missing, invalid };
+      }
+
+      function update() {
+        const result = collectLines();
+        const list = id('summary-lines');
+        list.replaceChildren();
+        let subtotal = 0;
+        for (const item of result.lines) {
+          subtotal = round(subtotal + item.amount);
+          const row = document.createElement('div');
+          row.className = 'summary-line';
+          const description = document.createElement('span');
+          description.textContent = `${item.label} × ${item.quantity}`;
+          const amount = document.createElement('strong');
+          amount.textContent = money(item.amount);
+          row.append(description, amount);
+          list.append(row);
+        }
+        if (!result.lines.length) {
+          const empty = document.createElement('p');
+          empty.className = 'helper';
+          empty.textContent = 'Choose a crew member or deliverable to begin.';
+          list.append(empty);
+        }
+        const discountInput = id('discount');
+        const taxInput = id('tax');
+        const discountValid = validNumber(discountInput, 0, Math.min(100000000, subtotal));
+        const taxValid = validNumber(taxInput, 0, 100);
+        const discount = discountValid ? round(discountInput.valueAsNumber) : 0;
+        const taxRate = taxValid ? taxInput.valueAsNumber : 0;
+        const tax = round((subtotal - discount) * taxRate / 100);
+        id('subtotal').textContent = money(subtotal);
+        id('discount-total').textContent = money(discount);
+        id('tax-total').textContent = money(tax);
+        id('total').textContent = money(round(subtotal - discount + tax));
+        const ready = settingsSaved && settings.reviewed && id('reviewed').checked && result.lines.length > 0 &&
+          !result.invalid && !result.missing.length && discountValid && taxValid;
+        id('preview').disabled = !ready;
+        if (result.invalid || !discountValid || !taxValid) setStatus('Check quantities, rates, discount, and tax. Quantities must be whole numbers and discount cannot exceed the subtotal.', true);
+        else if (result.missing.length) setStatus(`Add approved rates for: ${result.missing.join(', ')}.`);
+        else if (!result.lines.length) setStatus('Select event crew or a deliverable to begin.');
+        else if (!settingsSaved || !settings.reviewed || !id('reviewed').checked) setStatus('Review and save the approved rates and terms before previewing.');
+        else setStatus('Rates and terms are saved and reviewed. Preview the quotation when ready.');
+      }
+
+      function saveSettings() {
+        const rates = {};
+        for (const [key, input] of rateInputs) {
+          if (!input.value.trim()) { rates[key] = ''; continue; }
+          if (!validNumber(input, 0, 100000000)) {
+            setStatus('Enter valid rates between INR 0 and INR 100,000,000.', true);
+            input.focus();
+            return;
+          }
+          rates[key] = round(input.valueAsNumber);
+        }
+        const terms = id('terms').value.trim();
+        if (!terms || terms.length > 4000) {
+          setStatus('Add quotation terms (up to 4,000 characters) before saving.', true);
+          id('terms').focus();
+          return;
+        }
+        settings.rates = rates;
+        settings.terms = terms;
+        settings.reviewed = id('reviewed').checked;
+        try {
+          localStorage.setItem(settingsKey, JSON.stringify({ version: 1, rates, terms, reviewed: settings.reviewed }));
+          settingsSaved = true;
+          setStatus(settings.reviewed ? 'Reviewed rates and terms saved on this device.' : 'Settings saved. Check the review box after verifying these details.');
+          update();
+        } catch (error) {
+          console.error('Could not save quotation settings:', error);
+          settingsSaved = false;
+          setStatus('Settings could not be saved in browser storage.', true);
+          update();
+        }
+      }
+
+      function saveDraft() {
+        const draft = {
+          version: 1,
+          type: id('quote-type').value,
+          fields: Object.fromEntries(['client', 'project', 'reference', 'date', 'location', 'email', 'phone', 'partner-one', 'partner-two', 'notes', 'discount', 'tax'].map(name => [name, id(name).value])),
+          events: Array.from(id('event-panels').querySelectorAll('.event-panel')).map(panel => ({
+            name: panel.querySelector('legend').textContent,
+            days: panel.querySelector('[data-event-days]').value,
+            date: panel.querySelector('[data-event-date]').value,
+            session: panel.querySelector('[data-event-session]').selectedIndex,
+            crew: Array.from(panel.querySelectorAll('[data-crew-key]')).map(input => ({ key: input.dataset.crewKey, day: input.dataset.day, quantity: input.value }))
+          })),
+          outputs: Array.from(id('deliverables').querySelectorAll('[data-output-key]')).map(input => ({ key: input.dataset.outputKey, quantity: input.value })),
+          custom: Array.from(id('custom-items').querySelectorAll('.custom-row')).map(row => ({
+            name: row.querySelector('[data-custom-name]').value,
+            quantity: row.querySelector('[data-customQty]').value,
+            rate: row.querySelector('[data-customRate]').value
+          }))
+        };
+        try {
+          localStorage.setItem(draftKey, JSON.stringify(draft));
+          setStatus('Draft saved on this device. It was not sent or shared.');
+        } catch (error) {
+          console.error('Could not save quotation draft:', error);
+          setStatus('Could not save the draft in browser storage.', true);
+        }
+      }
+
+      function loadDraft() {
+        try {
+          const raw = localStorage.getItem(draftKey);
+          if (!raw) { setStatus('No saved draft was found on this device.'); return; }
+          const draft = JSON.parse(raw);
+          if (!draft || draft.version !== 1 || !Object.hasOwn(catalogues, draft.type) || !draft.fields ||
+              !['client', 'project', 'reference', 'date', 'location', 'email', 'phone', 'partner-one', 'partner-two', 'notes', 'discount', 'tax'].every(key => typeof draft.fields[key] === 'string') ||
+              !Array.isArray(draft.events) || !Array.isArray(draft.outputs) || !Array.isArray(draft.custom) ||
+              draft.events.length > catalogues[draft.type].events.length || draft.outputs.length !== catalogues[draft.type].outputs.length || draft.custom.length > 20) {
+            throw new Error('Saved quotation draft is invalid.');
+          }
+          id('quote-type').value = draft.type;
+          renderEvents();
+          for (const [name, value] of Object.entries(draft.fields)) id(name).value = value;
+          for (const saved of draft.events) {
+            if (!catalogues[draft.type].events.includes(saved.name) || !/^[1-5]$/.test(saved.days)) throw new Error('Saved event data is invalid.');
+            const choice = Array.from(id('event-choices').querySelectorAll('[data-event-name]')).find(input => input.dataset.eventName === saved.name);
+            if (!choice) throw new Error('Saved event was not recognized.');
+            choice.checked = true;
+            choice.dispatchEvent(new Event('change'));
+            const panel = id(`${choice.dataset.panelId}-panel`);
+            const days = panel.querySelector('[data-event-days]');
+            days.value = saved.days;
+            days.dispatchEvent(new Event('change'));
+            panel.querySelector('[data-event-date]').value = saved.date;
+            panel.querySelector('[data-event-session]').selectedIndex = saved.session;
+            for (const crew of saved.crew) {
+              const input = panel.querySelector(`[data-crew-key="${CSS.escape(crew.key)}"][data-day="${crew.day}"]`);
+              if (!input || !/^(?:0|[1-9]\d?)$/.test(crew.quantity) || Number(crew.quantity) > 20) throw new Error('Saved crew selection is invalid.');
+              input.value = crew.quantity;
+            }
+          }
+          for (const saved of draft.outputs) {
+            const input = Array.from(id('deliverables').querySelectorAll('[data-output-key]')).find(node => node.dataset.outputKey === saved.key);
+            if (!input || !/^(?:0|[1-9]\d?)$/.test(saved.quantity) || Number(saved.quantity) > 20) throw new Error('Saved deliverable is invalid.');
+            input.value = saved.quantity;
+          }
+          id('custom-items').replaceChildren();
+          for (const item of draft.custom) {
+            if (typeof item.name !== 'string' || item.name.length > 120 || !/^(?:0|[1-9]\d?)$/.test(item.quantity) || Number(item.quantity) > 20 ||
+                !(item.rate === '' || (Number.isFinite(Number(item.rate)) && Number(item.rate) >= 0 && Number(item.rate) <= 100000000))) {
+              throw new Error('Saved custom item is invalid.');
+            }
+            addCustomItem(item);
+          }
+          update();
+          setStatus('Draft loaded. Review the details before preparing a quotation.');
+        } catch (error) {
+          console.error('Could not load quotation draft:', error);
+          setStatus('Could not load the saved draft. Its data is invalid or unavailable.', true);
+        }
+      }
+
+      function preview() {
+        if (id('quote-form').reportValidity() === false) return;
+        const result = collectLines();
+        if (!settingsSaved || !settings.reviewed || !id('reviewed').checked || result.invalid || result.missing.length || !result.lines.length) {
+          update();
+          return;
+        }
+        const subtotal = round(result.lines.reduce((sum, item) => sum + item.amount, 0));
+        const discount = id('discount').valueAsNumber;
+        const taxRate = id('tax').valueAsNumber;
+        if (!Number.isFinite(discount) || discount < 0 || discount > subtotal || !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
+          setStatus('Review the discount and tax values before previewing.', true);
+          return;
+        }
+        id('print-reference').textContent = id('reference').value.trim();
+        id('print-date').textContent = new Date(`${id('date').value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+        id('print-client').textContent = id('client').value.trim();
+        id('print-project').textContent = id('project').value.trim();
+        id('print-location').textContent = id('location').value.trim() || 'To be confirmed';
+        id('print-contact').textContent = [id('email').value.trim(), id('phone').value.trim()].filter(Boolean).join(' · ');
+        id('print-scope').replaceChildren();
+        for (const panel of id('event-panels').querySelectorAll('.event-panel')) {
+          const line = document.createElement('p');
+          line.textContent = panel.dataset.scope;
+          id('print-scope').append(line);
+        }
+        const couple = [id('partner-one').value.trim(), id('partner-two').value.trim()].filter(Boolean);
+        if (couple.length && id('quote-type').value === 'wedding') {
+          const line = document.createElement('p');
+          line.textContent = `Couple: ${couple.join(' & ')}`;
+          id('print-scope').prepend(line);
+        }
+        id('print-rows').replaceChildren();
+        for (const item of result.lines) {
+          const row = document.createElement('tr');
+          for (const value of [item.label, String(item.quantity), money(item.rate), money(item.amount)]) {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.append(cell);
+          }
+          id('print-rows').append(row);
+        }
+        const tax = round((subtotal - discount) * taxRate / 100);
+        id('print-totals').replaceChildren();
+        for (const [label, value] of [['Subtotal', subtotal], ['Discount', discount], [`Tax (${taxRate}%)`, tax], ['Total', round(subtotal - discount + tax)]]) {
+          const line = document.createElement('div');
+          if (label === 'Total') line.className = 'proposal-grand';
+          const name = document.createElement('span');
+          name.textContent = label;
+          const amount = document.createElement('strong');
+          amount.textContent = money(value);
+          line.append(name, amount);
+          id('print-totals').append(line);
+        }
+        const notes = id('notes').value.trim();
+        id('print-notes').hidden = !notes;
+        id('print-notes').textContent = notes ? `Scope notes: ${notes}` : '';
+        id('print-terms').textContent = id('terms').value.trim();
+        id('print-dialog').showModal();
+      }
+
+      id('quote-type').addEventListener('change', renderEvents);
+      id('add-item').addEventListener('click', () => addCustomItem());
+      id('discount').addEventListener('input', update);
+      id('tax').addEventListener('input', update);
+      id('reviewed').addEventListener('change', () => { settings.reviewed = id('reviewed').checked; settingsSaved = false; update(); });
+      id('terms').addEventListener('input', () => { id('reviewed').checked = false; settings.reviewed = false; settingsSaved = false; update(); });
+      id('save-settings').addEventListener('click', saveSettings);
+      id('save-draft').addEventListener('click', saveDraft);
+      id('load-draft').addEventListener('click', loadDraft);
+      id('preview').addEventListener('click', preview);
+      id('print-button').addEventListener('click', () => window.print());
+      id('close-preview').addEventListener('click', () => id('print-dialog').close());
+      id('quote-form').addEventListener('submit', event => event.preventDefault());
+      loadSettings();
+      renderSettings();
+      renderEvents();
+    })();
+  </script>
+</body>
+</html>
