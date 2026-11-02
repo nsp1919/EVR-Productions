@@ -1,6 +1,5 @@
 'use strict';
 
-const { upload } = require('@vercel/blob/client');
 const videoChunkSize = 64 * 1024 * 1024;
 const maxVideoBytes = 1024 * 1024 * 1024;
 const uploadStateKey = 'evr-r2-video-uploads';
@@ -8,13 +7,36 @@ const videoKeyPattern = /^evr-videos\/[0-9a-f-]{36}\.(?:3gp|avi|m4v|mkv|mov|mp4|
 
 if (!window.evrUploadMedia) {
   window.evrUploadMedia = async function uploadMedia(file, contentType) {
-    const extension = file.type.split('/')[1].replace(/[^a-z0-9]/gi, '') || 'bin';
-    const blob = await upload(`evr-media/${crypto.randomUUID()}.${extension}`, file, {
-      access: 'public',
-      handleUploadUrl: '/api/media',
-      contentType
+    if (!file || contentType !== 'image/webp' || file.type !== contentType ||
+        file.size <= 0 || file.size > 30 * 1024 * 1024) {
+      throw new Error('Choose a processed WebP image up to 30 MB.');
+    }
+
+    const response = await fetch('/api/r2-image-upload', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentType, size: file.size })
     });
-    return blob.url;
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `R2 image upload request failed (${response.status}).`);
+    if (typeof result.key !== 'string' ||
+        !/^evr-images\/[0-9a-f-]{36}\.webp$/i.test(result.key) ||
+        typeof result.uploadUrl !== 'string' || !/^https:\/\//i.test(result.uploadUrl) ||
+        typeof result.imageUrl !== 'string' || !/^https:\/\//i.test(result.imageUrl)) {
+      throw new Error('Cloudflare R2 returned invalid image-upload details.');
+    }
+
+    const uploadResponse = await fetch(result.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: file
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Cloudflare R2 rejected the image upload (${uploadResponse.status}). Check the bucket CORS settings.`);
+    }
+    return result.imageUrl;
   };
 }
 

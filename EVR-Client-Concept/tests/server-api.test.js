@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const authHandler = require('../api/auth');
-const mediaHandler = require('../api/media');
+const r2ImageUploadHandler = require('../api/r2-image-upload');
 const r2VideoUploadHandler = require('../api/r2-video-upload');
 const { validateContent } = require('../server/content-store');
 const { configurationError, isAuthenticated, setSessionCookie } = require('../server/auth');
@@ -11,7 +11,6 @@ const { configurationError, isAuthenticated, setSessionCookie } = require('../se
 const originalEnvironment = {
   adminEmail: process.env.EVR_ADMIN_EMAIL,
   secret: process.env.EVR_SESSION_SECRET,
-  blobToken: process.env.BLOB_READ_WRITE_TOKEN,
   resendApiKey: process.env.RESEND_API_KEY,
   resendFromEmail: process.env.RESEND_FROM_EMAIL,
   redisUrl: process.env.UPSTASH_REDIS_REST_URL,
@@ -27,7 +26,6 @@ const originalEnvironment = {
 };
 process.env.EVR_ADMIN_EMAIL = 'admin@example.com';
 process.env.EVR_SESSION_SECRET = 'test-only-session-signing-secret-with-enough-entropy';
-process.env.BLOB_READ_WRITE_TOKEN = 'test-only-blob-token';
 process.env.RESEND_API_KEY = 'test-only-resend-key';
 process.env.RESEND_FROM_EMAIL = 'EVR Productions <admin@example.com>';
 process.env.UPSTASH_REDIS_REST_URL = 'https://redis.example.test';
@@ -238,49 +236,71 @@ test('admin configuration identifies the exact missing environment settings', ()
   assert.equal(configurationError(), null);
 });
 
-test('media upload authorization rejects cross-origin requests', async () => {
-  const response = createResponse();
-  await mediaHandler({
-    method: 'POST',
-    headers: { host: 'evr.example', origin: 'https://attacker.example' },
-    body: {}
-  }, response);
-  assert.equal(response.statusCode, 403);
-});
-
-test('media token generation does not configure a completion callback', async () => {
-  const blobClientPath = require.resolve('@vercel/blob/client');
-  const mediaHandlerPath = require.resolve('../api/media');
-  const originalBlobClient = require.cache[blobClientPath];
-  const originalMediaHandler = require.cache[mediaHandlerPath];
-  let uploadOptions;
-  const stub = new (require('node:module'))(blobClientPath);
-  stub.filename = blobClientPath;
-  stub.loaded = true;
-  stub.exports = {
-    handleUpload: async options => {
-      uploadOptions = options;
-      return { type: 'blob.generate-client-token', clientToken: 'test-token' };
-    }
+test('R2 image uploads require authenticated same-origin WebP requests and return bounded signed URLs', async () => {
+  const prior = {
+    accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucket: process.env.R2_BUCKET_NAME,
+    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL
   };
-  require.cache[blobClientPath] = stub;
-  delete require.cache[mediaHandlerPath];
+  process.env.CLOUDFLARE_ACCOUNT_ID = '1234567890abcdef1234567890abcdef';
+  process.env.R2_ACCESS_KEY_ID = 'test-r2-access-key';
+  process.env.R2_SECRET_ACCESS_KEY = 'test-only-r2-secret';
+  process.env.R2_BUCKET_NAME = 'evr-media';
+  process.env.R2_PUBLIC_BASE_URL = 'https://media.example.com';
 
   try {
-    const handler = require('../api/media');
-    const response = createResponse();
-    await handler({
+    const cookie = await getAdminCookie();
+    const request = body => ({
+      method: 'POST',
+      headers: { host: 'evr.example', origin: 'https://evr.example', cookie },
+      body
+    });
+
+    const unauthorized = createResponse();
+    await r2ImageUploadHandler({
       method: 'POST',
       headers: { host: 'evr.example', origin: 'https://evr.example' },
-      body: {}
-    }, response);
-    assert.equal(response.statusCode, 200);
-    assert.equal(Object.hasOwn(uploadOptions, 'onUploadCompleted'), false);
+      body: { contentType: 'image/webp', size: 1024 }
+    }, unauthorized);
+    assert.equal(unauthorized.statusCode, 401);
+
+    const crossOrigin = createResponse();
+    await r2ImageUploadHandler({
+      ...request({ contentType: 'image/webp', size: 1024 }),
+      headers: { host: 'evr.example', origin: 'https://attacker.example', cookie }
+    }, crossOrigin);
+    assert.equal(crossOrigin.statusCode, 403);
+
+    const invalidType = createResponse();
+    await r2ImageUploadHandler(request({ contentType: 'image/png', size: 1024 }), invalidType);
+    assert.equal(invalidType.statusCode, 400);
+
+    const oversized = createResponse();
+    await r2ImageUploadHandler(request({ contentType: 'image/webp', size: 30 * 1024 * 1024 + 1 }), oversized);
+    assert.equal(oversized.statusCode, 400);
+
+    const authorized = createResponse();
+    await r2ImageUploadHandler(request({ contentType: 'image/webp', size: 1024 }), authorized);
+    assert.equal(authorized.statusCode, 200);
+    assert.match(authorized.body.key, /^evr-images\/[0-9a-f-]{36}\.webp$/i);
+    assert.match(authorized.body.imageUrl, /^https:\/\/media\.example\.com\/evr-images\//);
+    const signedUrl = new URL(authorized.body.uploadUrl);
+    assert.equal(signedUrl.protocol, 'https:');
+    assert.match(signedUrl.searchParams.get('X-Amz-SignedHeaders'), /content-type/i);
+    assert.match(signedUrl.searchParams.get('X-Amz-SignedHeaders'), /content-length/i);
   } finally {
-    delete require.cache[mediaHandlerPath];
-    if (originalMediaHandler) require.cache[mediaHandlerPath] = originalMediaHandler;
-    if (originalBlobClient) require.cache[blobClientPath] = originalBlobClient;
-    else delete require.cache[blobClientPath];
+    for (const [name, value] of Object.entries({
+      CLOUDFLARE_ACCOUNT_ID: prior.accountId,
+      R2_ACCESS_KEY_ID: prior.accessKeyId,
+      R2_SECRET_ACCESS_KEY: prior.secretAccessKey,
+      R2_BUCKET_NAME: prior.bucket,
+      R2_PUBLIC_BASE_URL: prior.publicBaseUrl
+    })) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 });
 
@@ -399,8 +419,6 @@ test.after(() => {
   else process.env.EVR_ADMIN_EMAIL = originalEnvironment.adminEmail;
   if (originalEnvironment.secret === undefined) delete process.env.EVR_SESSION_SECRET;
   else process.env.EVR_SESSION_SECRET = originalEnvironment.secret;
-  if (originalEnvironment.blobToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
-  else process.env.BLOB_READ_WRITE_TOKEN = originalEnvironment.blobToken;
   if (originalEnvironment.resendApiKey === undefined) delete process.env.RESEND_API_KEY;
   else process.env.RESEND_API_KEY = originalEnvironment.resendApiKey;
   if (originalEnvironment.resendFromEmail === undefined) delete process.env.RESEND_FROM_EMAIL;

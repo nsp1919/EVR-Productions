@@ -49,7 +49,7 @@ return 0
 `;
 
 function configurationError() {
-  if (localAdminBypassEnabled()) return contentConfigurationError();
+  if (localAdminBypassEnabled()) return null;
 
   const required = [
     'EVR_ADMIN_EMAIL',
@@ -57,8 +57,7 @@ function configurationError() {
     'RESEND_API_KEY',
     'RESEND_FROM_EMAIL',
     'UPSTASH_REDIS_REST_URL',
-    'UPSTASH_REDIS_REST_TOKEN',
-    'BLOB_READ_WRITE_TOKEN'
+    'UPSTASH_REDIS_REST_TOKEN'
   ];
   const missing = required.filter(name => !process.env[name]?.trim());
   if (missing.length) {
@@ -78,12 +77,6 @@ function configurationError() {
     return 'UPSTASH_REDIS_REST_URL must be a valid HTTPS URL.';
   }
   return null;
-}
-
-function contentConfigurationError() {
-  return process.env.BLOB_READ_WRITE_TOKEN?.trim()
-    ? null
-    : 'Connect a Vercel Blob store or configure BLOB_READ_WRITE_TOKEN before loading shared content.';
 }
 
 function signature(expiresAt) {
@@ -278,7 +271,6 @@ async function verifyAdminCode(email, code) {
 module.exports = {
   clearSessionCookie,
   configurationError,
-  contentConfigurationError,
   isAuthenticated,
   localAdminBypassEnabled,
   requestAdminCode,

@@ -1,9 +1,9 @@
 'use strict';
 
 const { readContent, validateContent, writeContent } = require('../server/content-store');
+const { getR2Configuration } = require('../server/r2-storage');
 const {
   configurationError,
-  contentConfigurationError,
   isAuthenticated,
   rejectCrossOrigin,
   setPrivateHeaders
@@ -14,7 +14,7 @@ module.exports = async function handler(request, response) {
   if (rejectCrossOrigin(request, response)) return;
 
   if (request.method === 'GET') {
-    const setupError = contentConfigurationError();
+    const setupError = getR2Configuration().error;
     if (setupError) return response.status(503).json({ error: setupError });
     try {
       return response.status(200).json(await readContent());
@@ -27,7 +27,7 @@ module.exports = async function handler(request, response) {
     response.setHeader('Allow', 'GET, PUT');
     return response.status(405).json({ error: 'Method not allowed.' });
   }
-  const setupError = configurationError();
+  const setupError = configurationError() || getR2Configuration().error;
   if (setupError) return response.status(503).json({ error: setupError });
   if (!isAuthenticated(request)) return response.status(401).json({ error: 'Sign in to save website content.' });
 

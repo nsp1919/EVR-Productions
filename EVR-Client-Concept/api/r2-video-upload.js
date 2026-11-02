@@ -2,13 +2,13 @@
 
 const crypto = require('node:crypto');
 const {
-  S3Client,
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { getR2Configuration, publicObjectUrl } = require('../server/r2-storage');
 const {
   configurationError,
   isAuthenticated,
@@ -18,44 +18,6 @@ const {
 
 const allowedExtensions = new Set(['3gp', 'avi', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'webm']);
 const videoKeyPattern = /^evr-videos\/[0-9a-f-]{36}\.(?:3gp|avi|m4v|mkv|mov|mp4|mpeg|mpg|webm)$/i;
-
-function getR2Configuration() {
-  const required = ['CLOUDFLARE_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME', 'R2_PUBLIC_BASE_URL'];
-  const missing = required.filter(name => !process.env[name]);
-  if (missing.length) return { error: `Configure ${missing.join(', ')} to enable R2 video uploads.` };
-  if (!/^[a-f0-9]{32}$/i.test(process.env.CLOUDFLARE_ACCOUNT_ID)) {
-    return { error: 'CLOUDFLARE_ACCOUNT_ID must be a 32-character Cloudflare account ID.' };
-  }
-  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/i.test(process.env.R2_BUCKET_NAME)) {
-    return { error: 'R2_BUCKET_NAME is invalid.' };
-  }
-
-  let publicBaseUrl;
-  try {
-    publicBaseUrl = new URL(process.env.R2_PUBLIC_BASE_URL);
-  } catch {
-    return { error: 'R2_PUBLIC_BASE_URL must be an HTTPS URL for the public R2 media domain.' };
-  }
-  if (publicBaseUrl.protocol !== 'https:' || publicBaseUrl.username || publicBaseUrl.password ||
-      publicBaseUrl.search || publicBaseUrl.hash) {
-    return { error: 'R2_PUBLIC_BASE_URL must be an HTTPS URL without credentials, query, or fragment.' };
-  }
-
-  return {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-    bucket: process.env.R2_BUCKET_NAME,
-    publicBaseUrl: publicBaseUrl.toString().replace(/\/+$/, ''),
-    client: new S3Client({
-      region: 'auto',
-      endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
-      }
-    })
-  };
-}
 
 function parseBody(request) {
   if (request.body && typeof request.body === 'object') return request.body;
@@ -69,10 +31,6 @@ function parseBody(request) {
 function validUploadId(uploadId) {
   return typeof uploadId === 'string' && uploadId.length > 0 && uploadId.length <= 2048 &&
     !/[\u0000-\u001f]/.test(uploadId);
-}
-
-function publicObjectUrl(baseUrl, key) {
-  return `${baseUrl.replace(/\/+$/, '')}/${key.split('/').map(encodeURIComponent).join('/')}`;
 }
 
 module.exports = async function handler(request, response) {
@@ -109,7 +67,7 @@ module.exports = async function handler(request, response) {
 
       const key = `evr-videos/${crypto.randomUUID()}.${extension}`;
       const result = await config.client.send(new CreateMultipartUploadCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
+        Bucket: config.bucket,
         Key: key,
         ContentType: contentType,
         CacheControl: 'public, max-age=31536000, immutable'
@@ -128,7 +86,7 @@ module.exports = async function handler(request, response) {
       return response.status(400).json({ error: 'The R2 video upload identity is invalid.' });
     }
     const common = {
-      Bucket: process.env.R2_BUCKET_NAME,
+      Bucket: config.bucket,
       Key: body.key,
       UploadId: body.uploadId
     };

@@ -106,6 +106,61 @@ test('browser uploader sends signed multipart chunks directly to Cloudflare R2',
   expect(actions).toEqual(['create', 'sign-part', 'complete']);
 });
 
+test('browser image uploader requests a signed R2 URL and uploads directly to R2', async ({ page }) => {
+  await mockAdminApi(page, undefined, true, { mockUploader: false });
+  const photo = path.resolve(__dirname, '..', 'assets', 'process-cards', 'process-card-01-your-moments.png');
+  let authorization;
+  let uploadRequest;
+  await page.route('**/api/r2-image-upload', async route => {
+    authorization = route.request().postDataJSON();
+    return route.fulfill({ json: {
+      key: 'evr-images/12345678-1234-4234-8234-123456789abc.webp',
+      uploadUrl: 'https://uploads.example.com/image?signature=test',
+      imageUrl: 'https://media.example.com/evr-images/12345678-1234-4234-8234-123456789abc.webp'
+    } });
+  });
+  await page.route('https://uploads.example.com/**', async route => {
+    const corsHeaders = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'PUT',
+      'access-control-allow-headers': 'content-type'
+    };
+    if (route.request().method() === 'OPTIONS') {
+      return route.fulfill({ status: 204, headers: corsHeaders });
+    }
+    uploadRequest = {
+      method: route.request().method(),
+      contentType: route.request().headers()['content-type'],
+      body: route.request().postDataBuffer()
+    };
+    return route.fulfill({ headers: corsHeaders });
+  });
+  await page.route('https://media.example.com/**', route => route.fulfill({
+    status: 200,
+    headers: { 'content-type': 'image/webp', 'access-control-allow-origin': '*' },
+    body: ''
+  }));
+  await page.goto('/#/admin');
+  await expect.poll(() => page.evaluate(() => typeof window.evrUploadMedia)).toBe('function');
+  await page.locator('#admin-preview-page').selectOption('work');
+  await page.locator('#work .admin-add-work-card').click();
+  await page.locator('#admin-work-title').fill('Direct R2 image upload');
+  await page.locator('#admin-work-category').selectOption('celebration');
+  await page.locator('#admin-work-description').fill('Image uploads go straight to Cloudflare.');
+  await page.locator('input[name="admin-work-media-type"][value="image"]').check();
+  await page.locator('#admin-work-image').setInputFiles(photo);
+  await page.locator('#admin-work-controls button[type="submit"]').click();
+  await expect(page.locator('#admin-status')).toContainText('Story uploaded');
+  expect(authorization.contentType).toBe('image/webp');
+  expect(authorization.size).toBeGreaterThan(0);
+  expect(authorization.size).toBeLessThanOrEqual(30 * 1024 * 1024);
+  expect(uploadRequest.method).toBe('PUT');
+  expect(uploadRequest.contentType).toBe('image/webp');
+  expect(uploadRequest.body.length).toBe(authorization.size);
+  await expect(page.locator('#work .story-library .admin-managed-work-item img'))
+    .toHaveAttribute('src', 'https://media.example.com/evr-images/12345678-1234-4234-8234-123456789abc.webp');
+});
+
 test('admin can replace a Work portfolio card video from its contextual control', async ({ page }) => {
   const api = await mockAdminApi(page);
   await page.goto('/#/admin');

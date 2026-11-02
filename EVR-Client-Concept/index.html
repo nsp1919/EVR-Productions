@@ -147,7 +147,7 @@ html.shared-content-pending::after {
   <div class="admin-actions"><button type="button" class="button gold" id="admin-save">Save changes</button><button type="button" class="button secondary" id="admin-export">Export</button><button type="button" class="button secondary" id="admin-import">Import</button><button type="button" class="button secondary" id="admin-reset">Reset all</button></div>
   <a class="admin-tool quote-studio-link" href="#/studio">Open the EVR quotation studio</a>
   <p id="admin-status" class="admin-status" role="status" aria-live="polite">Connecting to shared content storage…</p>
-  <p class="admin-note">Website content is saved on the server. Photos use Vercel Blob; videos upload directly to Cloudflare R2.</p>
+  <p class="admin-note">Website content, photos, and videos use Cloudflare R2.</p>
   <button type="button" class="admin-tool" id="admin-migrate-local" hidden>Import edits saved in this browser</button>
  </div>
  <section id="admin-settings" class="admin-settings" hidden aria-labelledby="admin-settings-title">
@@ -617,7 +617,7 @@ html.shared-content-pending::after {
 <script src="detail-pages.js?v=wedding-word-reveal"></script>
 <script src="quotation-builder.js"></script>
 <script src="quote-maker.js?v=email-otp-auth"></script>
-<script src="admin-media-client.js?v=r2-multipart-1"></script>
+<script src="admin-media-client.js?v=r2-unified-storage-1"></script>
 <script src="admin.js?v=admin-photo-auth-gate-2"></script>
 </body>
 </html>

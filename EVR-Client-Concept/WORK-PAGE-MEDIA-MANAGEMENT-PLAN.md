@@ -8,7 +8,7 @@ The **EVR Work Page** (`index.html#/work` — *Selected Wedding Stories*) is str
    - Category filters: `All stories`, `Wedding day`, `Before the day`, `Celebrations`.
    - Initial 4 portfolio story cards dynamically rendered by `r2-video-library.js` inside `.story-library`.
 2. **Admin-Managed Story Cards (`managedWorkItems`):**
-   - Stored in a unified JSON payload (`#work-gallery-items-v1`) in Vercel Blob storage (`/api/content`).
+   - Stored in a unified JSON payload (`#work-gallery-items-v1`) in Cloudflare R2 (`/api/content`).
    - Appended dynamically into `.story-library` as `<article class="admin-managed-work-item">` by `admin.js`.
    - Each item holds:
      ```typescript
@@ -50,7 +50,7 @@ Until the full replacement/deletion suite is coded, here is how an admin current
    - **Story type**: Choose `Wedding day`, `Before the day`, or `Celebration`.
    - **Short description**: A 1-2 sentence caption.
    - **Story media**: Choose **Image** or **Video** first. Only the matching file picker is shown, so an image is not required for a video story.
-   - **Image**: Choose a JPG, PNG, WebP or GIF up to 30 MB. It is optimized and uploaded to Vercel Blob.
+   - **Image**: Choose a JPG, PNG, WebP or GIF up to 30 MB. It is optimized and uploaded to Cloudflare R2.
    - **Video**: Choose a supported video up to 1 GB. It uploads to Cloudflare R2 and is used as the story media.
    - An image story can have a video added later using its card controls.
 4. **Submit Card:**
@@ -72,7 +72,7 @@ flowchart TD
     C --> D2[Action: Replace / Upload Video]
     C --> D3[Action: Remove Video Only]
     C --> D4[Action: Delete Entire Story]
-    D1 --> E[Upload to Vercel Blob & update item.imageUrl]
+    D1 --> E[Upload to Cloudflare R2 & update item.imageUrl]
     D2 --> F[Upload to Cloudflare R2 & update item.videoUrl]
     D3 --> G[Set item.videoUrl = '' & update DOM]
     D4 --> H[Confirm & splice item from managedWorkItems]

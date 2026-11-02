@@ -1,9 +1,9 @@
 'use strict';
 
-const { list, put } = require('@vercel/blob');
+const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getR2Configuration } = require('./r2-storage');
 
 const contentPath = 'evr/site-content-v1.json';
-const contentPrefix = contentPath.slice(0, -'.json'.length);
 const emptyContent = { version: 1, entries: {} };
 
 function validateContent(value) {
@@ -32,44 +32,35 @@ function validateContent(value) {
 }
 
 async function readContent() {
-  const blobs = [];
-  let cursor;
-  do {
-    const page = await list({ prefix: contentPrefix, limit: 1000, ...(cursor ? { cursor } : {}) });
-    blobs.push(...page.blobs.filter(blob =>
-      blob.pathname === contentPath || blob.pathname.startsWith(`${contentPrefix}-`)
-    ));
-    if (!page.hasMore) break;
-    if (!page.cursor || page.cursor === cursor) {
-      throw new Error('Could not finish listing the saved website content versions.');
+  const config = getR2Configuration();
+  if (config.error) throw new Error(config.error);
+  try {
+    const response = await config.client.send(new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: contentPath
+    }));
+    return validateContent(JSON.parse(await response.Body.transformToString()));
+  } catch (error) {
+    if (error.name === 'NoSuchKey' || error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      return emptyContent;
     }
-    cursor = page.cursor;
-  } while (true);
-
-  blobs.sort((left, right) =>
-    right.uploadedAt.getTime() - left.uploadedAt.getTime() ||
-    right.pathname.localeCompare(left.pathname)
-  );
-  if (!blobs.length) return emptyContent;
-
-  const latest = blobs[0];
-  const contentUrl = new URL(latest.url);
-  contentUrl.searchParams.set('v', String(latest.uploadedAt.getTime()));
-  const response = await fetch(contentUrl, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`Could not read the saved content (${response.status}).`);
-  return validateContent(await response.json());
+    throw error;
+  }
 }
 
 async function writeContent(content) {
   const validated = validateContent(content);
   const body = JSON.stringify(validated);
   if (Buffer.byteLength(body, 'utf8') > 4_000_000) throw new Error('Content is too large to save. Remove large inline images and try again.');
-  await put(contentPath, body, {
-    access: 'public',
-    addRandomSuffix: true,
-    contentType: 'application/json; charset=utf-8',
-    cacheControlMaxAge: 60
-  });
+  const config = getR2Configuration();
+  if (config.error) throw new Error(config.error);
+  await config.client.send(new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: contentPath,
+    Body: body,
+    ContentType: 'application/json; charset=utf-8',
+    CacheControl: 'no-store'
+  }));
   return validated;
 }
 

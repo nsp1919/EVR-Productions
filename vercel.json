@@ -1,5 +1,5 @@
 {
+  "installCommand": "cd EVR-Client-Concept && npm ci --include=dev",
   "buildCommand": "cd EVR-Client-Concept && npm run build",
   "outputDirectory": "EVR-Client-Concept"
 }
-
