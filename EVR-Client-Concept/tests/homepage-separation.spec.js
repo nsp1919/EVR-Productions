@@ -59,45 +59,52 @@ test('founder statistics remain visible and final when reduced motion is request
   await expect(facts.locator('article').first()).toBeVisible();
 });
 
-test('wedding story gallery shows the fifteen selected R2 films with matching posters', async ({ page }) => {
+test('work portfolio shows four selected R2 films with manual, replaying playback', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRequested = 'true';
+      return Promise.resolve();
+    };
+  });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/#/work');
 
   const cards = page.locator('#work .story-library article');
-  await expect(cards).toHaveCount(15);
-  await expect(page.locator('#work .story-library [data-r2-video-url]')).toHaveCount(15);
-  await expect(page.locator('#work .story-library img')).toHaveCount(15);
+  await expect(cards).toHaveCount(4);
+  await expect(page.locator('#work .story-library [data-r2-video-url]')).toHaveCount(4);
+  await expect(page.locator('#work .story-library img')).toHaveCount(4);
+  await expect(cards.nth(0)).toContainText('The quiet before forever');
+  await expect(cards.nth(1)).toContainText('A celebration, remembered');
+  await expect(cards.nth(2)).toContainText('Sisters in celebration');
+  await expect(cards.nth(3)).toContainText('Growing up, together');
   await expect(page.locator('#work .story-library [data-r2-slot="anna (2).mp4"]')).toHaveAttribute(
     'data-r2-video-url',
     'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/anna%20(2).mp4'
   );
-  await expect(page.locator('#work .story-library [data-category="wedding"]')).toHaveCount(10);
-  await expect(page.locator('#work .story-library [data-category="celebration"]')).toHaveCount(5);
+  await expect(page.locator('#work .story-library [data-category="wedding"]')).toHaveCount(1);
+  await expect(page.locator('#work .story-library [data-category="prewedding"]')).toHaveCount(1);
+  await expect(page.locator('#work .story-library [data-category="celebration"]')).toHaveCount(2);
   await expect(page.locator('#home [data-r2-slot="Sri Shashi & Ravi Teja Lrical Video.mp4"]')).toHaveAttribute(
     'data-r2-video-url',
     'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Sri%20Shashi%20%26%20Ravi%20Teja%20Lrical%20Video.mp4'
   );
   const firstPreview = cards.first().locator('.preview-media');
   await firstPreview.scrollIntoViewIfNeeded();
-  const previewVideo = firstPreview.locator('video.r2-autoplay-preview');
+  const previewVideo = firstPreview.locator('video');
+  expect(await previewVideo.evaluate(video => video.dataset.playRequested)).toBeUndefined();
+  expect(await previewVideo.evaluate(video => video.autoplay)).toBe(false);
+  expect(await previewVideo.evaluate(video => video.loop)).toBe(true);
+  await firstPreview.locator('.preview-play').click();
+  await expect(previewVideo).toBeVisible();
   await expect(previewVideo).toHaveAttribute('src', /pub-aefcf27121ff450faf8570e9de489735\.r2\.dev/);
   expect(await previewVideo.evaluate(video => ({
     muted: video.muted,
     autoplay: video.autoplay,
-    loop: video.loop
-  }))).toEqual({ muted: true, autoplay: true, loop: true });
-  const audioToggle = firstPreview.locator('.preview-audio-toggle');
-  await expect(audioToggle).toBeVisible();
-  await expect(audioToggle).toHaveText('Unmute');
-  await previewVideo.click();
-  expect(await previewVideo.evaluate(video => video.muted)).toBe(true);
-  await audioToggle.click();
-  expect(await previewVideo.evaluate(video => video.muted)).toBe(false);
-  await expect(audioToggle).toHaveText('Mute');
-  await audioToggle.click();
-  expect(await previewVideo.evaluate(video => video.muted)).toBe(true);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect.poll(() => previewVideo.evaluate(video => video.paused)).toBe(true);
+    loop: video.loop,
+    controls: video.controls,
+    playRequested: video.dataset.playRequested
+  }))).toEqual({ muted: true, autoplay: false, loop: true, controls: true, playRequested: 'true' });
+  await firstPreview.locator('.preview-close').click();
   await expect(page.locator('#corporate .corp-reel-card[data-r2-slot="corporate-presenter"]')).toHaveAttribute(
     'data-r2-video-url',
     'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Reel%204.mp4'
@@ -323,6 +330,114 @@ test('homepage groups the portrait, wedding, lyrical, family, and half-saree R2 
   await expect(weddingPanels.nth(3)).toHaveAttribute('style', /z-index: 2/);
 });
 
+test('homepage autoplay previews hide the watch badge and keep accessible audio controls', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRequested = 'true';
+      return Promise.resolve();
+    };
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/home');
+
+  const preview = page.locator('#home .portrait-video-grid [data-r2-slot]').first();
+  await preview.scrollIntoViewIfNeeded();
+  const video = preview.locator('video');
+  const watch = preview.locator('.preview-play');
+  await expect.poll(() => video.evaluate(element => element.dataset.playRequested)).toBe('true');
+  await expect(watch).toBeHidden();
+  await expect(watch).toBeEnabled();
+  const audio = preview.locator('.preview-audio-toggle');
+  await expect(audio).toBeVisible();
+  await expect(audio).toHaveAttribute('aria-label', 'Unmute video');
+  await expect(audio).toHaveAttribute('aria-pressed', 'false');
+  await expect(audio.locator('svg')).toHaveCount(1);
+  await audio.click();
+  await expect(audio).toHaveAttribute('aria-label', 'Mute video');
+  await expect(audio).toHaveAttribute('aria-pressed', 'true');
+  await expect(audio.locator('svg')).toHaveCount(1);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  const cards = page.locator('#home [data-demo-media]');
+  await expect(cards).toHaveCount(15);
+  for (let index = 0; index < 15; index += 1) {
+    const card = cards.nth(index);
+    await card.scrollIntoViewIfNeeded();
+    const playButton = card.locator('.preview-play');
+    await expect(playButton).toBeEnabled();
+    await playButton.click();
+    await expect(card.locator('video')).toBeVisible();
+    await expect(card.locator('.preview-close')).toBeVisible();
+    await card.locator('.preview-close').click();
+  }
+});
+
+test('homepage autoplay failure restores a visible manual play fallback', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRejected = 'true';
+      return Promise.reject(new Error('Autoplay blocked'));
+    };
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/home');
+
+  const preview = page.locator('#home .portrait-video-grid [data-r2-slot]').first();
+  await preview.scrollIntoViewIfNeeded();
+  await expect.poll(() => preview.locator('video').evaluate(video => video.dataset.playRejected)).toBe('true');
+  await expect(preview).not.toHaveClass(/is-autoplaying/);
+  await expect(preview.locator('.preview-play')).toBeVisible();
+  await expect(preview.locator('.preview-audio-toggle')).toBeHidden();
+});
+
+test('work page shows four curated portfolio videos that replay only after manual play', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRequested = 'true';
+      return Promise.resolve();
+    };
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/work');
+
+  const cards = page.locator('#work .story-library > article');
+  await expect(cards).toHaveCount(4);
+  await expect(cards.nth(0)).toContainText('The quiet before forever');
+  await expect(cards.nth(1)).toContainText('A celebration, remembered');
+  await expect(cards.nth(2)).toContainText('Sisters in celebration');
+  await expect(cards.nth(3)).toContainText('Growing up, together');
+
+  for (let index = 0; index < 4; index += 1) {
+    const preview = cards.nth(index).locator('.story-cover');
+    const video = preview.locator('video');
+    await preview.scrollIntoViewIfNeeded();
+    await expect(preview.locator('.preview-play')).toBeVisible();
+    expect(await video.evaluate(element => element.dataset.playRequested)).toBeUndefined();
+    await preview.locator('.preview-play').click();
+    await expect(video).toBeVisible();
+    expect(await video.evaluate(element => element.dataset.playRequested)).toBe('true');
+    expect(await video.evaluate(element => element.autoplay)).toBe(false);
+    expect(await video.evaluate(element => element.loop)).toBe(true);
+    expect(await video.evaluate(element => element.controls)).toBe(true);
+    await preview.locator('.preview-close').click();
+  }
+});
+
+test('selected work admin preview exposes four contextual portfolio video controls', async ({ page }) => {
+  await page.route('**/api/auth', route => route.fulfill({
+    json: { configured: true, authenticated: true }
+  }));
+  await page.route('**/api/content', route => route.fulfill({
+    json: { version: 1, entries: {} }
+  }));
+  await page.goto('/#/admin');
+  await expect(page.locator('.admin-controls')).toBeVisible();
+  await page.locator('#admin-preview-page').selectOption('work');
+
+  const videoActions = page.locator('.admin-media-actions .admin-icon-button[aria-label="Replace video"]');
+  await expect(videoActions).toHaveCount(4);
+});
+
 test('process stages use real EVR wedding images and the actual project workflow', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/#/home');
@@ -359,13 +474,59 @@ test('process stages use real EVR wedding images and the actual project workflow
 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
+    if (viewport.width <= 700) {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await expect(process).toHaveClass(/is-pinned/);
+      const mobileLayout = await process.evaluate(root => {
+        const steps = root.querySelector('.process-steps');
+        return {
+          stepsDisplay: getComputedStyle(steps).display,
+          stepColumns: getComputedStyle(steps).gridTemplateColumns.split(' ').length
+        };
+      });
+      expect(mobileLayout).toEqual({ stepsDisplay: 'grid', stepColumns: 5 });
+    }
     await steps.nth(4).click();
+    await expect(process.locator('[data-phone-screen="4"]')).toBeVisible();
     const galleryClearance = await process.evaluate(root => {
       const panel = root.querySelector('[data-phone-screen="4"] .phone-panel').getBoundingClientRect();
       const footer = root.querySelector('.phone-bottom').getBoundingClientRect();
       return footer.top - panel.bottom;
     });
     expect(galleryClearance).toBeGreaterThanOrEqual(0);
+  }
+});
+
+test('process detail page uses the supplied cards and a real wedding image', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/process');
+    const processPage = page.locator('#process');
+    const journey = processPage.locator('#planning-story');
+    await expect(processPage).toBeVisible();
+    await expect(journey.locator('.chapter-panel')).toHaveCount(5);
+
+    const expectedArtwork = [
+      'assets/process-cards/process-card-01-your-moments.png',
+      'assets/process-cards/process-card-02-shared-scope.png',
+      'assets/process-cards/process-card-03-tradition.png',
+      'assets/process-cards/process-card-04-edit-timeline.png',
+      'assets/process-cards/process-card-05-handover.png'
+    ];
+    for (const [index, source] of expectedArtwork.entries()) {
+      const art = journey.locator('.chapter-panel').nth(index).locator('.chapter-art');
+      const image = art.locator('img');
+      await expect(image).toHaveAttribute('src', source);
+      await expect.poll(() => image.evaluate(element => element.complete && element.naturalWidth > 0)).toBe(true);
+      await expect(art).toHaveClass(/process-card-art/);
+    }
+
+    for (let index = 0; index < expectedArtwork.length; index += 1) {
+      await journey.locator(`[data-story-step="${index}"]`).click();
+      await expect(journey.locator('.chapter-panel').nth(index)).toBeInViewport();
+    }
   }
 });
 

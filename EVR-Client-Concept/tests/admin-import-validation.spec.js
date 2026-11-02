@@ -1,12 +1,12 @@
 const { test, expect } = require('@playwright/test');
 const { mockAdminApi } = require('./admin-api-mock');
+const { clickContextualMediaAction } = require('./admin-media-helpers');
 
 test('corrupt video MIME content is rejected', async ({ page }) => {
   await mockAdminApi(page);
   await page.goto('/#/admin');
   await page.locator('#admin-preview-page').selectOption('home');
-  await page.locator('[data-admin-mode="video"]').click();
-  await page.locator('#admin-video-target').selectOption({ index: 0 });
+  await clickContextualMediaAction(page, '#home .voice-grid article:first-child', 'Replace video');
   await page.locator('#admin-video-file').setInputFiles({
     name: 'invalid.mp4',
     mimeType: 'video/mp4',

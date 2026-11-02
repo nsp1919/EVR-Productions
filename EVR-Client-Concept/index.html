@@ -5,16 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="EVR Productions captures weddings, functions and family celebrations with photography and films in Hyderabad and across India.">
 <title>EVR Productions | Weddings &amp; Functions</title>
+<script>
+if (location.hash === '#/admin' || /^\/admin\/?$/.test(location.pathname)) {
+ document.documentElement.classList.add('admin-route-pending');
+} else {
+ document.documentElement.classList.add('shared-content-pending');
+}
+</script>
+<style>
+html.admin-route-pending .route,
+html.admin-route-pending .site-footer,
+html.admin-route-pending .site-credit,
+html.admin-route-pending .scroll-progress,
+html.admin-route-pending .whatsapp-float,
+html.admin-route-pending > body > .demo-bar,
+html.admin-route-pending > body > header {
+ display: none !important;
+}
+html.shared-content-pending .route {
+ visibility: hidden !important;
+}
+html.shared-content-pending::after {
+ content: "Loading the latest stories…";
+ position: fixed;
+ inset: 0;
+ z-index: 10000;
+ display: grid;
+ place-items: center;
+ padding: 24px;
+ background: #f5f2eb;
+ color: #243338;
+ font: 500 15px/1.5 "Avenir Next", Avenir, sans-serif;
+ letter-spacing: .04em;
+}
+</style>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="reference.css">
 <link rel="stylesheet" href="hero-motion.css?v=slow-pinned-note-cards">
-<link rel="stylesheet" href="homepage-experience.css?v=half-saree-crop-1">
+<link rel="stylesheet" href="homepage-experience.css?v=mobile-process-restored-1">
 <link rel="stylesheet" href="corporate-experience.css">
-<link rel="stylesheet" href="experience-switch.css?v=equal-width-tabs-2">
+<link rel="stylesheet" href="experience-switch.css?v=mobile-header-restored-1">
 <link rel="stylesheet" href="detail-pages.css?v=half-saree-crop-1">
 <link rel="stylesheet" href="quotation-builder.css">
 <link rel="stylesheet" href="quote-maker.css">
-<link rel="stylesheet" href="admin.css">
+<link rel="stylesheet" href="admin.css?v=admin-photo-login-3">
 <link rel="stylesheet" href="mobile-responsive.css">
 </head>
 <body>
@@ -38,13 +72,40 @@
   <div class="admin-copy"><p class="eyebrow">SITE CONTENT / SERVER-SAVED</p><h1 id="admin-title">Edit your <em>website.</em></h1><p>Sign in to edit your website. Saved changes and media are shared with every visitor and available from any device.</p></div>
   <button type="button" class="admin-tool admin-settings-toggle" id="admin-settings-open" aria-label="Open admin settings" aria-controls="admin-settings" aria-expanded="false"><span aria-hidden="true">⚙</span> Settings</button>
  </div>
- <form id="admin-login" class="admin-login" hidden>
-  <h2>Sign in to edit your website</h2>
-  <label for="admin-password">Admin password</label>
-  <input id="admin-password" type="password" autocomplete="current-password" minlength="8" required>
-  <button type="submit" class="button gold">Sign in</button>
-  <p id="admin-login-status" class="admin-status" role="status" aria-live="polite"></p>
- </form>
+ <section class="admin-login-screen" id="admin-login-screen" hidden aria-labelledby="admin-login-title">
+  <div class="admin-login-visual">
+   <div class="admin-login-visual-brand"><a href="#/home" aria-label="EVR Productions home">EVR<span>PRODUCTIONS</span></a><span>HYDERABAD · INDIA</span></div>
+   <div class="admin-login-photos" aria-label="Wedding and celebration photography">
+    <figure class="admin-login-photo admin-login-photo-one"><img src="assets/hero-wedding-red-portrait.jpg" alt="A bride in red and turquoise traditional wedding attire"><figcaption>THE PEOPLE</figcaption></figure>
+    <figure class="admin-login-photo admin-login-photo-two"><img src="assets/evr-celebration-hero.jpg" alt="A bride in gold at an outdoor celebration"><figcaption>THE CELEBRATION</figcaption></figure>
+    <figure class="admin-login-photo admin-login-photo-three"><img src="assets/hero-couple-evening.jpg" alt="A newlywed couple sharing a quiet moment"><figcaption>THE LITTLE MOMENTS</figcaption></figure>
+   </div>
+   <div class="admin-login-visual-copy"><p class="eyebrow">THE EVR PERSPECTIVE</p><h2>Every celebration<br>has a story <em>to keep.</em></h2><p>Real moments, remembered your way.</p></div>
+   <span class="admin-login-visual-caption">PHOTOGRAPHY · FILMS · STORIES</span>
+  </div>
+  <div class="admin-login-side">
+   <a class="admin-login-back" href="#/home">← <span>Back to EVR Productions</span></a>
+   <div class="admin-login-card">
+    <p class="admin-login-kicker">PRIVATE STUDIO <span>·</span> ADMIN ACCESS</p>
+    <h2 id="admin-login-title">Welcome <em>back.</em></h2>
+    <p class="admin-login-intro">Sign in to shape the stories we share with the world.</p>
+    <form id="admin-login" class="admin-login" hidden>
+     <label for="admin-email">Your admin email</label>
+     <input id="admin-email" type="email" autocomplete="username" placeholder="you@yourstudio.com" required>
+     <button type="button" class="button gold" id="admin-request-code">Send sign-in code <span aria-hidden="true">↗</span></button>
+     <div id="admin-code-entry" hidden>
+      <label for="admin-code">Eight-digit sign-in code</label>
+      <input id="admin-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" maxlength="8" placeholder="00000000" required>
+      <button type="submit" class="button gold">Verify code <span aria-hidden="true">↗</span></button>
+      <button type="button" class="admin-tool" id="admin-resend-code">Send a new code</button>
+     </div>
+     <p id="admin-login-status" class="admin-status" role="status" aria-live="polite"></p>
+    </form>
+    <p class="admin-login-security"><span aria-hidden="true">◈</span> A one-time code keeps your studio access private.</p>
+   </div>
+   <p class="admin-login-footer">FOR THE EVR TEAM <span>·</span> SECURE ACCESS</p>
+  </div>
+ </section>
  <input id="admin-import-file" type="file" accept="application/json,.json" hidden>
  <div class="admin-controls">
   <label for="admin-preview-page">Preview page<select id="admin-preview-page">
@@ -52,19 +113,34 @@
   </select></label>
   <div class="admin-tools" role="group" aria-label="Choose an editing tool">
    <button type="button" class="admin-tool is-active" data-admin-mode="text" aria-pressed="true">Edit text</button>
-   <button type="button" class="admin-tool" data-admin-mode="image" aria-pressed="false">Replace photo</button>
-   <button type="button" class="admin-tool" data-admin-mode="video" aria-pressed="false">Replace video</button>
    <button type="button" class="admin-tool" data-admin-mode="background" aria-pressed="false">Change background</button>
   </div>
-  <div class="admin-photo-controls" id="admin-image-controls" hidden>
-   <label for="admin-image-target">Photo on selected page<select id="admin-image-target"></select></label>
-   <button type="button" class="admin-tool" id="admin-choose-photo">Choose image file</button>
-  </div>
-  <div class="admin-photo-controls" id="admin-video-controls" hidden>
-   <label for="admin-video-target">Video on selected page<select id="admin-video-target"></select></label>
-   <button type="button" class="admin-tool" id="admin-choose-video">Choose video file</button>
-   <p class="admin-note">On Home, choose a client testimonial video to add a video to that review. Edit its quote separately with Edit text.</p>
-  </div>
+  <dialog class="admin-work-dialog" id="admin-work-dialog" aria-labelledby="admin-work-dialog-title">
+   <form class="admin-work-controls" id="admin-work-controls">
+    <header class="admin-work-dialog-header">
+     <div><p class="eyebrow">SELECTED WORK / NEW STORY</p><h2 id="admin-work-dialog-title">Add a story.</h2><p class="admin-note">Choose your media and category, then add a title and short description.</p></div>
+     <button class="admin-work-dialog-close" id="admin-work-dialog-close" type="button" aria-label="Close upload dialog">×</button>
+    </header>
+    <fieldset class="admin-work-media-choice">
+     <legend>What would you like to upload?</legend>
+     <label><input name="admin-work-media-type" type="radio" value="image" required><span><b>Image</b><small>JPG, PNG, WebP or GIF · max 30 MB</small></span></label>
+     <label><input name="admin-work-media-type" type="radio" value="video" required><span><b>Video</b><small>MP4 recommended · max 1 GB</small></span></label>
+    </fieldset>
+    <label class="admin-work-upload" id="admin-work-image-upload" hidden>Cover image <span>JPG, PNG, WebP or GIF · max 30 MB</span><input id="admin-work-image" type="file" accept="image/*"></label>
+    <label class="admin-work-upload" id="admin-work-video-upload" hidden>Video file <span>MP4 recommended · max 1 GB</span><input id="admin-work-video" type="file" accept="video/*"></label>
+    <div class="admin-work-category-row">
+     <label for="admin-work-category">Category<select id="admin-work-category"></select></label>
+     <div class="admin-category-add">
+      <label for="admin-work-new-category">Add your own category<input id="admin-work-new-category" maxlength="32" placeholder="e.g. Baby shower"></label>
+      <button class="admin-tool" id="admin-work-add-category" type="button">Add category</button>
+     </div>
+    </div>
+    <label>Story title<input id="admin-work-title" maxlength="80" placeholder="Give this story a title" required></label>
+    <label class="admin-work-description">Short description<textarea id="admin-work-description" maxlength="240" rows="3" placeholder="What makes this celebration special?" required></textarea></label>
+    <div class="admin-work-dialog-actions"><button class="admin-tool" type="submit">Upload and add story</button><button class="admin-work-cancel" type="button">Cancel</button></div>
+    <p class="admin-work-dialog-status" id="admin-work-dialog-status" role="status" aria-live="polite"></p>
+   </form>
+  </dialog>
   <label class="admin-color-label" for="admin-background-color">Selected background color<input id="admin-background-color" type="color" value="#243338"></label>
   <input id="admin-photo-file" type="file" accept="image/*" hidden>
   <input id="admin-video-file" type="file" accept="video/*" hidden>
@@ -89,7 +165,7 @@
   </div>
   <div class="admin-settings-card">
    <h3>Admin access</h3>
-   <p>Admin access uses an encrypted, HTTP-only server session. To change the password, update the <code>EVR_ADMIN_PASSWORD</code> environment variable in your Vercel project and redeploy.</p>
+   <p>Admin access uses one-time email codes and an HTTP-only server session. Manage the authorized admin email and email/Redis provider credentials in your Vercel environment settings.</p>
    <button type="button" class="admin-tool" id="admin-logout">Sign out</button>
   </div>
   <div class="admin-settings-card">
@@ -357,19 +433,10 @@
  <section class="corp-final corp-reveal"><div class="corp-final-overlay"></div><div class="corp-final-content"><p class="corp-kicker">LET'S START WITH YOUR IDEA</p><h2>Your next story.<br><em>Let's make it happen.</em></h2><a class="button corp-primary" href="#/request" data-service="Corporate / content">Share your production brief ↗</a><p>Choose WhatsApp or email to send your brief directly to EVR.</p></div></section>
 </section>
 <section id="work" class="route detail-page" data-experience-owner="home" hidden>
- <div class="inner-title"><p class="eyebrow">EVR / SELECTED WEDDING STORIES</p><h1>Not just the moment.<br><em>Everything around it.</em></h1><p>Watch wedding films, couple stories and family celebrations from EVR's video collection. Credits and project details are shared only when confirmed.</p></div>
+ <div class="inner-title"><p class="eyebrow">EVR / SELECTED WEDDING STORIES</p><h1>Not just the moment.<br><em>Everything around it.</em></h1><p>A small selection of wedding, pre-wedding and family stories. Watch a film when you choose; project credits and details are shared only when confirmed.</p></div>
  <section class="wide-story detail-reveal"><div class="wide-story-art" data-drift><img src="assets/video-posters/sri-shashi-ravi-teja.jpg" alt="Wedding film featuring a couple and their celebration"></div><div><p class="eyebrow">FEATURED WEDDING FILM</p><h2>A celebration,<br><em>remembered.</em></h2><p>A complete wedding story, with room for the people and the moments between the highlights.</p><button class="button gold" data-project="wedding">Explore example brief ↗</button></div></section>
  <section class="detail-section"><p class="eyebrow">FIND YOUR KIND OF STORY</p><h2 data-scroll-underline>Different celebrations.<br><em>A personal point of view.</em></h2><div class="filters detail-filters" aria-label="Wedding story filters"><button class="active" data-filter="all" aria-pressed="true">All stories</button><button data-filter="wedding" aria-pressed="false">Wedding day</button><button data-filter="prewedding" aria-pressed="false">Before the day</button><button data-filter="celebration" aria-pressed="false">Celebrations</button></div>
- <div class="story-library">
-  <article data-category="wedding"><div class="story-cover preview-media" data-demo-media="wedding" data-r2-slot="Sri Shashi &amp; Ravi Teja Lrical Video.mp4"><img src="assets/video-posters/r2/wedding-sri-shashi-ravi-teja.jpg" alt="Wedding film featuring a couple and their celebration"><button class="preview-play" disabled aria-label="Play wedding film"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">EVR VIDEO / CLOUDFLARE R2</span></div><small>WEDDING RITUALS</small><h3>A celebration, remembered</h3><p>A wedding story from the EVR video collection.</p><button class="button outline" data-project="wedding">View story brief ↗</button></article>
-  <article data-category="wedding"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/bride-vertical-01.jpg" alt="Bridal portrait and wedding film reel"><button class="preview-play" disabled aria-label="Play bridal portrait video"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 02</span></div><small>BRIDAL STORY</small><h3>Before the celebrations</h3><p>A personal portrait and a quieter beginning.</p><button class="button outline" data-project="prewedding">View story brief ↗</button></article>
-  <article data-category="wedding"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/c9660-1.jpg" alt="Wedding ceremony and family moments reel"><button class="preview-play" disabled aria-label="Play wedding ceremony reel"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 03</span></div><small>WEDDING DAY</small><h3>The room comes alive</h3><p>The rituals, family and moments in between.</p><button class="button outline" data-project="celebration">View story brief ↗</button></article>
-  <article data-category="wedding"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/sri-shashi-ravi-teja.jpg" alt="A couple's wedding film"><button class="preview-play" disabled aria-label="Play wedding film"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 04</span></div><small>WEDDING FILM</small><h3>A story in every chapter</h3><p>A cinematic film made around a couple and their celebration.</p><button class="button outline" data-project="wedding">View story brief ↗</button></article>
-  <article data-category="prewedding"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/vm-lyrical.jpg" alt="Lyrical wedding story video"><button class="preview-play" disabled aria-label="Play lyrical wedding story"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 05</span></div><small>LYRICAL WEDDING STORY</small><h3>A little before forever</h3><p>A visual story shaped around a couple and their celebration.</p><button class="button outline" data-project="prewedding">View story brief ↗</button></article>
-  <article data-category="wedding"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/wed-lyrical-1.jpg" alt="Wedding invitation and couple story video"><button class="preview-play" disabled aria-label="Play wedding invitation film"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 06</span></div><small>WEDDING FILM</small><h3>Made for this moment</h3><p>A keepsake film celebrating two people and their day.</p><button class="button outline" data-project="wedding">View story brief ↗</button></article>
-  <article data-category="wedding"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/wed-reel.jpg" alt="Vertical wedding celebration reel"><button class="preview-play" disabled aria-label="Play vertical wedding reel"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 07</span></div><small>WEDDING REEL</small><h3>Every ritual, in motion</h3><p>A short celebration edit for the moments that move quickly.</p><button class="button outline" data-project="celebration">View story brief ↗</button></article>
-  <article data-category="celebration"><div class="story-cover preview-media" data-demo-media="wedding"><img src="assets/video-posters/wed.jpg" alt="Wedding ceremony and family gathering reel"><button class="preview-play" disabled aria-label="Play wedding ceremony reel"><span aria-hidden="true">▶</span>Watch video</button><span class="media-disclaimer">LAYOUT EXAMPLE / 08</span></div><small>FUNCTION &amp; FAMILY</small><h3>Bring everyone into the story</h3><p>People, traditions and the shared moments that make a gathering yours.</p><button class="button outline" data-project="celebration">View story brief ↗</button></article>
- </div></section>
+ <div class="story-library"></div></section>
  <section class="detail-section detail-split"><div class="detail-reveal"><p class="eyebrow">BEYOND THE FIRST FRAME</p><h2>Watch for<br><em>the feeling.</em></h2><p>When choosing a wedding filmmaker, look beyond a single highlight. Notice how a complete story treats sound, people, rituals and the quieter moments.</p><a href="#/process" class="text-link">Explore our proposed process ↗</a></div><div class="detail-checklist"><article class="detail-reveal"><b>01 / The people</b><p>Can you feel the relationships, not just see the setting?</p></article><article class="detail-reveal"><b>02 / The rhythm</b><p>Does the film leave room for anticipation and reflection?</p></article><article class="detail-reveal"><b>03 / The whole story</b><p>Is the final scope clear, including what you receive beyond a teaser?</p></article></div></section>
  <div class="detail-end detail-reveal"><p class="eyebrow">YOUR STORY BELONGS HERE NEXT</p><h2>Tell us what<br><em>makes it yours.</em></h2><a class="button gold" href="#/request" data-service="Wedding">Share your wedding plans ↗</a></div>
 </section>
@@ -377,11 +444,11 @@
  <div class="inner-title"><p class="eyebrow">EVR / OUR PROPOSED PROCESS</p><h1>Less to wonder about.<br><em>More to look forward to.</em></h1><p>A shared plan from the first conversation to the finished collection. This is a proposed workflow, not a promise of fixed timelines or a live client portal.</p><button class="button gold" data-scroll-to="planning-story" disabled>Walk through the journey ↓</button></div>
  <section id="planning-story" class="chapter-story" data-chapter-story tabindex="-1" aria-label="Wedding planning journey">
   <div class="chapter-stage"><div class="chapter-intro"><p class="eyebrow">YOUR STORY, STEP BY STEP</p><h2>A clear plan.<br><em>At every turn.</em></h2><p>The sequence follows your scroll.</p><div class="chapter-tabs"><button data-story-step="0" disabled>01 / Tell us your story</button><button data-story-step="1" disabled>02 / Agree the plan</button><button data-story-step="2" disabled>03 / Make the day</button><button data-story-step="3" disabled>04 / Shape the edit</button><button data-story-step="4" disabled>05 / Keep the story</button></div></div><div class="chapter-panels">
-   <article class="chapter-panel"><div class="chapter-art document-art"><small>01 / THE FIRST CONVERSATION</small><strong>Your people.<br>Your priorities.</strong><div class="paper-lines"><span>Events & locations</span><span>Important people</span><span>The feeling you want</span></div></div><div class="chapter-copy"><span>LISTEN BEFORE PLANNING</span><h3>Start with<br>what matters.</h3><p>Share your dates, events, locations and the people we should know about. Bring reference films to explain a mood, not a shot-for-shot copy.</p><ul><li>You share your priorities</li><li>EVR reviews the requirements</li><li>Questions and constraints are clarified</li></ul></div></article>
-   <article class="chapter-panel"><div class="chapter-art document-art"><small>02 / A SHARED SCOPE</small><strong>On the same page.</strong><div class="paper-lines"><span>Coverage & crew</span><span>Deliverables & revisions</span><span>Pricing & schedule</span></div></div><div class="chapter-copy"><span>AGREE BEFORE COMMITTING</span><h3>Put the important<br>things in writing.</h3><p>Confirm what is included and excluded. EVR must approve the final quotation, availability and booking terms.</p><ul><li>Coverage and output quantities</li><li>Payment, travel and cancellation terms</li><li>Proposed review and delivery dates</li></ul></div></article>
-   <article class="chapter-panel"><figure class="chapter-art"><img src="wedding-scene.svg" alt="Illustrated wedding-day production"><figcaption>03 / THE CELEBRATION</figcaption></figure><div class="chapter-copy"><span>WORK FROM THE PLAN</span><h3>Let the day<br>be the day.</h3><p>A point of contact and an agreed schedule help the team coordinate without making you manage every detail.</p><ul><li>Share any final schedule changes</li><li>Confirm access and key contacts</li><li>Discuss extra requirements before adding them</li></ul></div></article>
-   <article class="chapter-panel"><div class="chapter-art edit-art"><small>04 / IN THE EDIT</small><strong>The story<br>takes shape.</strong><div class="large-timeline" aria-hidden="true"><i></i><i></i><i></i><b></b></div></div><div class="chapter-copy"><span>ONE CLEAR ROUND OF NOTES AT A TIME</span><h3>Review with<br>a shared direction.</h3><p>Bring feedback together through the agreed point of contact. The final quote defines review rounds and what counts as additional editing.</p><ul><li>Check the agreed draft</li><li>Combine feedback clearly</li><li>Approve the final version</li></ul></div></article>
-   <article class="chapter-panel"><div class="chapter-art document-art"><small>05 / THE HANDOVER</small><strong>Ready to<br>revisit.</strong><div class="paper-lines"><span>Approved photographs</span><span>Agreed films & formats</span><span>Optional printed pieces</span></div></div><div class="chapter-copy"><span>CONFIRM THE COLLECTION</span><h3>A story<br>to come back to.</h3><p>Check the agreed deliverables and discuss download access, storage and any album selections. Handover arrangements are confirmed per project.</p><ul><li>Receive the agreed final outputs</li><li>Check access and formats</li><li>Keep your own backup of delivered files</li></ul></div></article>
+   <article class="chapter-panel process-card-panel"><figure class="chapter-art process-card-art"><img src="assets/process-cards/process-card-01-your-moments.png" alt="Step 1 card: Your people. Your moments. Our frames. Wedding and function photography."></figure><div class="chapter-copy"><span>LISTEN BEFORE PLANNING</span><h3>Start with<br>what matters.</h3><p>Share your dates, events, locations and the people we should know about. Bring reference films to explain a mood, not a shot-for-shot copy.</p><ul><li>You share your priorities</li><li>EVR reviews the requirements</li><li>Questions and constraints are clarified</li></ul></div></article>
+   <article class="chapter-panel process-card-panel"><figure class="chapter-art process-card-art"><img src="assets/process-cards/process-card-02-shared-scope.png" alt="Step 2 card: On the same page. A clear plan, shared vision, and smooth journey to the final cut."></figure><div class="chapter-copy"><span>AGREE BEFORE COMMITTING</span><h3>Put the important<br>things in writing.</h3><p>Confirm what is included and excluded. EVR must approve the final quotation, availability and booking terms.</p><ul><li>Coverage and output quantities</li><li>Payment, travel and cancellation terms</li><li>Proposed review and delivery dates</li></ul></div></article>
+   <article class="chapter-panel process-card-panel"><figure class="chapter-art process-card-art"><img src="assets/process-cards/process-card-03-tradition.png" alt="Traditional temple wedding portrait card featuring a couple beneath a decorated temple."></figure><div class="chapter-copy"><span>WORK FROM THE PLAN</span><h3>Let the day<br>be the day.</h3><p>A point of contact and an agreed schedule help the team coordinate without making you manage every detail.</p><ul><li>Share any final schedule changes</li><li>Confirm access and key contacts</li><li>Discuss extra requirements before adding them</li></ul></div></article>
+   <article class="chapter-panel process-card-panel"><figure class="chapter-art process-card-art"><img src="assets/process-cards/process-card-04-edit-timeline.png" alt="Step 4 card: The story takes shape, with thoughtful editing and cinematic color."></figure><div class="chapter-copy"><span>ONE CLEAR ROUND OF NOTES AT A TIME</span><h3>Review with<br>a shared direction.</h3><p>Bring feedback together through the agreed point of contact. The final quote defines review rounds and what counts as additional editing.</p><ul><li>Check the agreed draft</li><li>Combine feedback clearly</li><li>Approve the final version</li></ul></div></article>
+   <article class="chapter-panel process-card-panel"><figure class="chapter-art process-card-art"><img src="assets/process-cards/process-card-05-handover.png" alt="Step 5 card: Ready to revisit, with approved photographs, films and optional printed pieces."></figure><div class="chapter-copy"><span>CONFIRM THE COLLECTION</span><h3>A story<br>to come back to.</h3><p>Check the agreed deliverables and discuss download access, storage and any album selections. Handover arrangements are confirmed per project.</p><ul><li>Receive the agreed final outputs</li><li>Check access and formats</li><li>Keep your own backup of delivered files</li></ul></div></article>
   </div><div class="chapter-footer"><button data-scroll-to="process-people" disabled>Skip journey ↓</button><span class="chapter-position">01 / 05</span><div class="chapter-meter" aria-hidden="true"><i></i></div></div></div>
  </section>
  <section id="process-people" class="detail-section" tabindex="-1"><p class="eyebrow">WHO DOES WHAT</p><h2 data-scroll-underline>Clear responsibilities.<br><em>Fewer loose ends.</em></h2><div class="detail-grid"><article class="detail-reveal"><span>YOU / THE CLIENT</span><h3>The context.</h3><p>Share the schedule, permissions, must-know details and consolidated feedback. Choose someone who can make decisions.</p></article><article class="detail-reveal"><span>PRODUCTION CONTACT</span><h3>The coordination.</h3><p>Align the scope, crew and schedule. Confirm any proposed changes with you before they become new commitments.</p></article><article class="detail-reveal"><span>EDITING CONTACT</span><h3>The finish.</h3><p>Work towards the agreed output and review process. Names and responsibilities will be confirmed by EVR, not invented here.</p></article></div></section>
@@ -457,9 +524,14 @@
  <div class="quote-studio-shell">
   <div class="quote-studio-heading"><div><p class="eyebrow">EVR / PRIVATE QUOTATION STUDIO</p><h1>Build a clear <em>proposal.</em></h1><p>Create a wedding or production quotation, then print it or save it as a PDF.</p></div><a class="button secondary" href="#/admin">Website admin</a></div>
   <form id="quote-studio-login" class="admin-login" hidden>
-   <h2>Sign in to the EVR quotation studio</h2><p>Use your EVR admin password. This studio is for staff only.</p>
-   <label for="quote-studio-password">Admin password</label><input id="quote-studio-password" type="password" autocomplete="current-password" minlength="8" required>
-   <button type="submit" class="button gold">Sign in</button><p id="quote-studio-login-status" class="admin-status" role="status" aria-live="polite"></p>
+   <h2>Sign in to the EVR quotation studio</h2><p>Enter your authorized admin email address to receive a one-time sign-in code.</p>
+   <label for="quote-studio-email">Admin email</label><input id="quote-studio-email" type="email" autocomplete="username" required>
+   <button type="button" class="button gold" id="quote-studio-request-code">Send sign-in code</button>
+   <div id="quote-studio-code-entry" hidden>
+    <label for="quote-studio-code">Eight-digit code</label><input id="quote-studio-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" maxlength="8" required>
+    <button type="submit" class="button gold">Verify code</button><button type="button" class="admin-tool" id="quote-studio-resend-code">Send a new code</button>
+   </div>
+   <p id="quote-studio-login-status" class="admin-status" role="status" aria-live="polite"></p>
   </form>
   <div id="quote-studio-app" hidden>
    <div class="quote-studio-toolbar"><p id="quote-studio-status" role="status" aria-live="polite">Ready to create a quotation.</p><button type="button" class="admin-tool" id="quote-studio-signout">Sign out</button></div>
@@ -537,15 +609,15 @@
   <footer class="quote-print-footer">EVR PRODUCTIONS <span>Hyderabad, Telangana · evrproductionss@gmail.com · +91 99517 18375</span></footer>
  </article>
 </dialog>
-<script src="app.js?v=video-loop-all"></script>
+<script src="app.js?v=admin-preview-auth-3"></script>
 <script src="hero-motion.js?v=real-photo-collage"></script>
-<script src="r2-video-library.js?v=half-saree-crop-1"></script>
-<script src="homepage-experience.js?v=half-saree-start-29"></script>
+<script src="r2-video-library.js?v=portfolio-four-1"></script>
+<script src="homepage-experience.js?v=mobile-process-restored-1"></script>
 <script src="corporate-experience.js?v=admin-video"></script>
 <script src="detail-pages.js?v=wedding-word-reveal"></script>
 <script src="quotation-builder.js"></script>
-<script src="quote-maker.js"></script>
+<script src="quote-maker.js?v=email-otp-auth"></script>
 <script src="admin-media-client.js?v=r2-multipart-1"></script>
-<script src="admin.js?v=stream-cms-1"></script>
+<script src="admin.js?v=admin-photo-auth-gate-2"></script>
 </body>
 </html>

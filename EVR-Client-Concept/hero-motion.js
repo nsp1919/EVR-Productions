@@ -68,20 +68,27 @@
     });
   }
 
+  function audioIcon(muted) {
+    return muted
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m17 9 5 6m0-6-5 6"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/></svg>';
+  }
   function syncFeatureVideo() {
     if (!featureVideo) return;
     const isFront = featureCard.dataset.slot === '2';
     const shouldPlay = isFront && Number(story.dataset.progress || 0) < .16 && !home.hidden && document.visibilityState === 'visible';
     if (shouldPlay) {
       featureVideo.play().catch(() => {
-        videoToggle.textContent = 'Play video';
+        videoToggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m8 5 11 7-11 7V5Z"/></svg>';
         videoToggle.setAttribute('aria-label', featureVideo.muted ? 'Play featured video muted' : 'Play featured video with sound');
       });
     } else {
       featureVideo.pause();
       if (!isFront && !featureVideo.muted) featureVideo.muted = true;
     }
-    videoToggle.textContent = featureVideo.paused ? 'Play video' : featureVideo.muted ? 'Unmute' : 'Mute';
+    videoToggle.innerHTML = featureVideo.paused
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m8 5 11 7-11 7V5Z"/></svg>'
+      : audioIcon(featureVideo.muted);
     videoToggle.setAttribute('aria-label', featureVideo.paused
       ? (featureVideo.muted ? 'Play featured video muted' : 'Play featured video with sound')
       : featureVideo.muted ? 'Unmute featured video' : 'Mute featured video');

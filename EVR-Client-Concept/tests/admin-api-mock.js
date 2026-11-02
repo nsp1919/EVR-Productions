@@ -1,7 +1,7 @@
 'use strict';
 
 async function mockAdminApi(page, initialContent = { version: 1, entries: {} }, authenticated = true, options = {}) {
-  const state = { content: structuredClone(initialContent), authenticated };
+  const state = { content: structuredClone(initialContent), authenticated, contentLoadDelayMs: 0 };
 
   if (options.mockUploader !== false) {
     await page.addInitScript(() => {
@@ -26,12 +26,22 @@ async function mockAdminApi(page, initialContent = { version: 1, entries: {} }, 
       return route.fulfill({ json: { configured: true, authenticated: state.authenticated } });
     }
     const body = request.postDataJSON();
-    state.authenticated = body.action === 'login';
+    if (body.action === 'request-code') {
+      return route.fulfill({ json: {
+        message: 'If this address is authorized, a sign-in code has been sent. Codes expire in 10 minutes.'
+      } });
+    }
+    state.authenticated = body.action === 'verify-code';
     return route.fulfill({ json: { authenticated: state.authenticated } });
   });
   await page.route('**/api/content', async route => {
     const request = route.request();
-    if (request.method() === 'GET') return route.fulfill({ json: state.content });
+    if (request.method() === 'GET') {
+      if (state.contentLoadDelayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, state.contentLoadDelayMs));
+      }
+      return route.fulfill({ json: state.content });
+    }
     if (!state.authenticated) return route.fulfill({ status: 401, json: { error: 'Sign in to save website content.' } });
     state.content = request.postDataJSON();
     return route.fulfill({ json: state.content });
@@ -39,7 +49,8 @@ async function mockAdminApi(page, initialContent = { version: 1, entries: {} }, 
 
   return {
     getContent: () => structuredClone(state.content),
-    setContent: content => { state.content = structuredClone(content); }
+    setContent: content => { state.content = structuredClone(content); },
+    setContentLoadDelay: milliseconds => { state.contentLoadDelayMs = milliseconds; }
   };
 }
 

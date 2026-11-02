@@ -24,7 +24,12 @@ test('public visitors receive saved shared website content without signing in', 
     entries: { [headingKey]: { type: 'text', value: 'Shared public website edit' } }
   });
 
+  api.setContentLoadDelay(700);
   await page.reload();
+  await expect(page.locator('#home')).toBeHidden();
+  await expect(page.locator('html')).toHaveClass(/shared-content-pending/);
   await expect(page.locator('#home h1 em')).toHaveText('Shared public website edit');
+  await expect(page.locator('#home')).toBeVisible();
+  await expect(page.locator('html')).not.toHaveClass(/shared-content-pending/);
   await expect(page.locator('#admin-login')).toBeHidden();
 });

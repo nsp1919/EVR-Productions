@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const { mockAdminApi } = require('./admin-api-mock');
+const { clickFirstContextualMediaAction } = require('./admin-media-helpers');
 
 const photoFixture = path.resolve(__dirname, '..', 'assets', 'demo-wedding-poster.png');
 
@@ -8,8 +9,7 @@ test('photo replacement persists and reset restores defaults', async ({ page }) 
   const api = await mockAdminApi(page);
   await page.goto('/#/admin');
   await page.locator('#admin-preview-page').selectOption('home');
-  await page.locator('[data-admin-mode="image"]').click();
-  await page.locator('#admin-image-target').selectOption({ index: 0 });
+  await clickFirstContextualMediaAction(page, 'Replace photo');
   await page.locator('#admin-photo-file').setInputFiles(photoFixture);
   await expect(page.locator('#admin-status')).toContainText('Photo uploaded');
   await page.locator('#admin-save').click();

@@ -3,6 +3,7 @@
 const { list, put } = require('@vercel/blob');
 
 const contentPath = 'evr/site-content-v1.json';
+const contentPrefix = contentPath.slice(0, -'.json'.length);
 const emptyContent = { version: 1, entries: {} };
 
 function validateContent(value) {
@@ -31,10 +32,30 @@ function validateContent(value) {
 }
 
 async function readContent() {
-  const { blobs } = await list({ prefix: contentPath, limit: 1 });
+  const blobs = [];
+  let cursor;
+  do {
+    const page = await list({ prefix: contentPrefix, limit: 1000, ...(cursor ? { cursor } : {}) });
+    blobs.push(...page.blobs.filter(blob =>
+      blob.pathname === contentPath || blob.pathname.startsWith(`${contentPrefix}-`)
+    ));
+    if (!page.hasMore) break;
+    if (!page.cursor || page.cursor === cursor) {
+      throw new Error('Could not finish listing the saved website content versions.');
+    }
+    cursor = page.cursor;
+  } while (true);
+
+  blobs.sort((left, right) =>
+    right.uploadedAt.getTime() - left.uploadedAt.getTime() ||
+    right.pathname.localeCompare(left.pathname)
+  );
   if (!blobs.length) return emptyContent;
 
-  const response = await fetch(blobs[0].url, { cache: 'no-store' });
+  const latest = blobs[0];
+  const contentUrl = new URL(latest.url);
+  contentUrl.searchParams.set('v', String(latest.uploadedAt.getTime()));
+  const response = await fetch(contentUrl, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Could not read the saved content (${response.status}).`);
   return validateContent(await response.json());
 }
@@ -45,8 +66,7 @@ async function writeContent(content) {
   if (Buffer.byteLength(body, 'utf8') > 4_000_000) throw new Error('Content is too large to save. Remove large inline images and try again.');
   await put(contentPath, body, {
     access: 'public',
-    addRandomSuffix: false,
-    allowOverwrite: true,
+    addRandomSuffix: true,
     contentType: 'application/json; charset=utf-8',
     cacheControlMaxAge: 60
   });

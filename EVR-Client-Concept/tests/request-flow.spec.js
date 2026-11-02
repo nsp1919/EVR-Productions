@@ -42,8 +42,18 @@ test('valid enquiry offers real WhatsApp and email handoffs with the complete br
   const emailUrl = new URL(await email.getAttribute('href'));
   expect(emailUrl.protocol).toBe('mailto:');
   expect(emailUrl.pathname).toBe('evrproductionss@gmail.com');
-  expect(emailUrl.searchParams.get('subject')).toBe('EVR project enquiry: Asha Rao');
-  expect(emailUrl.searchParams.get('body')).toContain('Wedding photography and a short film.');
+  expect(emailUrl.searchParams.get('subject')).toBe('Project enquiry | Asha Rao');
+  const emailBody = emailUrl.searchParams.get('body');
+  expect(emailBody).toContain('Hello EVR Productions,');
+  expect(emailBody).toContain('PROJECT OVERVIEW');
+  expect(emailBody).toContain('Service: Wedding / event photography');
+  expect(emailBody).toContain('Preferred date: Flexible / not specified');
+  expect(emailBody).toContain('Name: Asha Rao');
+  expect(emailBody).toContain('Phone: +91 90000 12345');
+  expect(emailBody).toContain('Email: asha@example.com');
+  expect(emailBody).toContain('PROJECT DETAILS\nWedding photography and a short film.');
+  expect(emailBody).toContain('Please let me know a convenient time');
+  expect(emailBody).toContain('Thank you,\nAsha Rao');
   await expect(page.locator('#inquiry-status')).toContainText('press Send to contact EVR');
 
   await form.locator('[name="brief"]').fill('Updated wedding plans.');

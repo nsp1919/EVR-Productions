@@ -21,7 +21,7 @@ echo.
 echo Starting the local EVR Productions server...
 echo Keep this window open while you use the site.
 echo.
-call npx vercel dev
+node run-vercel-dev.js
 set "exitCode=%ERRORLEVEL%"
 
 if not "%exitCode%"=="0" (

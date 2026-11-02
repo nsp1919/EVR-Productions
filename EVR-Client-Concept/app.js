@@ -13,17 +13,23 @@ new MutationObserver(records => {
 function route() {
   const requested = location.hash.replace(/^#\/?/, '') || 'home';
   const target = document.querySelectorAll('.route');
+  const pathIsAdmin = /^\/admin\/?$/.test(location.pathname);
   const valid = Array.from(target).some(section => section.id === requested);
-  const isAdmin = requested === 'admin';
+  const isAdmin = requested === 'admin' || pathIsAdmin;
+  const canPreviewAdminPage = window.adminAuthenticated === true;
   const activeRoute = isAdmin ? (window.adminPreviewPage || 'home') : valid ? requested : 'home';
   byId('admin-editor').hidden = !isAdmin;
   document.body.classList.toggle('admin-active', isAdmin);
+  document.body.classList.toggle('admin-locked', isAdmin && !canPreviewAdminPage);
+  if (!isAdmin) document.documentElement.classList.remove('admin-route-pending');
   if (!isAdmin) {
     document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
       element.contentEditable = 'false';
     });
   }
-  for (const section of target) section.hidden = section.id !== activeRoute;
+  for (const section of target) {
+    section.hidden = section.id !== activeRoute || (isAdmin && !canPreviewAdminPage);
+  }
   syncCelebrationFilm(activeRoute);
   if (typeof window.syncHomeHeroVideo === 'function') window.syncHomeHeroVideo();
   const page = byId(activeRoute);
@@ -43,8 +49,10 @@ function route() {
   else if (savedExperience === 'home' || savedExperience === 'corporate') activeExperience = savedExperience;
   history.replaceState({ ...history.state, evrExperience: activeExperience }, '');
   document.body.classList.toggle('corporate-view', activeExperience === 'corporate');
-  document.title = activeRoute === 'studio'
-    ? 'Private Quotation Studio | EVR Productions'
+  document.title = activeRoute === 'admin'
+    ? 'EVR Studio | EVR Productions'
+    : activeRoute === 'studio'
+      ? 'Private Quotation Studio | EVR Productions'
     : activeExperience === 'corporate' ? 'NBrands | EVR Productions' : 'Weddings & Functions | EVR Productions';
   document.querySelector('.experience-switch').dataset.active = activeExperience;
   document.querySelectorAll('[data-experience]').forEach(link => {
@@ -101,8 +109,11 @@ document.querySelectorAll('[data-estimate-type], [data-corp-estimate]').forEach(
 document.querySelectorAll('[data-service]').forEach(link => link.addEventListener('click', () => {
   byId('service').value = link.dataset.service;
 }));
-document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
+document.addEventListener('click', event => {
+  const button = event.target instanceof Element ? event.target.closest('[data-filter]') : null;
+  if (!button) return;
   const gallery = button.closest('.route');
+  if (!gallery) return;
   gallery.querySelectorAll('[data-filter]').forEach(item => {
     item.classList.toggle('active', item === button);
     item.setAttribute('aria-pressed', String(item === button));
@@ -110,7 +121,7 @@ document.querySelectorAll('[data-filter]').forEach(button => button.addEventList
   gallery.querySelectorAll('[data-category]').forEach(item => {
     item.hidden = button.dataset.filter !== 'all' && item.dataset.category !== button.dataset.filter;
   });
-}));
+});
 const inquiryForm = byId('inquiry-form');
 const inquiryStatus = byId('inquiry-status');
 const enquirySendOptions = byId('enquiry-send-options');
@@ -142,9 +153,34 @@ inquiryForm.addEventListener('submit', event => {
     'What they would like to create:',
     value('brief')
   ].join('\n');
-  const subject = `EVR project enquiry: ${value('name')}`;
+  const emailSubject = `Project enquiry | ${value('name')}`;
+  const emailBody = [
+    'Hello EVR Productions,',
+    '',
+    'I would like to discuss a project with your team. Here are the details:',
+    '',
+    'PROJECT OVERVIEW',
+    `Service: ${inquiryForm.elements.service.selectedOptions[0].textContent.trim()}`,
+    `Preferred date: ${value('date') || 'Flexible / not specified'}`,
+    `Brand or project: ${value('brand') || 'Not specified'}`,
+    `Location: ${value('location')}`,
+    `Budget: ${inquiryForm.elements.budget.selectedOptions[0].textContent.trim()}`,
+    '',
+    'ABOUT ME',
+    `Name: ${value('name')}`,
+    `Phone: ${value('phone')}`,
+    `Email: ${value('email')}`,
+    '',
+    'PROJECT DETAILS',
+    value('brief'),
+    '',
+    'Please let me know a convenient time to discuss the scope, availability, and next steps. I understand that final pricing and availability will be confirmed with your team.',
+    '',
+    'Thank you,',
+    value('name')
+  ].join('\n');
   whatsappEnquiryLink.href = `https://wa.me/919951718375?text=${encodeURIComponent(message)}`;
-  emailEnquiryLink.href = `mailto:evrproductionss@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  emailEnquiryLink.href = `mailto:evrproductionss@gmail.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
   enquirySendOptions.hidden = false;
   inquiryStatus.textContent = 'Your enquiry is ready. Choose WhatsApp or email, review the message, then press Send to contact EVR.';
 });

@@ -2,3 +2,4 @@
   "buildCommand": "cd EVR-Client-Concept && npm run build",
   "outputDirectory": "EVR-Client-Concept"
 }
+

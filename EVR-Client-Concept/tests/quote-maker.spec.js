@@ -14,10 +14,13 @@ async function mockQuoteAuth(page) {
       authenticated = false;
       return route.fulfill({ json: { authenticated } });
     }
-    authenticated = body.action === 'login' && body.password === 'test-only-password';
+    if (body.action === 'request-code') {
+      return route.fulfill({ json: { message: 'A sign-in code has been sent.' } });
+    }
+    authenticated = body.action === 'verify-code' && body.code === '12345678';
     return route.fulfill({
       status: authenticated ? 200 : 401,
-      json: authenticated ? { authenticated } : { error: 'The password was not accepted.' }
+      json: authenticated ? { authenticated } : { error: 'That code is invalid or expired.' }
     });
   });
 }
@@ -28,7 +31,9 @@ test('quotation studio requires sign-in and creates a priced EVR PDF preview', a
 
   await expect(page.locator('#quote-studio-login')).toBeVisible();
   await expect(page.locator('#quote-studio-app')).toBeHidden();
-  await page.locator('#quote-studio-password').fill('test-only-password');
+  await page.locator('#quote-studio-email').fill('admin@example.com');
+  await page.locator('#quote-studio-request-code').click();
+  await page.locator('#quote-studio-code').fill('12345678');
   await page.locator('#quote-studio-login button[type="submit"]').click();
   await expect(page.locator('#quote-studio-app')).toBeVisible();
 
@@ -53,13 +58,15 @@ test('quotation studio requires sign-in and creates a priced EVR PDF preview', a
   await expect(page.locator('#print-terms')).toContainText('EVR Productions');
 });
 
-test('quotation studio rejects a wrong password', async ({ page }) => {
+test('quotation studio rejects an invalid email code', async ({ page }) => {
   await mockQuoteAuth(page);
   await page.goto('/#/studio');
-  await page.locator('#quote-studio-password').fill('wrong-password');
+  await page.locator('#quote-studio-email').fill('admin@example.com');
+  await page.locator('#quote-studio-request-code').click();
+  await page.locator('#quote-studio-code').fill('87654321');
   await page.locator('#quote-studio-login button[type="submit"]').click();
 
-  await expect(page.locator('#quote-studio-login-status')).toContainText('not accepted');
+  await expect(page.locator('#quote-studio-login-status')).toContainText('invalid or expired');
   await expect(page.locator('#quote-studio-app')).toBeHidden();
 });
 

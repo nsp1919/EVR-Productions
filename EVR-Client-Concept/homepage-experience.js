@@ -354,6 +354,11 @@
   const players = [];
   let activePlayer;
   let mediaRequest = 0;
+  function audioIcon(muted) {
+    return muted
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m17 9 5 6m0-6-5 6"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/></svg>';
+  }
   function setPlayerMuted(player, muted) {
     if (!muted) {
       players.forEach(other => {
@@ -362,8 +367,9 @@
     }
     player.video.muted = muted;
     player.container.classList.toggle('is-unmuted', !muted);
-    player.audio.textContent = muted ? 'Unmute' : 'Mute';
+    player.audio.innerHTML = audioIcon(muted);
     player.audio.setAttribute('aria-label', muted ? 'Unmute video' : 'Mute video');
+    player.audio.setAttribute('aria-pressed', String(!muted));
   }
   function togglePlayerMuted(player) {
     setPlayerMuted(player, !player.video.muted);
@@ -378,6 +384,7 @@
       && (visibleWidth * visibleHeight) / (rect.width * rect.height) >= .15;
   }
   function canAutoplay(player) {
+    if (player.route?.id === 'work') return false;
     const sequenceVisible = isSequencePanelVisible(player);
     return player.visible
       || (sequenceVisible && !document.hidden && !reducedMotion.matches
@@ -393,6 +400,16 @@
       && activePlayer !== player;
   }
   function syncAutoplay(player) {
+    if (player.route?.id === 'work') {
+      if (activePlayer === player || player.container.classList.contains('has-project-video')) return;
+      player.video.pause();
+      player.video.hidden = true;
+      player.image.hidden = false;
+      player.play.hidden = false;
+      player.audio.hidden = true;
+      player.container.classList.remove('is-autoplaying');
+      return;
+    }
     if (canPlay(player)) {
       if (!player.video.getAttribute('src')) player.video.src = player.container.dataset.r2VideoUrl;
       if (player.video.paused) setPlayerMuted(player, true);
@@ -401,9 +418,7 @@
       player.video.controls = false;
       player.container.classList.add('is-autoplaying');
       player.audio.hidden = false;
-      player.video.play().then(() => {
-        if (canPlay(player)) player.play.hidden = true;
-      }).catch(() => {
+      player.video.play().catch(() => {
         player.container.classList.remove('is-autoplaying');
         player.image.hidden = false;
         player.video.controls = false;
@@ -475,7 +490,7 @@
     video.hidden = true;
     video.muted = true;
     video.loop = true;
-    video.autoplay = true;
+    video.autoplay = container.closest('#work') === null;
     video.className = 'r2-autoplay-preview';
     if (image) video.poster = image.currentSrc || image.src;
     video.setAttribute('aria-label', 'EVR video or illustrative motion sample');
@@ -488,7 +503,7 @@
     const audio = document.createElement('button');
     audio.type = 'button';
     audio.className = 'preview-audio-toggle';
-    audio.textContent = 'Unmute';
+    audio.innerHTML = audioIcon(true);
     audio.setAttribute('aria-label', 'Unmute video');
     audio.hidden = true;
     const error = document.createElement('p');

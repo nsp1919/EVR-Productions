@@ -3,6 +3,7 @@
 const { readContent, validateContent, writeContent } = require('../server/content-store');
 const {
   configurationError,
+  contentConfigurationError,
   isAuthenticated,
   rejectCrossOrigin,
   setPrivateHeaders
@@ -11,10 +12,10 @@ const {
 module.exports = async function handler(request, response) {
   setPrivateHeaders(response);
   if (rejectCrossOrigin(request, response)) return;
-  const setupError = configurationError();
-  if (setupError) return response.status(503).json({ error: setupError });
 
   if (request.method === 'GET') {
+    const setupError = contentConfigurationError();
+    if (setupError) return response.status(503).json({ error: setupError });
     try {
       return response.status(200).json(await readContent());
     } catch (error) {
@@ -26,6 +27,8 @@ module.exports = async function handler(request, response) {
     response.setHeader('Allow', 'GET, PUT');
     return response.status(405).json({ error: 'Method not allowed.' });
   }
+  const setupError = configurationError();
+  if (setupError) return response.status(503).json({ error: setupError });
   if (!isAuthenticated(request)) return response.status(401).json({ error: 'Sign in to save website content.' });
 
   try {

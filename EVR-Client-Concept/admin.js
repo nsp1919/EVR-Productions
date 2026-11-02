@@ -3,10 +3,9 @@
   const storageKey = 'evr-site-content';
   const editor = document.getElementById('admin-editor');
   const pageSelect = document.getElementById('admin-preview-page');
-  const imageSelect = document.getElementById('admin-image-target');
-  const imageControls = document.getElementById('admin-image-controls');
-  const videoSelect = document.getElementById('admin-video-target');
-  const videoControls = document.getElementById('admin-video-controls');
+  const workControls = document.getElementById('admin-work-controls');
+  const workForm = document.getElementById('admin-work-controls');
+  const workDialog = document.getElementById('admin-work-dialog');
   const colorPicker = document.getElementById('admin-background-color');
   const photoPicker = document.getElementById('admin-photo-file');
   const videoPicker = document.getElementById('admin-video-file');
@@ -16,21 +15,44 @@
   const settingsPanel = document.getElementById('admin-settings');
   const settingsOpen = document.getElementById('admin-settings-open');
   const loginPanel = document.getElementById('admin-login');
+  const loginScreen = document.getElementById('admin-login-screen');
   const loginStatus = document.getElementById('admin-login-status');
-  const passwordInput = document.getElementById('admin-password');
+  const adminEmailInput = document.getElementById('admin-email');
+  const adminCodeInput = document.getElementById('admin-code');
+  const adminCodeEntry = document.getElementById('admin-code-entry');
   const controls = document.querySelector('.admin-controls');
   const textSelector = 'h1,h2,h3,h4,p,a,span,figcaption,summary,label,button,li,dt,dd,blockquote,cite,b,strong,em';
   const backgroundSelector = 'section,article,a,figure,aside,header,footer,div';
   const allowedMarkup = new Set(['BR', 'EM', 'STRONG', 'B', 'I', 'SPAN', 'SMALL', 'SUB', 'SUP']);
   const assetDatabase = 'evr-site-content-assets';
   const assetStore = 'videos';
+  const managedGalleryKey = '#work-gallery-items-v1';
+  const hiddenWorkCardsKey = '#work-gallery-hidden-cards-v1';
+  const workCategoriesKey = '#work-gallery-categories-v1';
+  const mediaRevertKey = '#media-revert-state-v1';
+  const defaultWorkCategories = [
+    { slug: 'wedding', label: 'Wedding day' },
+    { slug: 'prewedding', label: 'Pre-wedding' },
+    { slug: 'celebration', label: 'Celebrations' },
+    { slug: 'birthday', label: 'Birthdays' },
+    { slug: 'maternity', label: 'Maternity' },
+    { slug: 'half-saree', label: 'Half Saree' },
+    { slug: 'engagement', label: 'Engagement parties' },
+    { slug: 'other-functions', label: 'Other functions' }
+  ];
   let mode = 'text';
   let selectedElement = null;
   let edits = {};
+  let managedWorkItems = [];
+  let hiddenWorkCardIds = new Set();
+  let customWorkCategories = [];
+  let mediaRevertState = {};
+  let managedGalleryChanged = false;
   const videoUrls = new Map();
   const hlsPlayers = new Map();
   const videoSourceVersions = new WeakMap();
   const pendingVideos = new Map();
+  const watchedMediaImages = new WeakSet();
   let assetDb;
   let hlsClientPromise;
 
@@ -151,13 +173,17 @@
       preview.classList.add('has-project-video');
       preview.querySelector('img')?.removeAttribute('aria-hidden');
       video.hidden = false;
+      if (preview.closest('#work')) {
+        video.controls = true;
+        video.loop = true;
+      }
       const disclaimer = preview.querySelector('.media-disclaimer');
       if (disclaimer) disclaimer.textContent = 'EVR VIDEO / PROJECT SAMPLE';
       video.setAttribute('aria-label', 'EVR-produced project video sample');
       const play = preview.querySelector('.preview-play');
       if (play) {
         play.setAttribute('aria-label', 'Play EVR-produced project video');
-        play.hidden = true;
+        play.hidden = !preview.closest('#work');
       }
     }
 
@@ -231,10 +257,19 @@
   }
 
   function showEditor(authenticated) {
+    window.adminAuthenticated = authenticated;
+    loginScreen.hidden = authenticated;
     loginPanel.hidden = authenticated;
     controls.hidden = !authenticated;
     settingsOpen.hidden = !authenticated;
+    document.body.classList.toggle('admin-locked', location.hash === '#/admin' && !authenticated);
     if (!authenticated) settingsPanel.hidden = true;
+    if (typeof window.route === 'function') window.route();
+    renderManagedWorkItems();
+    if (authenticated) {
+      renderMediaControls();
+    }
+    document.documentElement.classList.remove('admin-route-pending');
   }
 
   function setLoginStatus(message, error = false) {
@@ -327,22 +362,495 @@
     }
   }
 
+  async function uploadPhotoFile(file) {
+    if (!file.type.startsWith('image/') || file.size > 30 * 1024 * 1024) {
+      throw new Error('Choose an image file up to 30 MB.');
+    }
+    const decoded = await decodeImageFile(file);
+    let photo;
+    try {
+      const scale = Math.min(1, 1600 / Math.max(decoded.width, decoded.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(decoded.width * scale));
+      canvas.height = Math.max(1, Math.round(decoded.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('The browser could not prepare the image canvas.');
+      context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+      photo = canvas.toDataURL('image/webp', 0.84);
+    } finally {
+      decoded.close();
+    }
+    if (!safeImageSource(photo)) throw new Error('The browser could not process this image.');
+    const photoBlob = await (await fetch(photo)).blob();
+    return uploadMedia(photoBlob, 'image/webp');
+  }
+
+  function encodeManagedGallery(items) {
+    const bytes = new TextEncoder().encode(JSON.stringify(items));
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  function readCustomWorkCategories(value) {
+    let categories;
+    try {
+      categories = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The saved Work categories are invalid: ${error.message}`);
+    }
+    if (!Array.isArray(categories) || categories.length > 50) {
+      throw new Error('The saved Work categories list is invalid.');
+    }
+    const usedSlugs = new Set(defaultWorkCategories.map(category => category.slug));
+    const usedLabels = new Set(defaultWorkCategories.map(category => category.label.toLowerCase()));
+    return categories.map(category => {
+      if (!category || typeof category.slug !== 'string' ||
+          !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(category.slug) || category.slug.length > 48 ||
+          typeof category.label !== 'string' || category.label.trim().length < 2 ||
+          category.label.trim().length > 32 ||
+          usedSlugs.has(category.slug) || usedLabels.has(category.label.trim().toLowerCase())) {
+        throw new Error('A saved Work category is incomplete, duplicated, or invalid.');
+      }
+      usedSlugs.add(category.slug);
+      usedLabels.add(category.label.trim().toLowerCase());
+      return { slug: category.slug, label: category.label.trim() };
+    });
+  }
+
+  function availableWorkCategories() {
+    return [...defaultWorkCategories, ...customWorkCategories];
+  }
+
+  function refreshWorkCategoryControls() {
+    const categorySelect = document.getElementById('admin-work-category');
+    const filterBar = document.querySelector('#work .filters');
+    if (categorySelect) {
+      const selectedCategory = categorySelect.value;
+      categorySelect.replaceChildren(...availableWorkCategories().map(category => {
+        const option = document.createElement('option');
+        option.value = category.slug;
+        option.textContent = category.label;
+        return option;
+      }));
+      if (availableWorkCategories().some(category => category.slug === selectedCategory)) {
+        categorySelect.value = selectedCategory;
+      }
+    }
+    if (filterBar) {
+      const activeFilter = filterBar.querySelector('[data-filter].active')?.dataset.filter || 'all';
+      filterBar.querySelectorAll('[data-filter]:not([data-filter="all"])').forEach(button => button.remove());
+      availableWorkCategories().forEach(category => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.filter = category.slug;
+        button.setAttribute('aria-pressed', String(activeFilter === category.slug));
+        button.classList.toggle('active', activeFilter === category.slug);
+        button.textContent = category.label;
+        filterBar.append(button);
+      });
+      if (!availableWorkCategories().some(category => category.slug === activeFilter) && activeFilter !== 'all') {
+        const allStories = filterBar.querySelector('[data-filter="all"]');
+        if (allStories) allStories.click();
+      }
+    }
+  }
+
+  function decodeManagedGallery(value, categorySlugs = new Set(availableWorkCategories().map(category => category.slug))) {
+    let items;
+    try {
+      const bytes = Uint8Array.from(atob(value), character => character.charCodeAt(0));
+      items = JSON.parse(new TextDecoder().decode(bytes));
+    } catch (error) {
+      throw new Error(`The saved Work gallery is invalid: ${error.message}`);
+    }
+    if (!Array.isArray(items) || items.length > 100) {
+      throw new Error('The saved Work gallery must contain no more than 100 stories.');
+    }
+    const ids = new Set();
+    return items.map(item => {
+      if (!item || typeof item !== 'object' ||
+          typeof item.id !== 'string' || !/^[\w-]{1,80}$/.test(item.id) || ids.has(item.id) ||
+          typeof item.title !== 'string' || !item.title.trim() || item.title.length > 80 ||
+          typeof item.category !== 'string' || !categorySlugs.has(item.category) ||
+          typeof item.description !== 'string' || !item.description.trim() || item.description.length > 240 ||
+          typeof item.imageUrl !== 'string' ||
+          (item.imageUrl !== '' && !safeImageSource(item.imageUrl))) {
+        throw new Error('A saved Work story is incomplete or invalid.');
+      }
+      if (typeof item.videoUrl !== 'string' ||
+          (item.videoUrl !== '' && !isSecureMediaUrl(item.videoUrl)) ||
+      (item.imageRevertUrl !== undefined && !safeImageSource(item.imageRevertUrl)) ||
+      (item.videoRevertUrl !== undefined && !isSecureMediaUrl(item.videoRevertUrl)) ||
+      (!item.imageUrl && !item.videoUrl)) {
+        throw new Error('A saved Work story must have a valid image, a secure video, or both.');
+      }
+      ids.add(item.id);
+      return {
+        id: item.id,
+        title: item.title.trim(),
+        category: item.category,
+        description: item.description.trim(),
+        imageUrl: item.imageUrl,
+        videoUrl: item.videoUrl || '',
+        ...(item.imageRevertUrl ? { imageRevertUrl: item.imageRevertUrl } : {}),
+        ...(item.videoRevertUrl ? { videoRevertUrl: item.videoRevertUrl } : {})
+      };
+    });
+  }
+
+  function mediaSource(element, type) {
+    if (type === 'image' && element instanceof HTMLImageElement) {
+      return element.currentSrc || element.src;
+    }
+    if (type === 'video' && element instanceof HTMLVideoElement) {
+      return edits[elementKey(element)]?.type === 'video'
+        ? edits[elementKey(element)].value
+        : element.currentSrc || element.getAttribute('src') || element.querySelector('source')?.src ||
+          element.closest('.preview-media')?.dataset.r2VideoUrl || element.src;
+    }
+    return '';
+  }
+
+  function readMediaRevertState(value) {
+    let state;
+    try {
+      state = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The saved media revert state is invalid: ${error.message}`);
+    }
+    if (!state || typeof state !== 'object' || Array.isArray(state) || Object.keys(state).length > 500) {
+      throw new Error('The saved media revert state is invalid.');
+    }
+    const checked = {};
+    for (const [key, media] of Object.entries(state)) {
+      const validValue = media?.type === 'image'
+        ? safeImageSource(media.value)
+        : media?.type === 'video' && (/^https?:\/\//i.test(media.value) || /^[\w-]{1,80}$/.test(media.value));
+      if (!key || key.length > 500 || !validValue) {
+        throw new Error('The saved media revert state contains an invalid source.');
+      }
+      checked[key] = { type: media.type, value: media.value };
+    }
+    return checked;
+  }
+
+  function isSecureMediaUrl(source) {
+    try {
+      return new URL(source).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  function categoryLabel(category) {
+    const definition = availableWorkCategories().find(item => item.slug === category);
+    return (definition?.label || category).toUpperCase();
+  }
+
+  function workCardId(article) {
+    const media = article.querySelector('.preview-media[data-r2-slot], .preview-media[data-portfolio-slot]');
+    const slot = media?.dataset.r2Slot || media?.dataset.portfolioSlot;
+    return slot ? `portfolio:${slot}` : '';
+  }
+
+  function readHiddenWorkCardIds(value) {
+    let ids;
+    try {
+      ids = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The saved hidden Work cards are invalid: ${error.message}`);
+    }
+    if (!Array.isArray(ids) || ids.length > 100 ||
+        ids.some(id => typeof id !== 'string' || !/^portfolio:.{1,240}$/.test(id))) {
+      throw new Error('The saved hidden Work cards list is invalid.');
+    }
+    return new Set(ids);
+  }
+
+  function removeHiddenWorkCards() {
+    document.querySelectorAll('#work .story-library > article:not(.admin-managed-work-item)').forEach(article => {
+      const id = workCardId(article);
+      if (id && hiddenWorkCardIds.has(id)) article.hidden = true;
+    });
+  }
+
+  function createAddWorkCard() {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'admin-add-work-card';
+    card.innerHTML = '<span class="admin-add-work-symbol" aria-hidden="true">+</span><span>Add a story</span><small>PHOTO · VIDEO · CATEGORY</small>';
+    card.addEventListener('click', () => {
+      const allStories = document.querySelector('#work [data-filter="all"]');
+      if (allStories && !allStories.classList.contains('active')) allStories.click();
+      workForm.reset();
+      syncWorkMediaChoice();
+      document.getElementById('admin-work-dialog-status').textContent = '';
+      workDialog.showModal();
+      workForm.querySelector('input[name="admin-work-media-type"]').focus({ preventScroll: true });
+    });
+    return card;
+  }
+
+  function createManagedWorkActions(item) {
+    const actions = document.createElement('div');
+    actions.className = 'admin-card-actions';
+    actions.setAttribute('aria-label', `Manage ${item.title}`);
+
+    const replaceImage = createMediaIconButton(
+      item.imageUrl ? 'Replace photo' : 'Add photo',
+      'image',
+      () => imagePicker.click(),
+      `Replace photo · JPG/PNG/WebP/GIF · max 30 MB · 1600px recommended · optimized to WebP`
+    );
+    const imagePicker = document.createElement('input');
+    imagePicker.type = 'file';
+    imagePicker.accept = 'image/*';
+    imagePicker.hidden = true;
+    imagePicker.addEventListener('change', async () => {
+      const file = imagePicker.files && imagePicker.files[0];
+      if (!file) return;
+      try {
+        setStatus(`Preparing a new cover for ${item.title}…`);
+        const imageUrl = await uploadPhotoFile(file);
+        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        if (!currentItem) throw new Error('This story was removed before its cover upload finished.');
+        if (currentItem.imageUrl) currentItem.imageRevertUrl = currentItem.imageUrl;
+        currentItem.imageUrl = imageUrl;
+        managedGalleryChanged = true;
+        renderManagedWorkItems();
+        setStatus('Cover replaced. Choose Save changes to publish it to the shared website.');
+      } catch (error) {
+        setStatus(`Could not replace the story cover: ${error.message}`, true);
+      } finally {
+        imagePicker.value = '';
+      }
+    });
+
+    if (item.imageRevertUrl) {
+      actions.append(createMediaIconButton('Revert photo', 'undo', () => {
+        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        if (!currentItem?.imageRevertUrl) return;
+        currentItem.imageUrl = currentItem.imageRevertUrl;
+        delete currentItem.imageRevertUrl;
+        managedGalleryChanged = true;
+        renderManagedWorkItems();
+        renderMediaControls();
+        setStatus('Previous photo restored. Choose Save changes to publish the update.');
+      }, 'Restore the previous photo'));
+    }
+
+    const replaceVideo = createMediaIconButton(
+      item.videoUrl ? 'Replace video' : 'Add video',
+      'video',
+      () => videoPickerInput.click(),
+      'Replace or add video · MP4 (H.264) recommended · MOV/WebM/MKV/AVI · 1080p recommended · max 1 GB'
+    );
+    const videoPickerInput = document.createElement('input');
+    videoPickerInput.type = 'file';
+    videoPickerInput.accept = 'video/*';
+    videoPickerInput.hidden = true;
+    videoPickerInput.addEventListener('change', async () => {
+      const file = videoPickerInput.files && videoPickerInput.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('video/') || file.size > 1024 * 1024 * 1024) {
+        setStatus('Choose a supported video file up to 1 GB.', true);
+        videoPickerInput.value = '';
+        return;
+      }
+      try {
+        await validateVideoContainer(file);
+        setStatus(`Preparing secure Cloudflare R2 upload for ${file.name}…`);
+        const uploaded = await uploadR2Video(file, (loaded, total) => {
+          const percent = total ? Math.floor(loaded / total * 100) : 0;
+          const uploadedMb = (loaded / (1024 * 1024)).toFixed(0);
+          const totalMb = (total / (1024 * 1024)).toFixed(0);
+          setStatus(`Uploading story video to Cloudflare R2: ${percent}% (${uploadedMb} / ${totalMb} MB).`);
+        });
+        if (!isSecureMediaUrl(uploaded.playbackUrl)) {
+          throw new Error('The video uploader did not return a secure playback URL.');
+        }
+        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        if (!currentItem) throw new Error('This story was removed before its video upload finished.');
+        if (currentItem.videoUrl) currentItem.videoRevertUrl = currentItem.videoUrl;
+        currentItem.videoUrl = uploaded.playbackUrl;
+        managedGalleryChanged = true;
+        renderManagedWorkItems();
+        renderMediaControls();
+        setStatus('Video attached. Choose Save changes to publish it to the shared website.');
+      } catch (error) {
+        setStatus(`Could not attach a video to this story: ${error.message}`, true);
+      } finally {
+        videoPickerInput.value = '';
+      }
+    });
+
+    actions.append(replaceImage, imagePicker, replaceVideo, videoPickerInput);
+
+    if (item.videoRevertUrl) {
+      actions.append(createMediaIconButton('Revert video', 'undo', () => {
+        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        if (!currentItem?.videoRevertUrl) return;
+        currentItem.videoUrl = currentItem.videoRevertUrl;
+        delete currentItem.videoRevertUrl;
+        managedGalleryChanged = true;
+        renderManagedWorkItems();
+        renderMediaControls();
+        setStatus('Previous video restored. Choose Save changes to publish the update.');
+      }, 'Restore the previous video'));
+    }
+
+    if (item.videoUrl && item.imageUrl) {
+      const removeVideo = createMediaIconButton('Remove video', 'delete', () => {
+        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        if (!currentItem) return;
+        currentItem.videoUrl = '';
+        managedGalleryChanged = true;
+        renderManagedWorkItems();
+        renderMediaControls();
+        setStatus('Video removed from this story. Choose Save changes to publish the update.');
+      }, 'Remove this video from the story');
+      actions.append(removeVideo);
+    }
+
+    const deleteStory = createMediaIconButton('Delete story', 'delete', () => {
+      if (!window.confirm(`Remove "${item.title}" from the Work page?`)) return;
+      managedWorkItems = managedWorkItems.filter(candidate => candidate.id !== item.id);
+      managedGalleryChanged = true;
+      renderManagedWorkItems();
+      renderMediaControls();
+      setStatus('Story removed. Choose Save changes to publish the update.');
+    }, 'Remove this story from the Work page', 'admin-card-delete');
+    actions.append(deleteStory);
+    return actions;
+  }
+
+  function createManagedWorkCard(item) {
+    const article = document.createElement('article');
+    article.className = 'admin-managed-work-item';
+    article.dataset.category = item.category;
+    article.dataset.adminManagedWorkItem = item.id;
+
+    const media = document.createElement('div');
+    media.className = 'story-cover preview-media';
+    const image = document.createElement('img');
+    image.hidden = !item.imageUrl;
+    if (item.imageUrl) image.src = item.imageUrl;
+    image.alt = `${item.title} celebration`;
+    media.append(image);
+    const video = document.createElement('video');
+    video.hidden = !item.videoUrl;
+    video.controls = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = 'none';
+    if (item.imageUrl) video.poster = item.imageUrl;
+    video.setAttribute('aria-label', `Watch ${item.title}`);
+    if (item.videoUrl) {
+      video.src = item.videoUrl;
+      video.dataset.adminVideoAsset = item.videoUrl;
+    }
+    media.append(video);
+
+    const label = document.createElement('small');
+    label.textContent = categoryLabel(item.category);
+    const title = document.createElement('h3');
+    title.textContent = item.title;
+    const description = document.createElement('p');
+    description.textContent = item.description;
+    article.append(createManagedWorkActions(item), media, label, title, description);
+    return article;
+  }
+
+  function renderManagedWorkItems() {
+    const gallery = document.querySelector('#work .story-library');
+    if (!gallery) return;
+    const activeFilter = document.querySelector('#work [data-filter].active')?.dataset.filter || 'all';
+    gallery.querySelector('.admin-add-work-card')?.remove();
+    gallery.querySelectorAll('.admin-managed-work-item').forEach(item => item.remove());
+    removeHiddenWorkCards();
+    managedWorkItems.forEach(item => {
+      const card = createManagedWorkCard(item);
+      card.hidden = activeFilter !== 'all' && item.category !== activeFilter;
+      gallery.append(card);
+    });
+    if (location.hash === '#/admin' && window.adminAuthenticated === true && pageSelect.value === 'work') {
+      gallery.append(createAddWorkCard());
+    }
+  }
+
+  function syncWorkControls() {
+    if (pageSelect.value !== 'work' && workDialog.open) workDialog.close();
+  }
+
+  function syncWorkMediaChoice() {
+    const selectedType = workForm.querySelector('input[name="admin-work-media-type"]:checked')?.value;
+    const imageUpload = document.getElementById('admin-work-image-upload');
+    const videoUpload = document.getElementById('admin-work-video-upload');
+    const imageInput = document.getElementById('admin-work-image');
+    const videoInput = document.getElementById('admin-work-video');
+    imageUpload.hidden = selectedType !== 'image';
+    videoUpload.hidden = selectedType !== 'video';
+    imageInput.required = selectedType === 'image';
+    videoInput.required = selectedType === 'video';
+    if (selectedType !== 'image') imageInput.value = '';
+    if (selectedType !== 'video') videoInput.value = '';
+  }
+
   function validateEntries(entries) {
     const checked = {};
+    mediaRevertState = {};
+    const siteCreditKeys = new Set(Array.from(
+      document.querySelectorAll('.site-credit, .site-credit *'),
+      elementKey
+    ));
+    const categoryEntry = entries[workCategoriesKey];
+    if (categoryEntry && (categoryEntry.type !== 'text' || typeof categoryEntry.value !== 'string')) {
+      throw new Error('The saved Work categories have an unsupported format.');
+    }
+    const validatedCategories = categoryEntry
+      ? readCustomWorkCategories(categoryEntry.value)
+      : [];
+    const categorySlugs = new Set([
+      ...defaultWorkCategories.map(category => category.slug),
+      ...validatedCategories.map(category => category.slug)
+    ]);
     for (const [key, entry] of Object.entries(entries)) {
+      if (siteCreditKeys.has(key)) continue;
       if (!entry || typeof entry.value !== 'string') throw new Error('An edit entry is incomplete.');
-      if (entry.type === 'text') checked[key] = { type: 'text', value: safeMarkup(entry.value) };
+      if (key === managedGalleryKey) {
+        if (entry.type !== 'text') throw new Error('The saved Work gallery has an unsupported format.');
+        checked[key] = { type: 'text', value: encodeManagedGallery(decodeManagedGallery(entry.value, categorySlugs)) };
+      }
+      else if (key === hiddenWorkCardsKey) {
+        if (entry.type !== 'text') throw new Error('The hidden Work cards have an unsupported format.');
+        checked[key] = { type: 'text', value: JSON.stringify(Array.from(readHiddenWorkCardIds(entry.value))) };
+      }
+      else if (key === workCategoriesKey) {
+        checked[key] = { type: 'text', value: JSON.stringify(validatedCategories) };
+      }
+      else if (key === mediaRevertKey) {
+        if (entry.type !== 'text') throw new Error('The saved media revert state has an unsupported format.');
+        mediaRevertState = readMediaRevertState(entry.value);
+        checked[key] = { type: 'text', value: JSON.stringify(mediaRevertState) };
+      }
+      else if (entry.type === 'text') checked[key] = { type: 'text', value: safeMarkup(entry.value) };
       else if (entry.type === 'image' && safeImageSource(entry.value)) checked[key] = { type: 'image', value: entry.value };
       else if (entry.type === 'video' && (/^https?:\/\//i.test(entry.value) || /^[\w-]{1,80}$/.test(entry.value))) checked[key] = { type: 'video', value: entry.value };
       else if (entry.type === 'background' && CSS.supports('color', entry.value)) checked[key] = { type: 'background', value: entry.value };
       else throw new Error('An edit entry contains an unsupported value.');
     }
+    customWorkCategories = validatedCategories;
+    refreshWorkCategoryControls();
     return checked;
   }
 
   function applyEdits() {
+    renderManagedWorkItems();
     for (const element of document.querySelectorAll('body *')) {
-      if (editor.contains(element)) continue;
+      if (editor.contains(element) || element.closest('.site-credit')) continue;
       if (element.dataset.adminTextEdited || element.dataset.adminImageEdited || element.dataset.adminBackgroundEdited) continue;
       const edit = edits[elementKey(element)];
       if (!edit) continue;
@@ -360,8 +868,6 @@
   function setMode(nextMode) {
     mode = nextMode;
     document.body.classList.toggle('admin-active', location.hash === '#/admin');
-    imageControls.hidden = mode !== 'image';
-    videoControls.hidden = mode !== 'video';
     document.querySelectorAll('[data-admin-mode]').forEach(button => {
       const active = button.dataset.adminMode === mode;
       button.classList.toggle('is-active', active);
@@ -369,8 +875,6 @@
     });
     const descriptions = {
       text: 'Text editing is ready. Click a heading, paragraph, or other text in the preview.',
-      image: 'Photo replacement is ready. Click a photo in the preview, then choose an image file.',
-      video: 'Video replacement is ready. Select a video on the page, choose a video file, then save.',
       background: 'Background editing is ready. Click an area in the preview, then choose a color.'
     };
     setStatus(descriptions[mode]);
@@ -387,67 +891,258 @@
     selectedElement.classList.add('admin-selected');
   }
 
-  function refreshImageOptions() {
-    const preview = document.getElementById(window.adminPreviewPage || 'home');
-    imageSelect.replaceChildren();
-    if (!preview) return;
-    Array.from(preview.querySelectorAll('img')).forEach((image, index) => {
-      const option = document.createElement('option');
-      const caption = image.closest('figure')?.querySelector('figcaption')?.textContent.trim();
-      const filename = image.currentSrc.split('/').pop().split('?')[0];
-      option.value = String(index);
-      option.textContent = `${index + 1}. ${image.alt || caption || filename || 'Image'}`;
-      imageSelect.append(option);
-    });
+  function mediaContainer(element) {
+    return element.closest('.preview-media,.story-cover,.scene-card,.corp-hero-media,.corp-reel-card,.corp-work-card,.wide-story-art,figure') ||
+      element.parentElement;
   }
 
-  function refreshVideoOptions() {
-    const preview = document.getElementById(window.adminPreviewPage || 'home');
-    videoSelect.replaceChildren();
-    if (!preview) return;
-    videoTargets().forEach((video, index) => {
-      const option = document.createElement('option');
-      const reel = video.closest('[data-corp-reel]');
-      const section = video.closest('section');
-      const sectionTitle = section && (section.getAttribute('aria-label') || section.getAttribute('aria-labelledby'));
-      const titleElement = sectionTitle && document.getElementById(sectionTitle);
-      const label = video.dataset.r2SlotLabel || video.getAttribute('aria-label') ||
-        reel?.getAttribute('aria-label') || titleElement?.textContent.trim() || section?.id || `Video ${index + 1}`;
-      option.value = String(index);
-      option.textContent = `${index + 1}. ${label}`;
-      videoSelect.append(option);
-    });
+  function recommendedImageSize(container) {
+    const bounds = container.getBoundingClientRect();
+    const ratio = bounds.width > 0 && bounds.height > 0 ? bounds.width / bounds.height : 1;
+    const longestSide = 1600;
+    const width = ratio >= 1 ? longestSide : Math.round(longestSide * ratio);
+    const height = ratio >= 1 ? Math.round(longestSide / ratio) : longestSide;
+    const ratioLabel = ratio > 1.12 ? 'landscape' : ratio < 0.88 ? 'portrait' : 'square';
+    return `${width} × ${height}px (${ratioLabel})`;
   }
 
-  function videoTargets() {
-    const preview = document.getElementById(window.adminPreviewPage || 'home');
-    if (!preview) return [];
-    const videos = Array.from(preview.querySelectorAll('video'));
-    if (preview.id === 'corporate') {
-      const reelDialogVideo = document.querySelector('#corp-reel-dialog video');
-      if (reelDialogVideo) videos.push(reelDialogVideo);
+  function createMediaIconButton(label, iconName, onClick, title = label, className = '') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `admin-icon-button ${className}`.trim();
+    button.setAttribute('aria-label', label);
+    button.title = title;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const icons = {
+      image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
+      video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/>',
+      delete: '<path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/>',
+      undo: '<path d="M3 7v6h6M4 13a8 8 0 1 0 2-5.3L3 10"/>'
+    };
+    svg.innerHTML = icons[iconName];
+    button.append(svg);
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  function watchMediaImage(image) {
+    if (watchedMediaImages.has(image)) return;
+    watchedMediaImages.add(image);
+    const refresh = () => renderMediaControls();
+    image.addEventListener('load', refresh, { once: true });
+    image.addEventListener('error', refresh, { once: true });
+  }
+
+  function hasVisibleMediaContainer(root, boundary) {
+    if (!boundary || boundary.hidden) return false;
+    const boundaryStyle = getComputedStyle(boundary);
+    if (boundaryStyle.display === 'none' || boundaryStyle.visibility === 'hidden' ||
+        Number(boundaryStyle.opacity) <= 0.01) return false;
+    let opacity = 1;
+    for (let element = root; element && element !== boundary; element = element.parentElement) {
+      if (element.hidden) return false;
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      opacity *= Number(style.opacity);
+      if (opacity <= 0.01) return false;
     }
-    return videos;
+    const bounds = root.getBoundingClientRect();
+    return bounds.width > 0 && bounds.height > 0;
   }
+
+  function positionMediaControls() {
+    document.querySelectorAll('.admin-media-actions[data-media-root]').forEach(panel => {
+      const root = panel._mediaRoot;
+      const preview = root?.closest('.route');
+      if (!root || !preview || !hasVisibleMediaContainer(root, preview)) {
+        panel.hidden = true;
+        return;
+      }
+      const bounds = root.getBoundingClientRect();
+      const visible = bounds.width > 0 && bounds.height > 0 &&
+        bounds.bottom > 0 && bounds.top < window.innerHeight &&
+        bounds.right > 0 && bounds.left < window.innerWidth;
+      panel.hidden = !visible;
+      if (!visible) return;
+      const panelBounds = panel.getBoundingClientRect();
+      panel.style.top = `${Math.max(8, Math.min(bounds.top + 8, window.innerHeight - panelBounds.height - 8))}px`;
+      panel.style.left = `${Math.max(8, Math.min(bounds.left + 8, window.innerWidth - panelBounds.width - 8))}px`;
+    });
+  }
+
+  function renderMediaControls() {
+    editor.querySelectorAll('.admin-media-actions').forEach(panel => panel.remove());
+    if (location.hash !== '#/admin' || window.adminAuthenticated !== true) return;
+    const preview = document.getElementById(window.adminPreviewPage || 'home');
+    if (!preview) return;
+    const groups = new Map();
+    const addToGroup = (element, type) => {
+      if (element.closest('#admin-editor') || element.parentElement?.closest('[hidden]')) return;
+      const root = mediaContainer(element);
+      if (!root || root.closest('.admin-managed-work-item') ||
+          !hasVisibleMediaContainer(root, preview)) return;
+      if (type === 'images') {
+        const image = element;
+        if (!(image instanceof HTMLImageElement)) return;
+        if (!image.complete) {
+          watchMediaImage(image);
+          return;
+        }
+        if (image.naturalWidth === 0 || image.naturalHeight === 0) return;
+      }
+      if (type === 'videos' && element.hidden &&
+          !element.getAttribute('aria-label')?.startsWith('Client testimonial video:')) return;
+      if (!groups.has(root)) groups.set(root, { images: [], videos: [] });
+      groups.get(root)[type].push(element);
+    };
+    preview.querySelectorAll('img').forEach(image => addToGroup(image, 'images'));
+    preview.querySelectorAll('video').forEach(video => addToGroup(video, 'videos'));
+
+    for (const [root, media] of groups) {
+      if (!media.images.length && !media.videos.length) continue;
+      const hasVideoMedia = media.videos.length > 0 ||
+        root.matches('[data-r2-video-url]') ||
+        Boolean(root.querySelector('[data-r2-video-url]'));
+      const panel = document.createElement('div');
+      panel.className = 'admin-media-actions';
+      panel.dataset.mediaRoot = 'true';
+      panel._mediaRoot = root;
+      panel.setAttribute('role', 'group');
+      panel.setAttribute('aria-label', 'Replace or manage this media');
+
+      if (media.images.length && !hasVideoMedia) {
+        const image = media.images[0];
+        panel.append(createMediaIconButton(
+          'Replace photo',
+          'image',
+          () => selectPhoto(image),
+          `Replace photo · ${recommendedImageSize(root)} · JPG/PNG/WebP/GIF · max 30 MB · optimized to WebP`
+        ));
+        if (mediaRevertState[elementKey(image)]) {
+          panel.append(createMediaIconButton(
+            'Revert photo',
+            'undo',
+            () => revokeMediaReplacement(image),
+            'Restore the previous photo'
+          ));
+        }
+      }
+      if (hasVideoMedia) {
+        const video = media.videos[0] || root.querySelector('video');
+        panel.append(createMediaIconButton(
+          'Replace video',
+          'video',
+          () => {
+            if (!video) {
+              setStatus('This video preview is still loading. Try again in a moment.', true);
+              return;
+            }
+            selectVideo(video);
+          },
+          'Replace video · MP4 (H.264) recommended · MOV/WebM/MKV/AVI · match card shape · max 1 GB'
+        ));
+        if (video && mediaRevertState[elementKey(video)]) {
+          panel.append(createMediaIconButton(
+            'Revert video',
+            'undo',
+            () => revokeMediaReplacement(video),
+            'Restore the previous video'
+          ));
+        }
+      }
+
+      if (preview.id === 'work') {
+        const card = root.closest('#work .story-library > article:not(.admin-managed-work-item)');
+        const id = card && workCardId(card);
+        if (card && id) {
+          panel.append(createMediaIconButton('Delete story', 'delete', () => {
+            if (!window.confirm('Remove this story from the Work page?')) return;
+            hiddenWorkCardIds.add(id);
+            card.hidden = true;
+            managedGalleryChanged = true;
+            renderMediaControls();
+            setStatus('Story removed. Choose Save changes to publish the update.');
+          }, 'Remove this story from the Work page', 'admin-card-delete'));
+        }
+      }
+      editor.append(panel);
+    }
+    positionMediaControls();
+  }
+
+  let mediaControlRefreshPending = false;
+  function scheduleMediaControlRefresh() {
+    positionMediaControls();
+    if (mediaControlRefreshPending) return;
+    mediaControlRefreshPending = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        mediaControlRefreshPending = false;
+        if (location.hash !== '#/admin' || window.adminAuthenticated !== true) return;
+        const preview = document.getElementById(window.adminPreviewPage || 'home');
+        if (!preview) return;
+        const existingRoots = new Set(Array.from(editor.querySelectorAll('.admin-media-actions'))
+          .map(panel => panel._mediaRoot));
+        const missingVisibleMedia = Array.from(preview.querySelectorAll('img,video')).some(element => {
+          const hiddenTestimonialSlot = element instanceof HTMLVideoElement &&
+            element.hidden && element.getAttribute('aria-label')?.startsWith('Client testimonial video:');
+          if (element.closest('#admin-editor') ||
+              element.parentElement?.closest('[hidden]') ||
+              (element instanceof HTMLVideoElement && element.hidden && !hiddenTestimonialSlot)) return false;
+          if (element instanceof HTMLImageElement &&
+              (!element.complete || element.naturalWidth === 0 || element.naturalHeight === 0)) return false;
+          const root = mediaContainer(element);
+          return root && !root.closest('.admin-managed-work-item') &&
+            hasVisibleMediaContainer(root, preview) && !existingRoots.has(root);
+        });
+        if (missingVisibleMedia) renderMediaControls();
+      });
+    });
+  }
+
+  window.addEventListener('scroll', scheduleMediaControlRefresh, true);
+  window.addEventListener('resize', scheduleMediaControlRefresh);
+  document.addEventListener('transitionend', event => {
+    if (event.propertyName === 'opacity' &&
+        event.target instanceof Element &&
+        event.target.closest('.route')) {
+      scheduleMediaControlRefresh();
+    }
+  }, true);
 
   function selectPhoto(image) {
     selectElement(image);
     image.dataset.adminImageEdited = 'true';
-    const preview = document.getElementById(window.adminPreviewPage || 'home');
-    const images = Array.from(preview.querySelectorAll('img'));
-    imageSelect.value = String(images.indexOf(image));
     photoPicker.click();
-  }
-
-  function selectedVideo() {
-    return videoTargets()[Number(videoSelect.value)];
   }
 
   function selectVideo(video) {
     selectElement(video);
     video.dataset.adminVideoEdited = 'true';
-    videoSelect.value = String(videoTargets().indexOf(video));
     videoPicker.click();
+  }
+
+  function revokeMediaReplacement(element) {
+    const key = elementKey(element);
+    const previous = mediaRevertState[key];
+    if (!previous) return;
+    edits[key] = previous;
+    delete mediaRevertState[key];
+    pendingVideos.delete(key);
+    delete element.dataset.adminImageEdited;
+    delete element.dataset.adminVideoEdited;
+    if (previous.type === 'image' && element instanceof HTMLImageElement) {
+      element.src = previous.value;
+    } else if (previous.type === 'video' && element instanceof HTMLVideoElement) {
+      element.dataset.adminVideoAsset = previous.value;
+      setVideoSource(element, videoUrls.get(previous.value) || previous.value);
+      markUploadedVideo(element);
+    }
+    renderMediaControls();
+    setStatus('Previous media restored. Choose Save changes to publish the update.');
   }
 
   function hexColor(color) {
@@ -458,6 +1153,9 @@
 
   document.querySelectorAll('[data-admin-mode]').forEach(button => {
     button.addEventListener('click', () => setMode(button.dataset.adminMode));
+  });
+  document.querySelectorAll('[data-filter]').forEach(button => {
+    button.addEventListener('click', () => requestAnimationFrame(positionMediaControls));
   });
 
   window.addEventListener('hashchange', () => {
@@ -477,44 +1175,24 @@
     window.adminPreviewPage = pageSelect.value;
     clearSelection();
     window.route();
-    refreshImageOptions();
-    refreshVideoOptions();
-  });
-
-  imageSelect.addEventListener('change', () => {
-    const preview = document.getElementById(window.adminPreviewPage || 'home');
-    const image = preview && preview.querySelectorAll('img')[Number(imageSelect.value)];
-    if (image) selectElement(image);
-  });
-  document.getElementById('admin-choose-photo').addEventListener('click', () => {
-    const preview = document.getElementById(window.adminPreviewPage || 'home');
-    const image = preview && preview.querySelectorAll('img')[Number(imageSelect.value)];
-    if (!image) {
-      setStatus('There are no photos on this page to replace.', true);
-      return;
-    }
-    selectPhoto(image);
-  });
-  videoSelect.addEventListener('change', () => {
-    const video = selectedVideo();
-    if (video) selectElement(video);
-  });
-  document.getElementById('admin-choose-video').addEventListener('click', () => {
-    const video = selectedVideo();
-    if (!video) {
-      setStatus('There are no videos on this page to replace.', true);
-      return;
-    }
-    selectVideo(video);
+    syncWorkControls();
+    renderManagedWorkItems();
+    renderMediaControls();
   });
 
   document.addEventListener('click', event => {
     if (location.hash !== '#/admin' || editor.contains(event.target)) return;
-    if (event.target instanceof Element && event.target.closest('.hero-video-toggle')) return;
+    if (event.target instanceof Element &&
+        (event.target.closest('.hero-video-toggle') ||
+         event.target.closest('.admin-card-actions,.admin-add-work-card,[data-filter]'))) return;
     event.preventDefault();
     event.stopPropagation();
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+    if (target.closest('.site-credit')) {
+      setStatus('Website credits are fixed and cannot be edited.');
+      return;
+    }
 
     if (mode === 'text') {
       const textElement = target.closest(textSelector);
@@ -527,22 +1205,6 @@
       textElement.dataset.adminTextEdited = 'true';
       textElement.focus();
       setStatus('Edit the selected text in place, then choose Save changes.');
-    } else if (mode === 'image') {
-      const image = target.closest('img') || target.closest('figure')?.querySelector('img');
-      if (!image) {
-        setStatus('Click directly on a photo in the preview.');
-        return;
-      }
-      refreshImageOptions();
-      selectPhoto(image);
-    } else if (mode === 'video') {
-      const video = target.closest('video');
-      if (!video) {
-        setStatus('Choose a video from the list above to replace it.');
-        return;
-      }
-      refreshVideoOptions();
-      selectVideo(video);
     } else {
       const area = target.closest(backgroundSelector);
       if (!area || editor.contains(area)) {
@@ -561,6 +1223,41 @@
     }
   });
 
+  document.getElementById('admin-work-dialog-close').addEventListener('click', () => workDialog.close());
+  document.querySelector('.admin-work-cancel').addEventListener('click', () => workDialog.close());
+  workForm.querySelectorAll('input[name="admin-work-media-type"]').forEach(input => {
+    input.addEventListener('change', syncWorkMediaChoice);
+  });
+  document.getElementById('admin-work-add-category').addEventListener('click', () => {
+    const input = document.getElementById('admin-work-new-category');
+    const label = input.value.trim().replace(/\s+/g, ' ');
+    const status = document.getElementById('admin-work-dialog-status');
+    const slug = label.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (label.length < 2 || label.length > 32 || !slug) {
+      status.textContent = 'Enter a category name between 2 and 32 characters.';
+      input.focus();
+      return;
+    }
+    if (availableWorkCategories().some(category =>
+      category.slug === slug || category.label.toLowerCase() === label.toLowerCase()
+    )) {
+      status.textContent = 'That category already exists.';
+      input.focus();
+      return;
+    }
+    if (customWorkCategories.length >= 50) {
+      status.textContent = 'You can add up to 50 custom categories.';
+      return;
+    }
+    customWorkCategories.push({ slug, label });
+    refreshWorkCategoryControls();
+    document.getElementById('admin-work-category').value = slug;
+    managedGalleryChanged = true;
+    input.value = '';
+    status.textContent = `${label} added. Save changes after adding the story to publish this category.`;
+  });
+
   colorPicker.addEventListener('input', () => {
     if (!selectedElement || mode !== 'background') {
       setStatus('Choose Change background, then click an area in the preview.');
@@ -571,33 +1268,91 @@
     setStatus('Unsaved background edit. Choose Save changes to publish it to the shared website.');
   });
 
+  workForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!workForm.reportValidity()) return;
+    const dialogStatus = document.getElementById('admin-work-dialog-status');
+    if (managedWorkItems.length >= 100) {
+      dialogStatus.textContent = 'The Work gallery supports up to 100 admin-added stories.';
+      setStatus('The Work gallery supports up to 100 admin-added stories.', true);
+      return;
+    }
+    const title = document.getElementById('admin-work-title').value.trim();
+    const category = document.getElementById('admin-work-category').value;
+    const description = document.getElementById('admin-work-description').value.trim();
+    const mediaType = workForm.querySelector('input[name="admin-work-media-type"]:checked')?.value;
+    const imageFile = mediaType === 'image' ? document.getElementById('admin-work-image').files[0] : null;
+    const videoFile = mediaType === 'video' ? document.getElementById('admin-work-video').files[0] : null;
+    if (!title || !description || (!imageFile && !videoFile)) return;
+    if (!availableWorkCategories().some(item => item.slug === category)) {
+      dialogStatus.textContent = 'Choose a valid story category.';
+      setStatus('Choose a valid story category.', true);
+      return;
+    }
+    if (videoFile && (!videoFile.type.startsWith('video/') || videoFile.size > 1024 * 1024 * 1024)) {
+      dialogStatus.textContent = 'Choose a supported video file up to 1 GB.';
+      setStatus('Choose a supported video file up to 1 GB.', true);
+      return;
+    }
+
+    try {
+      let imageUrl = '';
+      let videoUrl = '';
+      if (imageFile) {
+        setStatus('Preparing the story image…');
+        dialogStatus.textContent = 'Preparing the image…';
+        imageUrl = await uploadPhotoFile(imageFile);
+      } else if (videoFile) {
+        await validateVideoContainer(videoFile);
+        setStatus(`Preparing secure Cloudflare R2 upload for ${videoFile.name}…`);
+        dialogStatus.textContent = `Preparing video upload for ${videoFile.name}…`;
+        const uploaded = await uploadR2Video(videoFile, (loaded, total) => {
+          const percent = total ? Math.floor(loaded / total * 100) : 0;
+          const uploadedMb = (loaded / (1024 * 1024)).toFixed(0);
+          const totalMb = (total / (1024 * 1024)).toFixed(0);
+          const message = `Uploading story video: ${percent}% (${uploadedMb} / ${totalMb} MB).`;
+          setStatus(message);
+          dialogStatus.textContent = message;
+        });
+        if (!isSecureMediaUrl(uploaded.playbackUrl)) {
+          throw new Error('The video uploader did not return a secure playback URL.');
+        }
+        videoUrl = uploaded.playbackUrl;
+      }
+
+      const id = typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      managedWorkItems.push({ id, title, category, description, imageUrl, videoUrl });
+      managedGalleryChanged = true;
+      renderManagedWorkItems();
+      renderMediaControls();
+      const categoryFilter = Array.from(document.querySelectorAll('#work [data-filter]'))
+        .find(button => button.dataset.filter === category);
+      if (categoryFilter) categoryFilter.click();
+      workDialog.close();
+      workForm.reset();
+      syncWorkMediaChoice();
+      dialogStatus.textContent = '';
+      setStatus('Story uploaded. Choose Save changes to publish it to the shared website.');
+    } catch (error) {
+      dialogStatus.textContent = `Could not add this story: ${error.message}`;
+      setStatus(`Could not add this story: ${error.message}`, true);
+    }
+  });
+
   photoPicker.addEventListener('change', async () => {
     const file = photoPicker.files && photoPicker.files[0];
     if (!file || !selectedElement || !(selectedElement instanceof HTMLImageElement)) return;
-    if (!file.type.startsWith('image/') || file.size > 10 * 1024 * 1024) {
-      setStatus('Choose an image file smaller than 10 MB.', true);
-      photoPicker.value = '';
-      return;
-    }
     try {
-      const decoded = await decodeImageFile(file);
-      let photo;
-      try {
-        const scale = Math.min(1, 1600 / Math.max(decoded.width, decoded.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(decoded.width * scale));
-        canvas.height = Math.max(1, Math.round(decoded.height * scale));
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('The browser could not prepare the image canvas.');
-        context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
-        photo = canvas.toDataURL('image/webp', 0.84);
-      } finally {
-        decoded.close();
-      }
-      if (!safeImageSource(photo)) throw new Error('The browser could not process this image.');
-      const photoBlob = await (await fetch(photo)).blob();
-      selectedElement.src = await uploadMedia(photoBlob, 'image/webp');
+      const key = elementKey(selectedElement);
+      const previousSource = mediaSource(selectedElement, 'image');
+      const uploadedSource = await uploadPhotoFile(file);
+      if (!safeImageSource(previousSource)) throw new Error('The previous photo could not be restored safely.');
+      mediaRevertState[key] = { type: 'image', value: previousSource };
+      selectedElement.src = uploadedSource;
       selectedElement.dataset.adminImageEdited = 'true';
+      renderMediaControls();
       setStatus('Photo uploaded. Choose Save changes to publish it to the shared website.');
     } catch (error) {
       setStatus(`Could not process this photo: ${error.message}`, true);
@@ -609,14 +1364,15 @@
   videoPicker.addEventListener('change', async () => {
     const file = videoPicker.files && videoPicker.files[0];
     if (!file || !selectedElement || !(selectedElement instanceof HTMLVideoElement)) return;
-    if (!file.type.startsWith('video/') || file.size > 30 * 1024 * 1024 * 1024) {
-      setStatus('Choose a supported video file smaller than 30 GB.', true);
+    if (!file.type.startsWith('video/') || file.size > 1024 * 1024 * 1024) {
+      setStatus('Choose a supported video file up to 1 GB.', true);
       videoPicker.value = '';
       return;
     }
     try {
       await validateVideoContainer(file);
       const elementKeyValue = elementKey(selectedElement);
+      const previousSource = mediaSource(selectedElement, 'video');
       setStatus(`Preparing secure Cloudflare R2 upload for ${file.name}…`);
       const uploaded = await uploadR2Video(file, (loaded, total) => {
         const percent = total ? Math.floor(loaded / total * 100) : 0;
@@ -624,11 +1380,16 @@
         const totalMb = (total / (1024 * 1024)).toFixed(0);
         setStatus(`Uploading to Cloudflare R2: ${percent}% (${uploadedMb} / ${totalMb} MB). If interrupted, choose the same file again to resume.`);
       });
+      if (!/^https?:\/\//i.test(previousSource) && !/^[\w-]{1,80}$/.test(previousSource)) {
+        throw new Error('The previous video could not be restored safely.');
+      }
+      mediaRevertState[elementKeyValue] = { type: 'video', value: previousSource };
       selectedElement.dataset.adminVideoEdited = 'true';
       selectedElement.dataset.adminVideoAsset = uploaded.playbackUrl;
       setVideoSource(selectedElement, uploaded.playbackUrl);
       markUploadedVideo(selectedElement);
       pendingVideos.set(elementKeyValue, uploaded);
+      renderMediaControls();
       setStatus('Video uploaded to Cloudflare R2. Choose Save changes to publish the video.');
     } catch (error) {
       setStatus(`Could not prepare this video: ${error.message}`, true);
@@ -655,8 +1416,25 @@
         setStatus('Saving video playback details to the shared website…');
         next[key] = { type: 'video', value: video.playbackUrl };
       }
+      if (Object.keys(mediaRevertState).length) {
+        next[mediaRevertKey] = { type: 'text', value: JSON.stringify(mediaRevertState) };
+      } else {
+        delete next[mediaRevertKey];
+      }
+      if (managedGalleryChanged) {
+        next[managedGalleryKey] = { type: 'text', value: encodeManagedGallery(managedWorkItems) };
+        next[hiddenWorkCardsKey] = { type: 'text', value: JSON.stringify(Array.from(hiddenWorkCardIds)) };
+        next[workCategoriesKey] = { type: 'text', value: JSON.stringify(customWorkCategories) };
+      }
       const saved = await saveSharedContent({ version: 1, entries: next });
       edits = validateEntries(saved.entries);
+      managedWorkItems = edits[managedGalleryKey]
+        ? decodeManagedGallery(edits[managedGalleryKey].value)
+        : [];
+      hiddenWorkCardIds = edits[hiddenWorkCardsKey]
+        ? readHiddenWorkCardIds(edits[hiddenWorkCardsKey].value)
+        : new Set();
+      managedGalleryChanged = false;
       pendingVideos.clear();
       document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
         element.innerHTML = safeMarkup(element.innerHTML);
@@ -776,25 +1554,38 @@
 
   window.adminPreviewPage = pageSelect.value;
   window.route();
-  refreshImageOptions();
-  refreshVideoOptions();
+  refreshWorkCategoryControls();
+  syncWorkControls();
+  renderMediaControls();
   setMode('text');
-  showEditor(false);
+  // TODO: Re-enable authentication before production deployment
+  // showEditor(false);
   loadSharedContent();
   if (location.hash === '#/admin') checkAuthentication();
+  else showEditor(false);
 
   async function loadSharedContent() {
     try {
       const saved = await apiRequest('/api/content');
       edits = validateEntries(saved.entries);
+      managedWorkItems = edits[managedGalleryKey]
+        ? decodeManagedGallery(edits[managedGalleryKey].value)
+        : [];
+      hiddenWorkCardIds = edits[hiddenWorkCardsKey]
+        ? readHiddenWorkCardIds(edits[hiddenWorkCardsKey].value)
+        : new Set();
       applyEdits();
+      renderMediaControls();
       const migrateButton = document.getElementById('admin-migrate-local');
       migrateButton.hidden = Object.keys(edits).length > 0 || !localStorage.getItem(storageKey);
       setStatus(Object.keys(edits).length
         ? 'Shared website content loaded. Choose a tool to edit it.'
         : 'Shared website content is ready to edit.');
     } catch (error) {
+      console.error('Unable to load current shared website content; showing the published version.', error);
       setStatus(`Could not load shared website content: ${error.message}`, true);
+    } finally {
+      document.documentElement.classList.remove('shared-content-pending');
     }
   }
 
@@ -824,6 +1615,12 @@
   });
 
   async function checkAuthentication() {
+    // TODO: Re-enable authentication before production deployment
+    showEditor(true);
+    await loadSharedContent();
+    return;
+
+    /* --- Original authentication logic (disabled for development) ---
     showEditor(false);
     try {
       const result = await apiRequest('/api/auth');
@@ -834,22 +1631,51 @@
       if (result.authenticated) {
         showEditor(true);
       } else {
-        setLoginStatus('Enter your admin password to continue.');
+        setLoginStatus('Enter your authorized admin email address to receive a sign-in code.');
       }
     } catch (error) {
       setLoginStatus(`Could not connect to the server: ${error.message}`, true);
     }
+    --- */
   }
+
+  async function requestAdminCode() {
+    if (!adminEmailInput.reportValidity()) return;
+    setLoginStatus('Requesting a sign-in code…');
+    try {
+      const result = await apiRequest('/api/auth', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'request-code', email: adminEmailInput.value.trim() })
+      });
+      adminCodeEntry.hidden = false;
+      adminCodeInput.focus();
+      setLoginStatus(result.message);
+    } catch (error) {
+      setLoginStatus(error.message, true);
+    }
+  }
+
+  document.getElementById('admin-request-code').addEventListener('click', requestAdminCode);
+  document.getElementById('admin-resend-code').addEventListener('click', requestAdminCode);
 
   loginPanel.addEventListener('submit', async event => {
     event.preventDefault();
-    setLoginStatus('Signing in…');
+    if (adminCodeEntry.hidden) {
+      await requestAdminCode();
+      return;
+    }
+    if (!loginPanel.reportValidity()) return;
+    setLoginStatus('Verifying your sign-in code…');
     try {
       await apiRequest('/api/auth', {
         method: 'POST',
-        body: JSON.stringify({ action: 'login', password: passwordInput.value })
+        body: JSON.stringify({
+          action: 'verify-code',
+          email: adminEmailInput.value.trim(),
+          code: adminCodeInput.value.trim()
+        })
       });
-      passwordInput.value = '';
+      adminCodeInput.value = '';
       showEditor(true);
       await loadSharedContent();
     } catch (error) {
@@ -861,6 +1687,9 @@
     try {
       await apiRequest('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) });
       showEditor(false);
+      adminEmailInput.value = '';
+      adminCodeInput.value = '';
+      adminCodeEntry.hidden = true;
       setLoginStatus('You have signed out.');
       settingsPanel.hidden = true;
     } catch (error) {

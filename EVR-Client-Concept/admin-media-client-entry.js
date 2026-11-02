@@ -2,7 +2,7 @@
 
 const { upload } = require('@vercel/blob/client');
 const videoChunkSize = 64 * 1024 * 1024;
-const maxVideoBytes = 30 * 1024 * 1024 * 1024;
+const maxVideoBytes = 1024 * 1024 * 1024;
 const uploadStateKey = 'evr-r2-video-uploads';
 const videoKeyPattern = /^evr-videos\/[0-9a-f-]{36}\.(?:3gp|avi|m4v|mkv|mov|mp4|mpeg|mpg|webm)$/i;
 
@@ -78,7 +78,7 @@ function uploadPart(file, start, end, uploadUrl, onProgress) {
 if (!window.evrUploadR2Video) {
   window.evrUploadR2Video = async function uploadR2Video(file, onProgress = () => {}) {
     if (!file || !file.type.startsWith('video/') || file.size <= 0 || file.size > maxVideoBytes) {
-      throw new Error('Choose a supported video file smaller than 30 GB.');
+      throw new Error('Choose a supported video file up to 1 GB.');
     }
 
     const fingerprint = `${file.name}\u0000${file.size}\u0000${file.lastModified}\u0000${file.type}`;

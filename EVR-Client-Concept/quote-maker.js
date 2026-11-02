@@ -95,18 +95,50 @@
         return;
       }
       if (result.authenticated) showStudio(true);
-      else loginStatus.textContent = 'Sign in with your EVR admin password to use this private tool.';
+      else loginStatus.textContent = 'Enter your authorized admin email address to receive a sign-in code.';
     } catch (error) {
       loginStatus.textContent = `Could not connect to the server: ${error.message}`;
     }
   }
 
+  async function requestQuoteStudioCode() {
+    const email = byId('quote-studio-email');
+    if (!email.reportValidity()) return;
+    loginStatus.textContent = 'Requesting a sign-in code…';
+    try {
+      const result = await apiRequest({
+        method: 'POST',
+        body: JSON.stringify({ action: 'request-code', email: email.value.trim() })
+      });
+      byId('quote-studio-code-entry').hidden = false;
+      byId('quote-studio-code').focus();
+      loginStatus.textContent = result.message;
+    } catch (error) {
+      loginStatus.textContent = error.message;
+    }
+  }
+
+  byId('quote-studio-request-code').addEventListener('click', requestQuoteStudioCode);
+  byId('quote-studio-resend-code').addEventListener('click', requestQuoteStudioCode);
+
   login.addEventListener('submit', async event => {
     event.preventDefault();
-    loginStatus.textContent = 'Signing in…';
+    if (byId('quote-studio-code-entry').hidden) {
+      await requestQuoteStudioCode();
+      return;
+    }
+    if (!login.reportValidity()) return;
+    loginStatus.textContent = 'Verifying your sign-in code…';
     try {
-      await apiRequest({ method: 'POST', body: JSON.stringify({ action: 'login', password: byId('quote-studio-password').value }) });
-      byId('quote-studio-password').value = '';
+      await apiRequest({
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'verify-code',
+          email: byId('quote-studio-email').value.trim(),
+          code: byId('quote-studio-code').value.trim()
+        })
+      });
+      byId('quote-studio-code').value = '';
       showStudio(true);
       setStatus('Signed in. Configure reviewed rates and terms before issuing a quotation.');
       updateSummary();
@@ -119,6 +151,9 @@
     try {
       await apiRequest({ method: 'POST', body: JSON.stringify({ action: 'logout' }) });
       showStudio(false);
+      byId('quote-studio-email').value = '';
+      byId('quote-studio-code').value = '';
+      byId('quote-studio-code-entry').hidden = true;
       loginStatus.textContent = 'You have signed out.';
     } catch (error) {
       setStatus(`Could not sign out: ${error.message}`, true);

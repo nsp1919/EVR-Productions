@@ -9,7 +9,7 @@
     { file: 'video_2026-10-31_07-41-12.mp4', poster: 'wedding-traditions-02.jpg', category: 'wedding', label: 'PORTRAIT / WEDDING RITUALS', title: 'The rituals around the vows', description: 'A portrait-format look at the small traditions woven through the day.', project: 'wedding', homeGroup: 'portrait' },
     { file: 'wed reel.mp4', poster: 'wedding-rituals-vertical.jpg', category: 'wedding', label: 'PORTRAIT / WEDDING REEL', title: 'Every ritual, in motion', description: 'A vertical wedding reel made for the moments that move quickly.', project: 'wedding', homeGroup: 'portrait' },
     { file: 'video_2026-10-31_07-40-11.mp4', poster: 'wedding-traditions-01.jpg', category: 'wedding', label: 'PORTRAIT / FAMILY TRADITIONS', title: 'Traditions shared together', description: 'A portrait montage of family, ceremony and the people gathered close.', project: 'wedding', homeGroup: 'portrait' },
-    { file: 'anna (2).mp4', poster: 'pre-wedding-anna-featured.jpg', category: 'wedding', label: 'WEDDING HIGHLIGHT / GOLDEN HOUR', title: 'The quiet before forever', description: 'A couple story framed by the last light of the day.', project: 'wedding', homeGroup: 'wedding' },
+    { file: 'anna (2).mp4', poster: 'pre-wedding-anna-featured.jpg', category: 'prewedding', label: 'WEDDING HIGHLIGHT / GOLDEN HOUR', title: 'The quiet before forever', description: 'A couple story framed by the last light of the day.', project: 'prewedding', homeGroup: 'wedding' },
     { file: 'anna.mp4', poster: 'pre-wedding-anna-alt.jpg', category: 'wedding', label: 'WEDDING HIGHLIGHT / COUPLE STORY', title: 'A moment in the golden hour', description: 'A second sunset-led story, full of movement and quiet connection.', project: 'wedding', homeGroup: 'wedding' },
     { file: 'couple 01.mp4', poster: 'wedding-couple-portrait.jpg', category: 'wedding', label: 'WEDDING HIGHLIGHT / PORTRAITS', title: 'Made for this moment', description: 'An elegant portrait sequence with dramatic light and wedding details.', project: 'wedding', homeGroup: 'wedding' },
     { file: 'video_2026-10-31_07-40-33.mp4', poster: 'bridal-portrait-lyrical.jpg', category: 'wedding', label: 'WEDDING HIGHLIGHT / BRIDAL STORY', title: 'Before the celebrations', description: 'A portrait-led bridal film, framed around the details and anticipation.', project: 'wedding', homeGroup: 'wedding' },
@@ -26,6 +26,13 @@
     { slot: 'corporate-healthcare-product', file: 'reel_6.mp4', poster: 'nbrands-healthcare-product.jpg', label: '02 / HEALTHCARE PRODUCT REEL' },
     { slot: 'corporate-exhibition', file: 'video_2026-10-31_07-41-51.mp4', poster: 'brand-expo-highlights.jpg', label: '06 / EXHIBITION HIGHLIGHTS' }
   ];
+  const portfolioFiles = new Set([
+    'anna (2).mp4',
+    'Sri Shashi & Ravi Teja Lrical Video.mp4',
+    'video_2026-10-31_07-42-11.mp4',
+    'video_2026-10-31_07-40-04.mp4'
+  ]);
+  const portfolioVideos = videos.filter(video => portfolioFiles.has(video.file));
 
   const croppedHalfSareeFiles = new Set([
     'video_2026-10-31_07-41-57.mp4',
@@ -74,14 +81,16 @@
 
   const workGallery = document.querySelector('#work .story-library');
   if (workGallery) {
-    workGallery.replaceChildren(...videos.map(video => {
+    workGallery.replaceChildren(...portfolioVideos.map((video, index) => {
       const article = document.createElement('article');
       article.dataset.category = video.category;
       const media = document.createElement('div');
       media.className = 'story-cover preview-media';
       media.dataset.demoMedia = 'wedding';
       media.dataset.r2Slot = video.file;
+      media.dataset.portfolioSlot = String(index + 1);
       configureSlot(media, video, 'wedding');
+      media.dataset.r2SlotLabel = `Portfolio ${String(index + 1).padStart(2, '0')}: ${video.title}`;
       const poster = media.querySelector('img');
       if (!poster) {
         const image = document.createElement('img');

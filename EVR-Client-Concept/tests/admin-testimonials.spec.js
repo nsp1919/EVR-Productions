@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const { mockAdminApi } = require('./admin-api-mock');
+const { clickContextualMediaAction } = require('./admin-media-helpers');
 
 const fixture = path.resolve(__dirname, '..', 'assets', 'demo-wedding.mp4');
 
@@ -25,10 +26,7 @@ test('admin can save testimonial text and an optional R2 video on the same revie
     entry.type === 'text' && entry.value.includes('Our edited testimonial text.')
   )).toBe(true);
 
-  await page.locator('[data-admin-mode="video"]').click();
-  const testimonialOption = page.locator('#admin-video-target option').filter({ hasText: 'Client testimonial video: Jagan and Jyothi' });
-  await expect(testimonialOption).toHaveCount(1);
-  await page.locator('#admin-video-target').selectOption(await testimonialOption.getAttribute('value'));
+  await clickContextualMediaAction(page, '#home .voice-grid article:first-child', 'Replace video');
   await page.locator('#admin-video-file').setInputFiles(fixture);
   await expect(page.locator('#admin-status')).toContainText('Video uploaded to Cloudflare R2');
   await page.locator('#admin-save').click();

@@ -275,8 +275,9 @@
     floating.href = corporate ? '#/production-quote' : '#/estimate';
     label.textContent = corporate ? 'Brand quote' : 'Wedding quote';
     floating.setAttribute('aria-label', corporate ? 'Build a brand production quotation' : 'Build a wedding quotation');
-    const route = document.querySelector('.route:not([hidden])').id;
-    floating.hidden = footerVisible || ['estimate', 'production-quote', 'request', 'studio'].includes(route);
+    const activeRoute = document.querySelector('.route:not([hidden])');
+    floating.hidden = !activeRoute || footerVisible ||
+      ['estimate', 'production-quote', 'request', 'studio'].includes(activeRoute.id);
     document.body.classList.toggle('has-quote-float', !floating.hidden);
   }
   if ('IntersectionObserver' in window) {
