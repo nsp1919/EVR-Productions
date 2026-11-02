@@ -4,7 +4,25 @@ The site uses Vercel Functions for the editor and Cloudflare R2 for uploaded ima
 
 ## Provision Cloudflare storage and admin access
 
-1. Create a Cloudflare R2 bucket for site content and media. Connect a custom domain to the bucket and enable public reads for published images and videos. Set the bucket's CORS policy to allow `PUT` from your deployed site origin and your local development origin (for example `http://localhost:3100`), allow the `Content-Type` request header, and expose the `ETag` response header.
+1. Create a Cloudflare R2 bucket for site content and media. Connect a custom domain to the bucket and enable public reads for published images and videos. In the bucket's **Settings → CORS Policy**, allow `PUT` from each exact site origin you use, including `http://localhost:3000`, `http://localhost:3100`, and `https://evr-productions.vercel.app`; allow the `Content-Type` request header and expose `ETag` for multipart video uploads. Example policy:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": [
+         "http://localhost:3000",
+         "http://localhost:3100",
+         "https://evr-productions.vercel.app"
+       ],
+       "AllowedMethods": ["PUT"],
+       "AllowedHeaders": ["Content-Type"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   Add any custom production domain you use as another exact origin. Save the policy, wait briefly for it to apply, then retry the upload.
 2. Set up email codes with **Resend**. Verify a sender domain in Resend, create an API key, then add these Vercel environment variables:
    - `EVR_ADMIN_EMAIL`: the single email address allowed to sign in.
    - `RESEND_API_KEY`: the private Resend API key.

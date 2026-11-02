@@ -182,7 +182,8 @@ test('admin can replace a Work portfolio card video from its contextual control'
   await expect(firstCardActions.getByRole('button', { name: 'Revert video' })).toBeVisible();
   const portfolioVideo = page.locator('#work .story-library article').first().locator('video');
   await expect(portfolioVideo).toBeVisible();
-  expect(await portfolioVideo.evaluate(video => video.controls)).toBe(true);
+  expect(await portfolioVideo.evaluate(video => video.controls)).toBe(false);
+  expect(await portfolioVideo.evaluate(video => video.muted)).toBe(true);
   expect(await portfolioVideo.evaluate(video => video.loop)).toBe(true);
 
   await page.locator('#admin-save').click();

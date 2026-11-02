@@ -384,7 +384,6 @@
       && (visibleWidth * visibleHeight) / (rect.width * rect.height) >= .15;
   }
   function canAutoplay(player) {
-    if (player.route?.id === 'work') return false;
     const sequenceVisible = isSequencePanelVisible(player);
     return player.visible
       || (sequenceVisible && !document.hidden && !reducedMotion.matches
@@ -400,16 +399,6 @@
       && activePlayer !== player;
   }
   function syncAutoplay(player) {
-    if (player.route?.id === 'work') {
-      if (activePlayer === player || player.container.classList.contains('has-project-video')) return;
-      player.video.pause();
-      player.video.hidden = true;
-      player.image.hidden = false;
-      player.play.hidden = false;
-      player.audio.hidden = true;
-      player.container.classList.remove('is-autoplaying');
-      return;
-    }
     if (canPlay(player)) {
       if (!player.video.getAttribute('src')) player.video.src = player.container.dataset.r2VideoUrl;
       if (player.video.paused) setPlayerMuted(player, true);
@@ -490,7 +479,7 @@
     video.hidden = true;
     video.muted = true;
     video.loop = true;
-    video.autoplay = container.closest('#work') === null;
+    video.autoplay = true;
     video.className = 'r2-autoplay-preview';
     if (image) video.poster = image.currentSrc || image.src;
     video.setAttribute('aria-label', 'EVR video or illustrative motion sample');

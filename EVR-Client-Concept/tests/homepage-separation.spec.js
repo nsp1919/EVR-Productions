@@ -59,7 +59,7 @@ test('founder statistics remain visible and final when reduced motion is request
   await expect(facts.locator('article').first()).toBeVisible();
 });
 
-test('work portfolio shows four selected R2 films with manual, replaying playback', async ({ page }) => {
+test('work portfolio autoplays selected R2 films muted with an audio toggle', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = function() {
       this.dataset.playRequested = 'true';
@@ -91,11 +91,12 @@ test('work portfolio shows four selected R2 films with manual, replaying playbac
   const firstPreview = cards.first().locator('.preview-media');
   await firstPreview.scrollIntoViewIfNeeded();
   const previewVideo = firstPreview.locator('video');
-  expect(await previewVideo.evaluate(video => video.dataset.playRequested)).toBeUndefined();
-  expect(await previewVideo.evaluate(video => video.autoplay)).toBe(false);
-  expect(await previewVideo.evaluate(video => video.loop)).toBe(true);
-  await firstPreview.locator('.preview-play').click();
+  await expect.poll(() => previewVideo.evaluate(video => video.dataset.playRequested)).toBe('true');
   await expect(previewVideo).toBeVisible();
+  await expect(firstPreview.locator('.preview-play')).toBeHidden();
+  await expect(firstPreview.locator('.preview-audio-toggle')).toBeVisible();
+  expect(await previewVideo.evaluate(video => video.autoplay)).toBe(true);
+  expect(await previewVideo.evaluate(video => video.loop)).toBe(true);
   await expect(previewVideo).toHaveAttribute('src', /pub-aefcf27121ff450faf8570e9de489735\.r2\.dev/);
   expect(await previewVideo.evaluate(video => ({
     muted: video.muted,
@@ -103,8 +104,11 @@ test('work portfolio shows four selected R2 films with manual, replaying playbac
     loop: video.loop,
     controls: video.controls,
     playRequested: video.dataset.playRequested
-  }))).toEqual({ muted: true, autoplay: false, loop: true, controls: true, playRequested: 'true' });
-  await firstPreview.locator('.preview-close').click();
+  }))).toEqual({ muted: true, autoplay: true, loop: true, controls: false, playRequested: 'true' });
+  const audioToggle = firstPreview.locator('.preview-audio-toggle');
+  await expect(audioToggle).toHaveAttribute('aria-label', 'Unmute video');
+  await audioToggle.click();
+  await expect(audioToggle).toHaveAttribute('aria-label', 'Mute video');
   await expect(page.locator('#corporate .corp-reel-card[data-r2-slot="corporate-presenter"]')).toHaveAttribute(
     'data-r2-video-url',
     'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Reel%204.mp4'
@@ -390,7 +394,7 @@ test('homepage autoplay failure restores a visible manual play fallback', async 
   await expect(preview.locator('.preview-audio-toggle')).toBeHidden();
 });
 
-test('work page shows four curated portfolio videos that replay only after manual play', async ({ page }) => {
+test('all visible work portfolio videos autoplay muted', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = function() {
       this.dataset.playRequested = 'true';
@@ -411,15 +415,14 @@ test('work page shows four curated portfolio videos that replay only after manua
     const preview = cards.nth(index).locator('.story-cover');
     const video = preview.locator('video');
     await preview.scrollIntoViewIfNeeded();
-    await expect(preview.locator('.preview-play')).toBeVisible();
-    expect(await video.evaluate(element => element.dataset.playRequested)).toBeUndefined();
-    await preview.locator('.preview-play').click();
+    await expect.poll(() => video.evaluate(element => element.dataset.playRequested)).toBe('true');
     await expect(video).toBeVisible();
-    expect(await video.evaluate(element => element.dataset.playRequested)).toBe('true');
-    expect(await video.evaluate(element => element.autoplay)).toBe(false);
+    await expect(preview.locator('.preview-play')).toBeHidden();
+    await expect(preview.locator('.preview-audio-toggle')).toBeVisible();
+    expect(await video.evaluate(element => element.autoplay)).toBe(true);
+    expect(await video.evaluate(element => element.muted)).toBe(true);
     expect(await video.evaluate(element => element.loop)).toBe(true);
-    expect(await video.evaluate(element => element.controls)).toBe(true);
-    await preview.locator('.preview-close').click();
+    expect(await video.evaluate(element => element.controls)).toBe(false);
   }
 });
 
