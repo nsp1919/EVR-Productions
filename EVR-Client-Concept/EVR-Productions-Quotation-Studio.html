@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#172622">
   <title>EVR Productions | Quotation Studio</title>
+  <link rel="stylesheet" href="brand-logo.css">
   <style>
     :root {
       color-scheme: light;
@@ -56,6 +57,8 @@
       font: 700 9px Arial, sans-serif;
       letter-spacing: .3em;
     }
+    .brand-name .brand-logo-plate { margin: 0; }
+    .screen-reader-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .masthead-note { color: #d7dfd9; font-size: 12px; }
     main { width: min(1320px, 100%); padding: 34px clamp(16px, 4vw, 54px) 72px; margin: auto; }
     .intro { max-width: 760px; margin-bottom: 26px; }
@@ -202,6 +205,8 @@
     .quotation-head { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 2px solid var(--accent); }
     .quotation-brand { font: 700 24px Georgia, serif; letter-spacing: .12em; }
     .quotation-brand span { display: block; margin-top: 5px; font: 700 9px Arial, sans-serif; letter-spacing: .32em; }
+    .quotation-brand .brand-logo-plate { display: inline-flex; margin: 0; }
+    .proposal-brand .brand-logo-image { width: 96px; height: 38px; }
     .quotation-ref { display: grid; gap: 4px; text-align: right; font-size: 10px; }
     .quotation-kicker { margin: 27px 0 7px; color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .15em; }
     .quotation h2 { margin: 0 0 20px; font: 400 38px/1.1 Georgia, serif; }
@@ -243,9 +248,9 @@
     }
   </style>
 </head>
-<body>
+<body data-load-shared-logo="true">
   <header class="masthead">
-    <div class="brand"><div class="brand-mark" aria-hidden="true">E</div><div class="brand-name">EVR<span>PRODUCTIONS</span></div></div>
+    <div class="brand"><div class="brand-name"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo src="/assets/evr-productions-logo.png" alt="EVR Productions"></span><span class="screen-reader-only">EVR Productions</span></div></div>
     <div class="masthead-note">Quotation Studio · Hyderabad, India</div>
   </header>
   <main>
@@ -321,7 +326,7 @@
   <dialog id="print-dialog" class="print-dialog" aria-labelledby="print-title">
     <div class="print-actions"><button type="button" class="button primary" id="print-button">Print / Save as PDF</button><button type="button" class="button ghost" id="close-preview">Close preview</button></div>
     <article class="quotation">
-      <header class="quotation-head"><div class="quotation-brand">EVR<span>PRODUCTIONS</span></div><div class="quotation-ref"><strong>QUOTATION</strong><span id="print-reference"></span><span id="print-date"></span></div></header>
+      <header class="quotation-head"><div class="quotation-brand"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo src="/assets/evr-productions-logo.png" alt="EVR Productions"></span></div><div class="quotation-ref"><strong>QUOTATION</strong><span id="print-reference"></span><span id="print-date"></span></div></header>
       <p class="quotation-kicker">A PROPOSAL PREPARED FOR YOU</p>
       <h2 id="print-title">A clear plan.<br><em>A memorable result.</em></h2>
       <div class="client-grid"><div>PREPARED FOR<strong id="print-client"></strong></div><div>PROJECT<strong id="print-project"></strong></div><div>LOCATION<strong id="print-location"></strong></div></div>
@@ -332,7 +337,7 @@
       <div id="print-totals" class="proposal-totals"></div>
       <div id="print-notes" class="proposal-notes" hidden></div>
       <section class="proposal-terms"><h3>Terms &amp; next steps</h3><p id="print-terms"></p></section>
-      <footer class="proposal-footer"><strong>EVR PRODUCTIONS</strong><span>Hyderabad, Telangana · evrproductionss@gmail.com · +91 99517 18375</span></footer>
+      <footer class="proposal-footer"><span class="proposal-brand"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo src="/assets/evr-productions-logo.png" alt="EVR Productions"></span></span><span>Hyderabad, Telangana · evrproductionss@gmail.com · +91 99517 18375</span></footer>
     </article>
   </dialog>
   <script>
@@ -914,5 +919,6 @@
       renderEvents();
     })();
   </script>
+<script src="brand-logo.js"></script>
 </body>
 </html>

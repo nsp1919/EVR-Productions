@@ -161,6 +161,50 @@ test('browser image uploader requests a signed R2 URL and uploads directly to R2
     .toHaveAttribute('src', 'https://media.example.com/evr-images/12345678-1234-4234-8234-123456789abc.webp');
 });
 
+test('one transparent PNG replacement updates and persists every shared EVR logo', async ({ page }) => {
+  const api = await mockAdminApi(page);
+  const logo = path.resolve(__dirname, '..', 'assets', 'evr-productions-logo.png');
+  await page.goto('/#/admin');
+
+  const opaquePng = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 2;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, 2, 2);
+    return canvas.toDataURL('image/png').split(',')[1];
+  }), 'base64');
+  await page.locator('#admin-logo-replace').click();
+  await page.locator('#admin-logo-file').setInputFiles({
+    name: 'opaque.png',
+    mimeType: 'image/png',
+    buffer: opaquePng
+  });
+  await expect(page.locator('#admin-status')).toContainText('must contain transparent pixels');
+  expect(Object.keys(api.getContent().entries)).toHaveLength(0);
+
+  await page.locator('#admin-logo-replace').click();
+  await page.locator('#admin-logo-file').setInputFiles(logo);
+  await expect(page.locator('#admin-status')).toContainText('Choose Save changes to publish it everywhere');
+  const logoSource = await page.locator('[data-brand-logo]').first().getAttribute('src');
+  expect(await page.locator('[data-brand-logo]').evaluateAll((images, expectedSource) =>
+    images.length > 0 && images.every(image => image.src === expectedSource), logoSource
+  )).toBe(true);
+
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  expect(api.getContent().entries['#brand-logo-v1']).toEqual({ type: 'image', value: logoSource });
+
+  await page.reload();
+  await expect(page.locator('#admin-status')).toContainText('Shared website content loaded');
+  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSource);
+  await page.goto('/sample-quotation.html');
+  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSource);
+  await page.goto('/EVR-Productions-Quotation-Studio.html');
+  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSource);
+});
+
 test('admin can replace a Work portfolio card video from its contextual control', async ({ page }) => {
   const api = await mockAdminApi(page);
   await page.goto('/#/admin');
@@ -323,6 +367,98 @@ test('admin can create and publish a custom Work category', async ({ page }) => 
   await page.locator('#admin-preview-page').selectOption('work');
   await page.locator('#work [data-filter="baby-shower"]').click();
   await expect(page.locator('#work .admin-managed-work-item[data-category="baby-shower"]')).toBeVisible();
+});
+
+test('admin can manage NBrands work, add categories, and delete gallery items', async ({ page }) => {
+  const api = await mockAdminApi(page);
+  const photo = path.resolve(__dirname, '..', 'assets', 'process-cards', 'process-card-01-your-moments.png');
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playCount = String(Number(this.dataset.playCount || 0) + 1);
+      return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function() {
+      this.dataset.pauseCount = String(Number(this.dataset.pauseCount || 0) + 1);
+    };
+  });
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('brand-work');
+  const addStory = page.locator('#brand-work .admin-add-work-card');
+  await expect(addStory).toBeVisible();
+  const existingStory = page.locator('#brand-work article[data-category="event"]').first();
+  page.once('dialog', dialog => dialog.accept());
+  await clickContextualMediaAction(
+    page,
+    '#brand-work article[data-category="event"] .story-cover img',
+    'Delete story'
+  );
+  await expect(existingStory).toBeHidden();
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  expect(JSON.parse(api.getContent().entries['#brand-work-gallery-hidden-cards-v1'].value))
+    .toContain('portfolio:brand-work:corporate-event-detail');
+
+  await addStory.click();
+  await expect(page.locator('#admin-work-dialog-title')).toHaveText('Add a NBrands story.');
+  await expect(page.locator('#admin-work-category option')).toHaveText(['Events', 'Healthcare']);
+
+  await page.locator('#admin-work-new-category').fill('Campaigns');
+  await page.locator('#admin-work-add-category').click();
+  await page.locator('#admin-work-title').fill('A new brand campaign');
+  await page.locator('#admin-work-description').fill('A concise campaign film for a product launch.');
+  await page.locator('input[name="admin-work-media-type"][value="image"]').check();
+  await page.locator('#admin-work-image').setInputFiles(photo);
+  await page.locator('#admin-work-controls button[type="submit"]').click();
+
+  const imageCard = page.locator('#brand-work .admin-managed-work-item[data-category="campaigns"]');
+  await expect(imageCard).toContainText('A new brand campaign');
+  await expect(page.locator('#brand-work [data-filter="campaigns"]')).toBeVisible();
+  await expect(imageCard.getByRole('button', { name: 'Delete story' })).toBeVisible();
+
+  await page.locator('#brand-work .admin-add-work-card').click();
+  await page.locator('#admin-work-category').selectOption('healthcare');
+  await page.locator('#admin-work-title').fill('A new healthcare film');
+  await page.locator('#admin-work-description').fill('An expert-led healthcare explainer.');
+  await page.locator('input[name="admin-work-media-type"][value="video"]').check();
+  await page.locator('#admin-work-video').setInputFiles(fixture);
+  await page.locator('#admin-work-controls button[type="submit"]').click();
+
+  const videoCard = page.locator('#brand-work .admin-managed-work-item[data-category="healthcare"]');
+  const addedVideo = videoCard.locator('video');
+  await expect(videoCard).toContainText('A new healthcare film');
+  await expect(addedVideo).toHaveAttribute('data-viewport-autoplay', 'true');
+  expect(await addedVideo.evaluate(video => video.autoplay)).toBe(false);
+  const pausesBeforeLeaving = Number(await addedVideo.getAttribute('data-pause-count') || 0);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(() => addedVideo.evaluate(video => Number(video.dataset.pauseCount || 0)))
+    .toBeGreaterThan(pausesBeforeLeaving);
+  const playsBeforeEntering = Number(await addedVideo.getAttribute('data-play-count') || 0);
+  await addedVideo.scrollIntoViewIfNeeded();
+  await expect.poll(() => addedVideo.evaluate(video => Number(video.dataset.playCount || 0)))
+    .toBeGreaterThan(playsBeforeEntering);
+
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  const entries = api.getContent().entries;
+  expect(JSON.parse(Buffer.from(entries['#brand-work-gallery-items-v1'].value, 'base64').toString('utf8')))
+    .toHaveLength(2);
+  expect(JSON.parse(entries['#brand-work-gallery-categories-v1'].value)).toContainEqual({
+    slug: 'campaigns',
+    label: 'Campaigns'
+  });
+  expect(entries).not.toHaveProperty('#work-gallery-items-v1');
+
+  await page.reload();
+  await page.locator('#admin-preview-page').selectOption('brand-work');
+  await page.locator('#brand-work [data-filter="campaigns"]').click();
+  const reloadedImage = page.locator('#brand-work .admin-managed-work-item[data-category="campaigns"]');
+  await expect(reloadedImage).toContainText('A new brand campaign');
+  page.once('dialog', dialog => dialog.accept());
+  await reloadedImage.getByRole('button', { name: 'Delete story' }).click();
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  expect(JSON.parse(Buffer.from(api.getContent().entries['#brand-work-gallery-items-v1'].value, 'base64').toString('utf8')))
+    .toHaveLength(1);
 });
 
 test('admin can add a video to a photo-only Work story later', async ({ page }) => {
@@ -562,4 +698,52 @@ test('admin can delete a built-in Work card and keep it hidden after reload', as
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('work');
   await expect(page.locator('#work .story-library > article').first()).toBeHidden();
+});
+
+test('admin can reposition each photo in the final phone mockup screen and keep the crop after reload', async ({ page }) => {
+  const api = await mockAdminApi(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('home');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.locator('#home [data-process-step="4"]').click();
+  await expect(page.locator('#process-story')).toHaveAttribute('data-step', '4');
+
+  const controls = page.locator('.admin-media-actions[data-gallery-image-controls="true"]');
+  await expect(controls).toHaveCount(4);
+  const firstImage = page.locator('#home [data-phone-screen="4"] .phone-gallery img').first();
+  await controls.first().getByRole('button', { name: 'Reposition photo' }).click();
+  const positionDialog = page.locator('#admin-position-dialog');
+  const positionPreview = positionDialog.locator('#admin-position-preview');
+  await expect(positionDialog).toBeVisible();
+  await expect(positionPreview).toBeVisible();
+  await expect(positionPreview).toHaveCSS('object-position', '50% 50%');
+  await positionDialog.getByRole('button', { name: 'Move photo right' }).click();
+  await positionDialog.getByRole('button', { name: 'Move photo up' }).click();
+  await expect(firstImage).toHaveCSS('object-position', '40% 60%');
+  await expect(positionPreview).toHaveCSS('object-position', '40% 60%');
+  await positionDialog.getByRole('button', { name: 'Move photo left' }).click();
+  await positionDialog.getByRole('button', { name: 'Move photo down' }).click();
+  await expect(firstImage).toHaveCSS('object-position', '50% 50%');
+  await expect(positionPreview).toHaveCSS('object-position', '50% 50%');
+  await positionDialog.getByRole('button', { name: 'Move photo right' }).click();
+  await expect(firstImage).toHaveCSS('object-position', '40% 50%');
+  await positionDialog.getByRole('button', { name: 'Done' }).click();
+  await expect(positionPreview).not.toHaveAttribute('src');
+
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  const positionEntry = Object.entries(api.getContent().entries).find(([key]) =>
+    key.startsWith('#phone-gallery-image-position-v1:')
+  );
+  expect(positionEntry).toBeTruthy();
+  expect(JSON.parse(positionEntry[1].value)).toEqual({ x: 40, y: 50 });
+
+  await page.reload();
+  await page.locator('#admin-preview-page').selectOption('home');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.locator('#home [data-process-step="4"]').click();
+  await expect(page.locator('#process-story')).toHaveAttribute('data-step', '4');
+  await expect(page.locator('#home [data-phone-screen="4"] .phone-gallery img').first())
+    .toHaveCSS('object-position', '40% 50%');
 });

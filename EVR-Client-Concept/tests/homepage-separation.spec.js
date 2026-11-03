@@ -1,33 +1,290 @@
 const { test, expect } = require('@playwright/test');
 
+test('public pages do not expose demo or illustration disclaimers', async ({ page }) => {
+  const routes = [
+    'home', 'about', 'weddings', 'work', 'process', 'estimate',
+    'corporate', 'services', 'approach', 'brand-work', 'production-quote', 'request'
+  ];
+  const staleCopy = /ILLUSTRATIONS\s*\/\s*EVR MEDIA TO FOLLOW|ORIGINAL CONCEPT ART|DESIGN DEMONSTRATION|ORIGINAL ILLUSTRATIONS|SAMPLE ESTIMATE|SAMPLE QUOTE|SAMPLE QUOTATION|DEMONSTRATION ONLY|ILLUSTRATIVE RATES|SAMPLE CLIENT|NOT VALID FOR BOOKING|EXAMPLE BRIEF|PLACEHOLDER PROJECT|LAYOUT EXAMPLE|ILLUSTRATIVE MOTION/i;
+
+  for (const route of routes) {
+    await page.goto(`/#/${route}`);
+    const visibleText = await page.locator('.route:not([hidden])').innerText();
+    expect(visibleText, `outdated demo or illustration copy on ${route}`).not.toMatch(staleCopy);
+  }
+
+  await page.goto('/sample-quotation.html');
+  const quotationText = await page.locator('body').innerText();
+  expect(quotationText, 'outdated sample quotation copy').not.toMatch(staleCopy);
+});
+
 test('wedding homepage stays focused and the experience switch opens NBrands', async ({ page }) => {
   await page.goto('/#/home');
 
+  await expect(page.locator('.demo-bar')).toHaveCount(0);
   const weddingSwitch = page.locator('.experience-switch [data-experience="home"]');
   const nbrandsSwitch = page.locator('.experience-switch [data-experience="corporate"]');
   await expect(weddingSwitch).toHaveText('Weddings & Functions');
   await expect(nbrandsSwitch).toHaveText('NBrands');
   await expect(page.locator('#home')).toBeVisible();
   await expect(page).toHaveTitle('Weddings & Functions | EVR Productions');
+  await expect(page.locator('.site-footer .footer-feature[data-footer-experience="home"]')).toBeVisible();
+  await expect(page.locator('.site-footer .footer-main[data-footer-experience="home"]')).toBeVisible();
+  await expect(page.locator('.site-footer .footer-feature[data-footer-experience="corporate"]')).toBeHidden();
+  await expect(page.locator('.site-footer .footer-main[data-footer-experience="corporate"]')).toBeHidden();
   await expect(page.locator('footer [data-nav-experience="home"]')).toBeVisible();
   await expect(page.locator('footer [data-nav-experience="corporate"]')).toBeHidden();
+  const sharedCreditText = await page.locator('.site-credit').innerText();
+  const weddingFooterColor = await page.locator('.site-footer').evaluate(element => getComputedStyle(element).backgroundColor);
 
   const weddingContent = await page.locator('#home').innerText();
   expect(weddingContent).not.toMatch(/\b(?:brand|corporate|podcast)\b/i);
+  await expect(page.locator('#home .corp-client-spotlight')).toHaveCount(0);
   await expect(page.locator('#date-service option')).toHaveCount(4);
 
   await nbrandsSwitch.click();
   await expect(page).toHaveURL(/#\/corporate$/);
   await expect(page.locator('#corporate')).toBeVisible();
   await expect(page).toHaveTitle('NBrands | EVR Productions');
+  await expect(page.locator('.site-footer .footer-feature[data-footer-experience="home"]')).toBeHidden();
+  await expect(page.locator('.site-footer .footer-main[data-footer-experience="home"]')).toBeHidden();
+  await expect(page.locator('.site-footer .footer-feature[data-footer-experience="corporate"]')).toBeVisible();
+  await expect(page.locator('.site-footer .footer-main[data-footer-experience="corporate"]')).toBeVisible();
+  await expect(page.locator('.site-footer .corporate-footer-feature')).toContainText('Stories that move people.');
+  await expect(page.locator('.site-footer .corporate-footer-feature')).toContainText(
+    'we turn your ideas into stories your audience will remember.'
+  );
+  await expect(page.locator('.site-footer .corporate-footer-feature .footer-feature-content a'))
+    .toContainText('Start a brand project');
+  const footerHeadingStyle = await page.locator('.corporate-footer-feature h2').evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      fontFamily: style.fontFamily,
+      fontSize: Number.parseFloat(style.fontSize),
+      lineHeight: Number.parseFloat(style.lineHeight),
+      textTransform: style.textTransform
+    };
+  });
+  expect(footerHeadingStyle.fontFamily).toContain('Georgia');
+  expect(footerHeadingStyle.fontSize).toBeLessThanOrEqual(56);
+  expect(footerHeadingStyle.lineHeight / footerHeadingStyle.fontSize).toBeCloseTo(1.2, 1);
+  expect(footerHeadingStyle.textTransform).toBe('none');
+  await expect(page.locator('.site-footer .corporate-footer-feature .footer-film-video'))
+    .toHaveAttribute('data-src', 'assets/nbrands-footer-background.mp4');
+  await expect(page.locator('.site-footer .corporate-footer-main')).toContainText('Production for brands and businesses');
+  expect(await page.locator('.site-footer').evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(weddingFooterColor);
+  expect(await page.locator('.site-footer .corporate-footer-feature').evaluate(element => getComputedStyle(element).backgroundImage))
+    .toContain('nbrands-footer-poster.jpg');
+  await expect(page.locator('.site-credit')).toHaveCount(1);
+  await expect(page.locator('.site-credit')).toHaveText(sharedCreditText);
+  expect(await page.locator('.site-credit').evaluate(element => getComputedStyle(element).backgroundColor))
+    .toBe(await page.locator('.site-footer').evaluate(element => getComputedStyle(element).backgroundColor));
+  await expect(page.locator('.site-credit .footer-back-top')).toHaveAttribute('href', '#/corporate');
   await expect(page.locator('footer [data-nav-experience="home"]')).toBeHidden();
   await expect(page.locator('footer [data-nav-experience="corporate"]')).toBeVisible();
-  await expect(page.locator('#corp-work')).toContainText('BRAND FILM');
+  await page.locator('#main-nav [data-nav-experience="corporate"] a[href="#/services"]').click();
+  await expect(page).toHaveURL(/#\/services$/);
+  await expect(page.locator('#services')).toBeVisible();
+  const serviceChapters = page.locator('#services #service-chapters');
+  await expect(serviceChapters).toBeVisible();
+  await expect(serviceChapters.locator('.chapter-panel')).toHaveCount(4);
+  await expect(page.locator('#corporate #service-chapters')).toHaveCount(0);
+  await expect(page.locator('#services [data-scroll-to="service-chapters"]')).toBeEnabled();
+  await page.locator('#services [data-scroll-to="service-chapters"]').click();
+  await expect(serviceChapters).toBeInViewport();
+  await expect(serviceChapters.locator('[data-scroll-to="service-scope"]')).toBeEnabled();
+  const serviceScope = page.locator('#service-scope');
+  await expect(page.locator('#services [data-scroll-to="service-scope"]')).toBeEnabled();
+  await page.locator('#services [data-scroll-to="service-scope"]').click();
+  await expect(serviceScope).toBeInViewport();
+  await page.locator('#main-nav [data-nav-experience="corporate"] a[href="#/approach"]').click();
+  await expect(page).toHaveURL(/#\/approach$/);
+  await expect(page.locator('#approach')).toBeVisible();
+  await page.locator('#main-nav [data-nav-experience="corporate"] a[href="#/brand-work"]').click();
+  await expect(page).toHaveURL(/#\/brand-work$/);
+  await expect(page.locator('#brand-work')).toBeVisible();
+  const caseStudyMedia = page.locator('#brand-work .case-study-video-media');
+  const caseStudyVideo = caseStudyMedia.locator('video');
+  await expect(caseStudyVideo).toHaveAttribute('src', 'assets/nbrands-case-study-cphtij.mp4');
+  await expect(caseStudyVideo).toHaveAttribute('data-viewport-autoplay', '');
+  await expect(caseStudyVideo).toHaveAttribute('muted', '');
+  await expect(caseStudyVideo).toHaveAttribute('loop', '');
+  await expect(caseStudyVideo).toHaveAttribute('playsinline', '');
+  await expect.poll(() => caseStudyVideo.evaluate(video => video.readyState)).toBeGreaterThanOrEqual(2);
+  await caseStudyMedia.scrollIntoViewIfNeeded();
+  await expect.poll(() => caseStudyVideo.evaluate(video => video.paused)).toBe(false);
+  expect(await caseStudyVideo.evaluate(video => [video.videoWidth, video.videoHeight])).toEqual([1080, 1920]);
+  expect(await caseStudyVideo.evaluate(video => getComputedStyle(video).objectFit)).toBe('contain');
+  expect(await caseStudyMedia.evaluate(media =>
+    Math.abs(media.clientWidth / media.clientHeight - 9 / 16) < 0.01
+  )).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => caseStudyVideo.evaluate(video => video.paused)).toBe(true);
+  await page.goto('/#/corporate');
+  await expect(page.locator('#corporate #corp-work')).toHaveCount(0);
   await expect(page.locator('#corporate')).toContainText(/podcasts/i);
+  const clientSpotlight = page.locator('#corporate .corp-client-spotlight');
+  await expect(clientSpotlight).toBeVisible();
+  expect(await page.locator('#corporate').evaluate(root =>
+    root.querySelector('.corp-hero').nextElementSibling === root.querySelector('.corp-client-spotlight')
+  )).toBe(true);
+  await expect(page.locator('#corporate .corp-format-strip')).toHaveCount(0);
+  await expect(page.locator('#corporate .corp-capabilities')).toHaveCount(0);
+  const homeServices = page.locator('#corp-services');
+  await expect(homeServices).toBeVisible();
+  await expect(homeServices.locator('.corp-service-panel')).toHaveCount(4);
+  await expect(homeServices.locator('.corp-service-nav button')).toHaveText([
+    '01Brand films ↗',
+    '02Marketing reels ↗',
+    '03YouTube ↗',
+    '04Podcasts ↗'
+  ]);
+  const marquee = page.locator('#corporate .corp-tech-strip');
+  await expect(marquee).toBeVisible();
+  await expect(marquee).toContainText('ONE CONNECTED PRODUCTION');
+  await expect(page.locator('#corporate .corp-funnel-steps article')).toHaveCount(3);
+  await expect(page.locator('#corporate .corp-production-band')).toBeVisible();
+  await expect(page.locator('#corporate .corp-proof')).toHaveCount(0);
+  await expect(page.locator('#corporate .corp-metrics [data-count]')).toHaveCount(4);
+  expect(await page.locator('#corporate').evaluate(root => {
+    const clients = root.querySelector('.corp-client-spotlight');
+    const services = root.querySelector('#corp-services');
+    return Boolean(clients.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })).toBe(true);
+  await expect(clientSpotlight.locator('ul[aria-label] li')).toHaveCount(17);
+  await expect(clientSpotlight.locator('.corp-client-loop-copy')).toHaveCount(2);
+  await expect(clientSpotlight.locator('.corp-client-loop-copy').first()).toHaveAttribute('aria-hidden', 'true');
+  const clientMarquees = clientSpotlight.locator('.corp-client-marquee');
+  await expect(clientMarquees).toHaveCount(2);
+  await expect(clientMarquees.first()).toHaveAttribute('tabindex', '0');
+  expect(await clientMarquees.first().evaluate(element => {
+    const track = element.querySelector('.corp-client-marquee-track');
+    return {
+      duration: getComputedStyle(track).animationDuration,
+      mask: getComputedStyle(element).maskImage,
+      highlight: getComputedStyle(element.querySelector('ul[aria-label] li')).textDecorationLine
+    };
+  })).toMatchObject({ duration: '48s', highlight: 'underline' });
+  await clientMarquees.first().focus();
+  await expect.poll(() => clientMarquees.first().locator('.corp-client-marquee-track')
+    .evaluate(element => getComputedStyle(element).animationPlayState)).toBe('paused');
+  await expect(clientSpotlight).toContainText('Shine Ad Agency');
+  await expect(clientSpotlight).toContainText('Pica Chess Academy');
+  await expect(clientSpotlight).toContainText('Abhinava Kavi');
+  await expect(page.locator('#corporate .corp-process')).toHaveCount(0);
+  const serviceJump = page.locator('#corporate [data-corp-jump="corp-services"]');
+  await expect(serviceJump).toBeEnabled();
+  await serviceJump.click();
+  await expect(homeServices).toBeInViewport();
+  await expect(homeServices.locator('[data-corp-jump="corp-approach"]')).toBeEnabled();
 
   await weddingSwitch.click();
   await expect(page).toHaveURL(/#\/home$/);
   await expect(page.locator('#home')).toBeVisible();
+});
+
+test('Corporate scroll effects reveal by section and honor reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/corporate');
+
+  const corporate = page.locator('#corporate');
+  await expect(corporate).toHaveClass(/corp-motion-ready/);
+  await expect(corporate.locator('.corp-format-list')).toHaveCount(0);
+  await expect(corporate.locator('.corp-work-card')).toHaveCount(0);
+  await expect(corporate.locator('.corp-video-story.corp-scroll-reveal')).toHaveCount(3);
+  const clientChip = corporate.locator('.corp-client-groups ul[aria-label] li').first();
+  await corporate.locator('.corp-client-marquee-track').evaluateAll(tracks =>
+    tracks.forEach(track => { track.style.animationPlayState = 'paused'; })
+  );
+  await clientChip.scrollIntoViewIfNeeded();
+  await expect(clientChip).toHaveClass(/corp-scroll-reveal/);
+  await expect(clientChip).toHaveClass(/is-visible/);
+
+  const finalVideo = corporate.locator('.corp-final-video');
+  await expect(finalVideo).toHaveAttribute('data-r2-background-slot', 'corporate-studio-background');
+  await expect(finalVideo).toHaveAttribute('data-corp-ambient', '');
+  await corporate.locator('.corp-final-content').scrollIntoViewIfNeeded();
+  await expect(corporate.locator('.corp-final-content')).toHaveClass(/is-visible/);
+  await expect.poll(() => finalVideo.evaluate(video => video.style.getPropertyValue('--corp-final-parallax')))
+    .not.toBe('');
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(corporate).not.toHaveClass(/corp-motion-ready/);
+  await expect.poll(() => clientChip.evaluate(element => getComputedStyle(element).opacity)).toBe('1');
+  await expect.poll(() => corporate.locator('.corp-client-marquee-track').first()
+    .evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  await expect.poll(() => corporate.locator('.corp-funnel-steps article').first()
+    .evaluate(element => getComputedStyle(element).transform)).toBe('none');
+});
+
+test('Corporate campaign stages remain visible together without scroll pinning', async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 900, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/#/corporate');
+
+    const funnel = page.locator('#corporate .corp-funnel');
+    const steps = funnel.locator('[data-funnel-stage]');
+    await expect(funnel).not.toHaveClass(/is-pinned/);
+    await expect(steps).toHaveCount(3);
+    await funnel.scrollIntoViewIfNeeded();
+
+    const layout = await steps.evaluateAll(elements => elements.map(element => {
+      const bounds = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        top: bounds.top,
+        bottom: bounds.bottom,
+        opacity: style.opacity,
+        transform: style.transform,
+        columns: getComputedStyle(element.parentElement).gridTemplateColumns.split(' ').length
+      };
+    }));
+    expect(layout.every(card => card.opacity === '1' && card.transform === 'none')).toBe(true);
+    if (viewport.width > 700) {
+      expect(layout.every(card => card.top >= 0 && card.bottom <= viewport.height)).toBe(true);
+      expect(layout.every(card => Math.abs(card.top - layout[0].top) < 2)).toBe(true);
+      expect(layout.every(card => card.columns === 3)).toBe(true);
+    } else {
+      expect(await steps.evaluateAll(elements =>
+        elements.every(element => getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility === 'visible')
+      )).toBe(true);
+      expect(layout[1].top).toBeGreaterThan(layout[0].bottom);
+      expect(layout[2].top).toBeGreaterThan(layout[1].bottom);
+    }
+  }
+});
+
+test('weddings page uses the supplied portrait photos instead of concept artwork', async ({ page }) => {
+  await page.goto('/#/weddings');
+
+  await expect(page.locator('#weddings .inner-hero-media img')).toHaveAttribute(
+    'src',
+    'assets/wedding-couple-portrait.jpg'
+  );
+  const chapterImages = page.locator('#weddings .chapter-art img');
+  await expect.poll(() => chapterImages.evaluateAll(images => images.map(image => image.getAttribute('src'))))
+    .toEqual([
+      'assets/wedding-pre-ceremony-couple.jpg',
+      'assets/wedding-family-hug.jpg',
+      'assets/wedding-traditional-embrace.jpg'
+    ]);
+  await chapterImages.evaluateAll(images => Promise.all(images.map(image => image.decode())));
+  await expect(page.locator('#weddings .detail-note')).toHaveCount(0);
+});
+
+test('NBrands Services selector advances through its four formats', async ({ page }) => {
+  await page.setViewportSize({ width: 1470, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/services');
+
+  const selector = page.locator('#services #service-chapters');
+  await expect(selector).toHaveClass(/is-chapter-pinned/);
+  const reelsTab = selector.locator('[data-story-step="1"]');
+  await expect(reelsTab).toBeEnabled();
+  await reelsTab.click();
+  await expect.poll(() => selector.getAttribute('data-step')).toBe('1');
+  await expect(selector.locator('.chapter-panel.is-current .chapter-copy h3')).toContainText('Start strong.');
 });
 
 test('founder statistics reveal and count up to their published values on scroll', async ({ page }) => {
@@ -109,7 +366,7 @@ test('work portfolio autoplays selected R2 films muted with an audio toggle', as
   await expect(audioToggle).toHaveAttribute('aria-label', 'Unmute video');
   await audioToggle.click();
   await expect(audioToggle).toHaveAttribute('aria-label', 'Mute video');
-  await expect(page.locator('#corporate .corp-reel-card[data-r2-slot="corporate-presenter"]')).toHaveAttribute(
+  await expect(page.locator('#corporate .corp-reel-card[data-r2-slot="corporate-healthcare-explainer"]')).toHaveAttribute(
     'data-r2-video-url',
     'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Reel%204.mp4'
   );
@@ -471,6 +728,15 @@ test('process stages use real EVR wedding images and the actual project workflow
   );
   expect(photos).toHaveLength(7);
   expect(photos.every(photo => photo.source.startsWith('assets/video-posters/r2/') && photo.loaded)).toBe(true);
+  const weddingStoryPhotos = await process.locator('[data-phone-screen="4"] .phone-gallery img').evaluateAll(images =>
+    images.map(image => image.getAttribute('src'))
+  );
+  expect(weddingStoryPhotos).toEqual([
+    'assets/video-posters/r2/wedding-sri-shashi-ravi-teja-reception.jpg',
+    'assets/video-posters/r2/wedding-sri-shashi-ravi-teja-dance.jpg',
+    'assets/video-posters/r2/wedding-sri-shashi-ravi-teja-outdoor.jpg',
+    'assets/video-posters/r2/wedding-sri-shashi-ravi-teja-ceremony.jpg'
+  ]);
   await expect(process.locator('[data-phone-screen="4"]')).toContainText('Sri Shashi');
   await expect(process).not.toContainText('PROJECT SPACE / DEMO');
   await expect(process).not.toContainText('Illustrative project update');
@@ -491,6 +757,12 @@ test('process stages use real EVR wedding images and the actual project workflow
     }
     await steps.nth(4).click();
     await expect(process.locator('[data-phone-screen="4"]')).toBeVisible();
+    const noticeClearance = await process.evaluate(root => {
+      const phone = root.querySelector('.phone-shell').getBoundingClientRect();
+      const notice = root.querySelector('.phone-notice').getBoundingClientRect();
+      return notice.top - phone.bottom;
+    });
+    expect(noticeClearance).toBeGreaterThanOrEqual(0);
     const galleryClearance = await process.evaluate(root => {
       const panel = root.querySelector('[data-phone-screen="4"] .phone-panel').getBoundingClientRect();
       const footer = root.querySelector('.phone-bottom').getBoundingClientRect();
@@ -836,16 +1108,58 @@ test('all playable NBrands videos use Cloudflare R2', async ({ page }) => {
 
   await expect(page.locator('#corporate iframe')).toHaveCount(0);
   await expect(page.locator('#corporate [data-r2-video-url]')).toHaveCount(4);
+  const approach = page.locator('#corp-approach');
+  await expect(approach.locator('.corp-video-story')).toHaveCount(3);
+  await expect(approach.locator('.corp-bento')).toHaveCount(0);
+  await expect(page.locator('#corporate .corp-reel-section')).toHaveCount(1);
+  await expect(approach.locator('.corp-video-story h3')).toHaveText([
+    'A room ready to celebrate.',
+    'A healthcare story, made human.',
+    'Show the product in trusted hands.'
+  ]);
+  await expect(approach.locator('.corp-video-copy p')).toHaveCount(3);
+  expect(await approach.locator('.corp-reel-card').evaluateAll(cards => cards.map(card => card.dataset.r2Slot))).toEqual([
+    'corporate-event-space',
+    'corporate-healthcare-explainer',
+    'corporate-product-story'
+  ]);
+  await expect(approach.locator('[data-r2-slot="corporate-event-detail"]')).toHaveCount(0);
+  await expect(approach.locator('[data-r2-slot="corporate-event-space"]')).toHaveAttribute(
+    'data-r2-video-url',
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/866aac4c-064f-4d22-9c71-7901cceecea9.mp4'
+  );
+  expect(await approach.locator('.corp-reel-card').evaluateAll(media => media.every(item => {
+    const { width, height } = getComputedStyle(item);
+    return Number.parseFloat(height) > Number.parseFloat(width);
+  }))).toBe(true);
   const hero = page.locator('#corporate .corp-hero-media .preview-media');
   await expect(hero).toHaveAttribute(
     'data-r2-video-url',
-    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Reel%204.mp4'
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/video_2026-10-31_07-41-51.mp4'
   );
   const heroVideo = hero.locator('video');
   await expect(heroVideo).toHaveAttribute(
     'src',
-    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Reel%204.mp4'
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/video_2026-10-31_07-41-51.mp4'
   );
+  const heroBackground = page.locator('#corporate .corp-hero-bg video');
+  await expect(heroBackground).toHaveAttribute(
+    'src',
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/89721c74-832d-4fef-804a-4be8761574f7.mp4'
+  );
+  await expect(page.locator('#corporate .corp-hero-bg')).toHaveCSS('opacity', '0.22');
+  await expect(heroBackground).toHaveCSS('object-fit', 'cover');
+  await expect(heroBackground).toHaveAttribute('poster', 'assets/video-posters/r2/nbrands-empty-studio.jpg');
+  await expect(hero.locator('img')).toHaveAttribute('src', 'assets/video-posters/r2/brand-expo-highlights.jpg');
+  await expect(page.locator('#corporate .corp-media-caption')).toContainText('BRAND EXHIBITION HIGHLIGHTS');
+  await expect(hero.locator('.preview-audio-toggle')).toBeVisible();
+  expect(await heroVideo.evaluate(video => video.muted)).toBe(true);
+  const heroAudio = hero.locator('.preview-audio-toggle');
+  await expect(heroAudio).toHaveAttribute('aria-label', 'Unmute video');
+  await heroAudio.click();
+  expect(await heroVideo.evaluate(video => video.muted)).toBe(false);
+  await expect(heroAudio).toHaveAttribute('aria-label', 'Mute video');
+  await heroAudio.click();
   expect(await heroVideo.evaluate(video => video.muted)).toBe(true);
   const videoSources = await page.locator('video').evaluateAll(elements =>
     elements.map(element => element.getAttribute('src')).filter(Boolean)
@@ -853,10 +1167,364 @@ test('all playable NBrands videos use Cloudflare R2', async ({ page }) => {
   expect(videoSources.every(source => new URL(source).hostname === 'pub-aefcf27121ff450faf8570e9de489735.r2.dev')).toBe(true);
   expect(externalVideoRequests).toEqual([]);
 
+  for (const card of await approach.locator('.corp-reel-card').all()) {
+    await card.scrollIntoViewIfNeeded();
+    const video = card.locator('video.r2-autoplay-preview');
+    const audio = card.locator('.preview-audio-toggle');
+    await expect(video).toHaveAttribute('src', /pub-aefcf27121ff450faf8570e9de489735\.r2\.dev/);
+    await expect(audio).toBeVisible();
+    await expect(audio).toHaveAttribute('aria-label', 'Unmute video');
+    expect(await video.evaluate(element => element.muted)).toBe(true);
+    await audio.click();
+    await expect(audio).toHaveAttribute('aria-label', 'Mute video');
+    expect(await video.evaluate(element => element.muted)).toBe(false);
+    await audio.click();
+    expect(await video.evaluate(element => element.muted)).toBe(true);
+  }
+  expect(await approach.locator('[data-r2-video-url]').evaluateAll(cards =>
+    cards.every(card => !card.dataset.r2VideoUrl.includes('07-41-51'))
+  )).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fourthStory = page.locator('#corp-approach .corp-video-story').last();
+  expect(await fourthStory.locator('.corp-reel-card').evaluate(media => {
+    const { width, height } = getComputedStyle(media);
+    return Number.parseFloat(height) > Number.parseFloat(width);
+  })).toBe(true);
+});
+
+test('NBrands cards use matching supplied artwork and production stills', async ({ page }) => {
+  await page.goto('/#/corporate');
+
+  const serviceArt = page.locator('#corp-services .corp-service-art');
+  await expect(serviceArt).toHaveCount(4);
+  await expect(serviceArt.nth(0).locator('img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-cinematic-lens-brand-film.webp'
+  );
+  await expect(serviceArt.nth(1).locator('img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-product-story-still.jpg'
+  );
+  await expect(serviceArt.nth(2).locator('img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-more-than-a-moment.webp'
+  );
+  await expect(serviceArt.nth(3).locator('img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-good-talk-well-told.webp'
+  );
+  expect(await serviceArt.locator('img').evaluateAll(images =>
+    new Set(images.map(image => image.getAttribute('src'))).size
+  )).toBe(4);
+  await expect.poll(() => serviceArt.locator('img').evaluateAll(images =>
+    images.every(image => image.complete && image.naturalWidth > 0)
+  )).toBe(true);
+
+  await expect(page.locator('#corporate #corp-work')).toHaveCount(0);
+
+  await page.goto('/#/services');
+  const serviceWheel = page.locator('#services .service-wheel');
+  const serviceWheelRotor = serviceWheel.locator('[data-scroll-wheel]');
+  await expect(serviceWheelRotor.locator('img')).toHaveAttribute(
+    'src',
+    'assets/four-part-content-creation-wheel.webp'
+  );
+  await expect(serviceWheel.locator('.service-wheel-brand')).toHaveText('EVRPRODUCTIONS');
+  await expect.poll(() => serviceWheelRotor.locator('img').evaluate(image =>
+    image.complete && image.naturalWidth > 0
+  )).toBe(true);
+  const wheelScrollRotation = await page.evaluate(async () => {
+    const rotor = document.querySelector('#services [data-scroll-wheel]');
+    const rotation = () => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(rotor).transform);
+      return Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
+    };
+    window.scrollTo(0, 0);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const before = rotation();
+    window.scrollTo(0, window.innerHeight);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const after = rotation();
+    return { before, after };
+  });
+  expect(Math.abs(wheelScrollRotation.before)).toBeLessThan(0.1);
+  expect(Math.abs(wheelScrollRotation.after - wheelScrollRotation.before)).toBeCloseTo(90, 0);
+  expect(await serviceWheel.locator('.service-wheel-brand').evaluate(element =>
+    getComputedStyle(element).transform
+  )).toContain('matrix');
+  const servicePosters = page.locator('#services .poster-designed img');
+  await expect(servicePosters).toHaveCount(3);
+  await expect(servicePosters.nth(0)).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-corporate-brand-films.webp'
+  );
+  await expect(servicePosters.nth(1)).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-channel-production-room.webp'
+  );
+  await expect(servicePosters.nth(2)).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-listen-then-look-again.webp'
+  );
+  await expect.poll(() => servicePosters.evaluateAll(images =>
+    images.every(image => image.complete && image.naturalWidth > 0)
+  )).toBe(true);
+  await page.goto('/#/approach');
+  await expect(page.locator('#approach [data-r2-slot="corporate-product-story"] img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-product-story-still.jpg'
+  );
+  const approachPanels = page.locator('#approach #approach-chapters .chapter-panel');
+  await expect(approachPanels).toHaveCount(4);
+  await expect(approachPanels.nth(0).locator('.chapter-art img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-approach-discover.webp'
+  );
+  await expect(approachPanels.nth(1).locator('.chapter-art img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-approach-design-shoot.webp'
+  );
+  await expect(approachPanels.nth(2).locator('.chapter-art img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-product-story-still.jpg'
+  );
+  await expect(approachPanels.nth(3).locator('.chapter-art img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-approach-refine-deliver.webp'
+  );
+  await expect.poll(() => approachPanels.locator('.chapter-art img').evaluateAll(images =>
+    images.every(image => image.complete && image.naturalWidth > 0)
+  )).toBe(true);
+  await page.goto('/#/brand-work');
+  await expect(page.locator('#brand-work [data-r2-slot="corporate-product-story"] img')).toHaveAttribute(
+    'src',
+    'assets/video-posters/r2/nbrands-product-story-still.jpg'
+  );
+});
+
+test('NBrands work page presents the full video library with muted autoplay and speaker controls', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRequested = 'true';
+      return Promise.resolve();
+    };
+  });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  const reelCard = page.locator('#corporate .corp-reel-card[data-r2-slot="corporate-presenter"]');
-  await reelCard.scrollIntoViewIfNeeded();
-  const reelVideo = reelCard.locator('video');
-  await expect(reelVideo).toHaveAttribute('src', /pub-aefcf27121ff450faf8570e9de489735\.r2\.dev/);
-  expect(await reelVideo.evaluate(video => video.muted)).toBe(true);
+  await page.goto('/#/brand-work');
+
+  const gallery = page.locator('#brand-work .story-library');
+  await expect(gallery.locator('article')).toHaveCount(3);
+  await expect(page.locator('#brand-work [data-r2-video-url]')).toHaveCount(4);
+  const sourceUrls = await page.locator('#brand-work [data-r2-video-url]').evaluateAll(elements =>
+    [...new Set(elements.map(element => element.dataset.r2VideoUrl))]
+  );
+  expect(sourceUrls).toHaveLength(4);
+  await expect(gallery.locator('[data-category="event"]')).toHaveCount(1);
+  await expect(gallery.locator('[data-category="healthcare"]')).toHaveCount(2);
+
+  for (const card of await gallery.locator('.story-cover.preview-media').all()) {
+    await card.scrollIntoViewIfNeeded();
+    const video = card.locator('video.r2-autoplay-preview');
+    const audio = card.locator('.preview-audio-toggle');
+    await expect(video).toHaveAttribute('src', /pub-aefcf27121ff450faf8570e9de489735\.r2\.dev/);
+    await expect(audio).toBeVisible();
+    expect(await video.evaluate(element => element.muted)).toBe(true);
+    await audio.click();
+    expect(await video.evaluate(element => element.muted)).toBe(false);
+    await expect(audio).toHaveAttribute('aria-label', 'Mute video');
+    await audio.click();
+    expect(await video.evaluate(element => element.muted)).toBe(true);
+  }
+
+  await page.locator('#brand-work [data-filter="event"]').click();
+  await expect(gallery.locator('article:visible')).toHaveCount(1);
+  await page.locator('#brand-work [data-filter="healthcare"]').click();
+  await expect(gallery.locator('article:visible')).toHaveCount(2);
+});
+
+test('NBrands approach page uses a muted doctor-led video in the shoot chapter', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRequested = 'true';
+      return Promise.resolve();
+    };
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/approach');
+
+  const preview = page.locator('#approach [data-r2-slot="corporate-product-story"]');
+  await expect(preview).toHaveAttribute(
+    'data-r2-video-url',
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/reel_6.mp4'
+  );
+  await preview.scrollIntoViewIfNeeded();
+  const video = preview.locator('video.r2-autoplay-preview');
+  const audio = preview.locator('.preview-audio-toggle');
+  await expect.poll(() => video.evaluate(element => element.dataset.playRequested)).toBe('true');
+  expect(await video.evaluate(element => element.muted)).toBe(true);
+  await expect(audio).toBeVisible();
+  await audio.click();
+  expect(await video.evaluate(element => element.muted)).toBe(false);
+});
+
+test('NBrands Services page uses the animated healthcare reel in the marketing format panel', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = function() {
+      this.dataset.playRequested = 'true';
+      return Promise.resolve();
+    };
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/#/services');
+
+  const preview = page.locator('#services #service-chapters .chapter-panel [data-r2-slot="corporate-healthcare-explainer"]');
+  await expect(preview).toHaveAttribute(
+    'data-r2-video-url',
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Reel%204.mp4'
+  );
+  await preview.scrollIntoViewIfNeeded();
+  const video = preview.locator('video.r2-autoplay-preview');
+  const audio = preview.locator('.preview-audio-toggle');
+  await expect.poll(() => video.evaluate(element => element.dataset.playRequested)).toBe('true');
+  expect(await video.evaluate(element => element.muted)).toBe(true);
+  await expect(audio).toBeVisible();
+  await audio.click();
+  expect(await video.evaluate(element => element.muted)).toBe(false);
+});
+
+test('NBrands artwork keeps its production palette without duplicating poster copy', async ({ page }) => {
+  await page.goto('/#/corporate');
+  const palette = await page.locator('#corporate').evaluate(corporate => {
+    const styles = selector => getComputedStyle(corporate.querySelector(selector));
+    return {
+      reelsServiceBackground: styles('.corp-art-reels').backgroundColor,
+      reelsServiceText: styles('.corp-art-reels').color,
+      productCardBackground: styles('.corp-product-art').backgroundColor,
+      productCardText: styles('.corp-product-art > b').color,
+      productIllustrationBackground: styles('.corp-product-art > i').backgroundImage,
+      designedArtHasNoOverlaidCopy: [...corporate.querySelectorAll('.corp-art-designed')].every(art =>
+        art.querySelector('img') &&
+        !art.querySelector('.corp-art-meta, .corp-art-bottom, strong, .corp-mic')
+      )
+    };
+  });
+  expect(palette.reelsServiceBackground).toBe('rgb(36, 93, 221)');
+  expect(palette.reelsServiceText).toBe('rgb(255, 255, 255)');
+  expect(palette.productCardBackground).toBe('rgb(233, 239, 255)');
+  expect(palette.productCardText).toBe('rgb(25, 42, 73)');
+  expect(palette.productIllustrationBackground).toContain('rgb(36, 93, 221)');
+  expect(palette.productIllustrationBackground).toContain('rgb(174, 200, 255)');
+  expect(palette.designedArtHasNoOverlaidCopy).toBe(true);
+});
+
+test('shared About and Contact pages use NBrands colors without changing their content', async ({ page }) => {
+  await page.goto('/#/about');
+  const about = page.locator('#about');
+  await expect(about).toBeVisible();
+  const sharedAboutContent = await about.innerText();
+  const weddingAboutAccent = await about.locator('h1 em').evaluate(element => getComputedStyle(element).color);
+  expect(weddingAboutAccent).toBe('rgb(167, 84, 66)');
+
+  await page.locator('.experience-switch [data-experience="corporate"]').click();
+  await page.evaluate(() => { location.hash = '#/about'; });
+  await expect(about).toBeVisible();
+  await expect(page.locator('body')).toHaveClass(/corporate-view/);
+  expect(await about.innerText()).toBe(sharedAboutContent);
+  expect(await about.locator('h1 em').evaluate(element => getComputedStyle(element).color))
+    .toBe('rgb(36, 93, 221)');
+  expect(await about.evaluate(element => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(248, 250, 252)');
+
+  await page.evaluate(() => { location.hash = '#/request'; });
+  const request = page.locator('#request');
+  await expect(request).toBeVisible();
+  const sharedRequestContent = await request.innerText();
+  expect(await request.locator('.page-title h1 em').evaluate(element => getComputedStyle(element).color))
+    .toBe('rgb(36, 93, 221)');
+  expect(await request.locator('.paper').evaluate(element => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(255, 255, 255)');
+  expect(await request.locator('.request-aside').evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      borderStyle: style.borderStyle,
+      borderRadius: style.borderRadius,
+      boxShadow: style.boxShadow
+    };
+  })).toEqual({
+    background: 'rgba(0, 0, 0, 0)',
+    borderStyle: 'none',
+    borderRadius: '0px',
+    boxShadow: 'none'
+  });
+  expect(await request.locator('.paper input').first().evaluate(element => getComputedStyle(element).borderColor))
+    .toBe('rgb(203, 214, 231)');
+
+  await page.locator('.experience-switch [data-experience="home"]').click();
+  await page.evaluate(() => { location.hash = '#/request'; });
+  await expect(request).toBeVisible();
+  expect(await request.innerText()).toBe(sharedRequestContent);
+});
+
+test('NBrands page hero headings share the editorial serif style', async ({ page }) => {
+  await page.goto('/#/corporate');
+  const heroHeadings = [
+    ['#/corporate', '#corporate .corp-hero h1'],
+    ['#/services', '#services .inner-hero h1'],
+    ['#/approach', '#approach .inner-title h1'],
+    ['#/brand-work', '#brand-work .inner-title h1'],
+    ['#/about', '#about .about-text-hero h1'],
+    ['#/production-quote', '#production-quote .inner-hero h1'],
+    ['#/request', '#request .page-title h1']
+  ];
+
+  for (const [hash, selector] of heroHeadings) {
+    await page.evaluate(nextHash => { location.hash = nextHash; }, hash);
+    const heading = page.locator(selector);
+    await expect(heading).toBeVisible();
+    const typography = await heading.evaluate(element => ({
+      family: getComputedStyle(element).fontFamily,
+      emphasisStyle: getComputedStyle(element.querySelector('em')).fontStyle,
+      emphasisWeight: getComputedStyle(element.querySelector('em')).fontWeight
+    }));
+    expect(typography.family).toContain('Georgia');
+    expect(typography.emphasisStyle).toBe('italic');
+    expect(typography.emphasisWeight).toBe('400');
+  }
+});
+
+test('NBrands footer plays the supplied local background video', async ({ page }) => {
+  await page.goto('/#/corporate');
+  const feature = page.locator('.corporate-footer-feature');
+  const video = feature.locator('.footer-film-video');
+  await feature.scrollIntoViewIfNeeded();
+  await expect(video).toHaveAttribute('poster', 'assets/nbrands-footer-poster.jpg');
+  await expect.poll(() => video.evaluate(element => element.currentSrc))
+    .toBe('http://127.0.0.1:4173/assets/nbrands-footer-background.mp4');
+  await expect.poll(() => video.evaluate(element => element.readyState))
+    .toBeGreaterThanOrEqual(2);
+  expect(await video.evaluate(element => element.duration)).toBeGreaterThan(7);
+});
+
+test('About page has a clean text-only hero and displays the founder portrait below', async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/about');
+    const about = page.locator('#about');
+    await expect(about).toBeVisible();
+    const hero = about.locator('.about-text-hero');
+    await expect(hero.locator('video, .inner-hero-media, img, svg')).toHaveCount(0);
+    await expect(hero.locator('h1')).toContainText('Every frame');
+    await expect(hero.locator('.about-hero-signoff')).toHaveText('PEOPLE · MOMENTS · STORIES');
+    expect(await hero.evaluate(element => getComputedStyle(element).textAlign)).toBe('center');
+    const photos = await about.locator('.about-founder-portrait img').evaluateAll(images =>
+      images.map(image => ({
+        source: image.getAttribute('src'),
+        loaded: image.complete && image.naturalWidth > 0
+      }))
+    );
+    expect(photos.map(photo => photo.source)).toEqual(['assets/venkat-reddy-photographer.jpg']);
+    expect(photos.every(photo => photo.loaded)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  }
 });

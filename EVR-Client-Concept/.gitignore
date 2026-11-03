@@ -17,3 +17,6 @@ hls-client.js
 *.mp3
 *.webm
 *.zip
+
+# Optimized NBrands footer background
+!assets/nbrands-footer-background.mp4

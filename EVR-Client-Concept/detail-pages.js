@@ -20,6 +20,7 @@
       headings: Array.from(page.querySelectorAll('[data-scroll-underline]')),
     };
   });
+  const scrollWheels = Array.from(document.querySelectorAll('[data-scroll-wheel]'));
   let frame = 0;
 
   function bounds(scene) {
@@ -76,6 +77,11 @@
         element.style.setProperty('--reading-progress', String(progress));
       });
     });
+    scrollWheels.forEach(wheel => {
+      if (wheel.closest('.route')?.hidden) return;
+      const quarterTurns = scrollY / Math.max(1, innerHeight);
+      wheel.style.transform = `rotate(${(quarterTurns * 90).toFixed(2)}deg)`;
+    });
   }
   function schedule() {
     if (!frame) frame = requestAnimationFrame(render);
@@ -107,6 +113,7 @@
         media.forEach(element => element.removeAttribute('style'));
         headings.forEach(element => element.style.removeProperty('--reading-progress'));
       });
+      scrollWheels.forEach(wheel => wheel.removeAttribute('style'));
     }
     schedule();
   }

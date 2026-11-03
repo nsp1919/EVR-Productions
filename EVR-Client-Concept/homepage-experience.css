@@ -111,7 +111,7 @@
 .phone-screen[data-phone-screen="4"] .phone-gallery img { height: 62px; }
 .phone-screen[data-phone-screen="4"] .phone-panel { padding: 9px; margin-top: 8px; }
 .phone-screen[data-phone-screen="4"] .phone-panel p { font-size: 8px; margin: 5px 0; }
-.phone-notice { position: absolute; top: 47%; right: -18px; display: flex; align-items: center; background: #fff; padding: 16px; border: 1px solid #eeeee5; border-radius: 10px; text-align: left; box-shadow: 0 12px 26px #263e3320; }
+.phone-notice { position: relative; display: flex; align-items: center; width: max-content; max-width: 100%; margin: 12px auto 0; background: #fff; padding: 16px; border: 1px solid #eeeee5; border-radius: 10px; text-align: left; box-shadow: 0 12px 26px #263e3320; }
 .phone-notice b { display: block; font-size: 11px; color: #425e3f; }
 .phone-notice small { display: block; font-size: 8px; color: #89917e; margin-top: 3px; }
 .phone-caption { font-size: 8px; color: #87917e; letter-spacing: .6px; margin: 25px 0 0; }
@@ -139,6 +139,7 @@
 .home-faq { display: grid; grid-template-columns: .8fr 1.2fr; gap: 10%; }
 .home-faq .faq { margin: 0; width: 100%; }
 .site-footer { display: block; padding: 0; border: 0; background: #10251f; color: #f7f2e8; }
+.site-footer [data-footer-experience][hidden] { display: none !important; }
 .footer-feature { min-height: clamp(380px, 32vw, 440px); position: relative; display: flex; align-items: center; overflow: hidden; isolation: isolate; padding: clamp(30px, 4vw, 48px) 8%; border: 0; border-bottom: 1px solid #d7b78344; border-radius: 0; background: #10251f url("assets/hero-bride-garden.jpg") center 42% / cover no-repeat; }
 .footer-film-video, .footer-feature-shade { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; }
 .footer-film-video { object-fit: cover; object-position: center 42%; }
@@ -168,10 +169,40 @@
 .site-credit > .footer-back-top { position: absolute; right: 4%; bottom: 20px; }
 .site-credit-brand:hover, .site-credit-cta:hover { color: #f5d9a8; }
 .site-credit-cta:hover { gap: 11px; }
+.corporate-view .site-footer { background: #111827; color: #f4f7fc; }
+.corporate-view .site-credit { background: #111827; border-top-color: #8398b633; }
+.corporate-view .footer-feature { border-color: #9dbcf455; background-color: #111827; background-image: url("assets/nbrands-footer-poster.jpg"); background-position: center; }
+.corporate-view .footer-feature-shade { background: linear-gradient(90deg, #111827f5 0%, #111827e8 34%, #1118279c 62%, #11182738 100%), linear-gradient(0deg, #111827 0%, #111827d9 12%, #11182700 54%), linear-gradient(180deg, #11182766 0%, transparent 35%); }
+.corporate-view .corporate-footer-feature .footer-feature-content { max-width: 900px; }
+.corporate-view .corporate-footer-feature .footer-feature-content .eyebrow { display: flex; align-items: center; gap: 12px; color: #c1d5ff; font-weight: 700; }
+.corporate-view .corporate-footer-feature .footer-feature-content .eyebrow::before { width: 28px; height: 1px; background: #aec8ff; content: ""; }
+.corporate-view .corporate-footer-feature .footer-feature-content h2 { max-width: 760px; margin-top: 20px; font: normal clamp(34px, 4vw, 56px)/1.2 Georgia, "Times New Roman", serif; letter-spacing: -.035em; text-transform: none; text-wrap: balance; }
+.corporate-view .corporate-footer-feature .footer-feature-content h2 em { color: #aec8ff; font-style: italic; }
+.corporate-view .corporate-footer-feature .footer-feature-content > p:not(.eyebrow) { max-width: 660px; margin: 20px 0 28px; color: #e2e8f0; font: 16px/1.7 Arial, Helvetica, sans-serif; }
+.corporate-view .corporate-footer-feature .footer-feature-content .button { min-height: 50px; gap: 16px; padding-inline: 24px; font-weight: 700; }
+.corporate-view .corporate-footer-feature .footer-feature-content .button span { transition: transform .2s ease; }
+.corporate-view .corporate-footer-feature .footer-feature-content .button:hover span { transform: translate(3px, -3px); }
+.corporate-view .footer-feature-content .eyebrow { color: #c1d5ff; }
+.corporate-view .footer-feature-content h2 em { color: #aec8ff; }
+.corporate-view .footer-feature-content > p:not(.eyebrow) { color: #e2e8f0; }
+.corporate-view .footer-feature-content .button { background: #dce8ff; color: #192a49; }
+.corporate-view .footer-feature-index { color: #e1eaffc9; }
+.corporate-view .footer-main { border-color: #8398b633; }
+.corporate-view .footer-brand-block .brand { color: #f4f7fc; }
+.corporate-view .footer-brand-block > p { color: #d6deed; }
+.corporate-view .footer-location { color: #c2ccdd; }
+.corporate-view .footer-location > span, .corporate-view .site-footer h2 { color: #aec8ff; }
+.corporate-view .footer-nav-group > a, .corporate-view .footer-contact-group > a { color: #e0e7f2; }
+.corporate-view .footer-nav-group > a:hover, .corporate-view .footer-contact-group > a:hover { color: #aec8ff; }
 .about-story { max-width: 820px; }
 .about-story h2, .about-proof h2, .about-credits h2 { color: #273a31; }
 .about-story h2 em, .about-proof h2 em, .about-credits h2 em { color: #995944; }
 .about-story > p:not(.eyebrow), .about-credits > p:not(.eyebrow) { max-width: 760px; color: #59645b; line-height: 1.8; }
+.about-page .about-story-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); align-items: center; gap: clamp(35px, 8vw, 100px); max-width: 1100px; margin-inline: auto; }
+.about-story-copy > p:not(.eyebrow) { max-width: 760px; color: #59645b; line-height: 1.8; }
+.about-founder-portrait { width: 100%; max-width: 380px; justify-self: center; margin: 0; overflow: hidden; border: 8px solid #fff; border-radius: 48% 48% 18px 18px; background: #18212b; box-shadow: 15px 25px 45px #26352d16; }
+.about-founder-portrait img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: center 26%; }
+.about-founder-portrait figcaption { padding: 14px 12px; color: #526456; font-size: 8px; letter-spacing: 1px; text-align: center; }
 .about-proof .founder-teaser-facts { grid-template-columns: repeat(5, 1fr); margin-top: 30px; }
 .about-proof .founder-teaser-facts article { min-height: 130px; }
 .about-proof .founder-teaser-facts span { line-height: 1.5; }
@@ -192,7 +223,6 @@
   .date-enquiry { gap: 6%; }
   .process-stage { padding-inline: 1%; gap: 4%; }
   .phone-scene { width: 290px; }
-  .phone-notice { right: -5px; }
   .voice-grid { gap: 14px; }
   .voice-grid > article { padding: 22px; }
   .about-proof .founder-teaser-facts { grid-template-columns: repeat(3, 1fr); }
@@ -244,7 +274,7 @@
   .process-steps li.active button { background: #eee7dc; }
   .experience-ready .process-steps li p { display: none; }
   .process-copy > .text-link { font-size: 9px; }
-  .phone-scene { width: 270px; height: 320px; }
+  .phone-scene { width: 270px; height: auto; }
   .phone-shell { width: 194px; height: 322px; border-width: 5px; border-radius: 27px; }
   .phone-camera { width: 65px; height: 11px; margin: 5px auto 9px; }
   .phone-top { padding: 0 10px 7px; }
@@ -269,7 +299,7 @@
   .phone-screen[data-phone-screen="4"] .phone-panel b { font-size: 7px; }
   .phone-screen[data-phone-screen="4"] .phone-panel p { font-size: 6px; margin: 3px 0; }
   .phone-screen[data-phone-screen="4"] .phone-panel .phone-pill { font-size: 5px; padding: 3px 5px; }
-  .phone-notice { right: -5px; padding: 10px; top: 45%; }
+  .phone-notice { padding: 10px; }
   .phone-notice b { font-size: 9px; }
   .phone-notice small { font-size: 6px; }
   .phone-caption { font-size: 6px; margin-top: 15px; }
@@ -282,6 +312,8 @@
   .voice-grid blockquote { font-size: 20px; }
   .about-proof .founder-teaser-facts { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .about-proof .founder-teaser-facts article { min-height: 100px; padding: 14px; }
+  .about-page .about-story-layout { grid-template-columns: 1fr; gap: 30px; }
+  .about-founder-portrait { max-width: 320px; }
   .about-credit-grid { grid-template-columns: 1fr; gap: 14px; }
   .celebration-services .detail-grid { grid-template-columns: 1fr; }
   .home-faq { grid-template-columns: 1fr; gap: 25px; }
@@ -291,6 +323,8 @@
   .footer-feature-content h2 { margin-top: 10px; font-size: clamp(30px, 9vw, 42px); }
   .footer-feature-content > p:not(.eyebrow) { margin: 12px 0 18px; }
   .footer-feature-content > p:not(.eyebrow) { font-size: 14px; }
+  .corporate-view .corporate-footer-feature .footer-feature-content h2 { margin-top: 12px; font-size: clamp(30px, 8vw, 38px); line-height: 1.22; }
+  .corporate-view .corporate-footer-feature .footer-feature-content > p:not(.eyebrow) { margin: 14px 0 20px; font-size: 14px; }
   .footer-feature-index { right: 16px; bottom: 13px; font-size: 6px; letter-spacing: 1px; }
   .footer-main { grid-template-columns: 1fr 1fr; gap: 34px 22px; padding: 38px 1% 32px; }
   .footer-brand-block { grid-column: 1 / -1; }
@@ -312,7 +346,7 @@
   .phone-shell { width: 220px; height: 470px; }
   .phone-screen h3 { font-size: 25px; }
   .phone-screen > img { height: 100px; }
-  .phone-notice { padding: 10px; right: 0; }
+  .phone-notice { padding: 10px; }
   .phone-caption { font-size: 7px; }
 }
 @media (min-width: 801px) {
@@ -332,7 +366,6 @@
   .phone-shell { height: 460px; width: 235px; }
   .phone-screen > img { height: 100px; }
   .phone-screen h3 { font-size: 24px; }
-  .phone-notice { right: 0; }
   .story-insights { padding-top: 4%; }
   .story-insights h2 { font-size: 36px; }
   .insight-grid { margin-top: 20px; }

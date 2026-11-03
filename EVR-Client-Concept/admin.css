@@ -491,6 +491,39 @@ body.admin-locked .admin-heading {
   font-size: 26px;
   cursor: pointer;
 }
+.admin-position-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 58px);
+  justify-content: center;
+  gap: 8px;
+}
+#admin-position-preview {
+  display: block;
+  width: min(100%, 360px);
+  aspect-ratio: 1.45;
+  margin: 0 auto;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.admin-position-controls button {
+  display: grid;
+  min-width: 58px;
+  min-height: 52px;
+  place-items: center;
+  border: 1px solid #b89a70;
+  border-radius: 6px;
+  background: #fffdf9;
+  color: #263333;
+  font: 500 24px/1 Arial, sans-serif;
+  cursor: pointer;
+}
+.admin-position-controls button:hover,
+.admin-position-controls button:focus-visible {
+  background: #f0d19e;
+}
+.admin-position-controls #admin-position-center {
+  font: 600 12px/1.2 Arial, sans-serif;
+}
 .admin-work-category-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

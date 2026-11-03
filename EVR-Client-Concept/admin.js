@@ -6,8 +6,13 @@
   const workControls = document.getElementById('admin-work-controls');
   const workForm = document.getElementById('admin-work-controls');
   const workDialog = document.getElementById('admin-work-dialog');
+  const positionDialog = document.getElementById('admin-position-dialog');
+  const positionPreview = document.getElementById('admin-position-preview');
   const colorPicker = document.getElementById('admin-background-color');
   const photoPicker = document.getElementById('admin-photo-file');
+  const logoPicker = document.getElementById('admin-logo-file');
+  const logoReplaceButton = document.getElementById('admin-logo-replace');
+  const logoDefaultButton = document.getElementById('admin-logo-default');
   const videoPicker = document.getElementById('admin-video-file');
   const importPicker = document.getElementById('admin-import-file');
   const status = document.getElementById('admin-status');
@@ -29,6 +34,12 @@
   const managedGalleryKey = '#work-gallery-items-v1';
   const hiddenWorkCardsKey = '#work-gallery-hidden-cards-v1';
   const workCategoriesKey = '#work-gallery-categories-v1';
+  const managedBrandGalleryKey = '#brand-work-gallery-items-v1';
+  const hiddenBrandWorkCardsKey = '#brand-work-gallery-hidden-cards-v1';
+  const brandWorkCategoriesKey = '#brand-work-gallery-categories-v1';
+  const sharedBrandLogoKey = '#brand-logo-v1';
+  const defaultBrandLogo = '/assets/evr-productions-logo.png';
+  const phoneGalleryPositionPrefix = '#phone-gallery-image-position-v1:';
   const mediaRevertKey = '#media-revert-state-v1';
   const defaultWorkCategories = [
     { slug: 'wedding', label: 'Wedding day' },
@@ -40,14 +51,24 @@
     { slug: 'engagement', label: 'Engagement parties' },
     { slug: 'other-functions', label: 'Other functions' }
   ];
+  const defaultBrandWorkCategories = [
+    { slug: 'event', label: 'Events' },
+    { slug: 'healthcare', label: 'Healthcare' }
+  ];
   let mode = 'text';
   let selectedElement = null;
   let edits = {};
   let managedWorkItems = [];
   let hiddenWorkCardIds = new Set();
   let customWorkCategories = [];
+  let managedBrandWorkItems = [];
+  let hiddenBrandWorkCardIds = new Set();
+  let customBrandWorkCategories = [];
+  let activeWorkContext = 'work';
+  let activePositionImage = null;
   let mediaRevertState = {};
   let managedGalleryChanged = false;
+  const managedGalleryChanges = new Set();
   const videoUrls = new Map();
   const hlsPlayers = new Map();
   const videoSourceVersions = new WeakMap();
@@ -178,8 +199,8 @@
         video.loop = true;
       }
       const disclaimer = preview.querySelector('.media-disclaimer');
-      if (disclaimer) disclaimer.textContent = 'EVR VIDEO / PROJECT SAMPLE';
-      video.setAttribute('aria-label', 'EVR-produced project video sample');
+      if (disclaimer) disclaimer.textContent = 'EVR VIDEO / PROJECT WORK';
+      video.setAttribute('aria-label', 'EVR-produced project video');
       const play = preview.querySelector('.preview-play');
       if (play) {
         play.setAttribute('aria-label', 'Play EVR-produced project video');
@@ -266,6 +287,7 @@
     if (!authenticated) settingsPanel.hidden = true;
     if (typeof window.route === 'function') window.route();
     renderManagedWorkItems();
+    renderManagedWorkItems('brand-work');
     if (authenticated) {
       renderMediaControls();
     }
@@ -294,6 +316,56 @@
       current = parent;
     }
     return path.join('/');
+  }
+
+  function phoneGalleryPositionKey(image) {
+    return `${phoneGalleryPositionPrefix}${elementKey(image)}`;
+  }
+
+  function parsePhoneGalleryPosition(value) {
+    let position;
+    try {
+      position = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The saved phone-gallery image position is invalid: ${error.message}`);
+    }
+    if (!position || typeof position !== 'object' || Array.isArray(position) ||
+        !Number.isInteger(position.x) || position.x < 0 || position.x > 100 ||
+        !Number.isInteger(position.y) || position.y < 0 || position.y > 100) {
+      throw new Error('The saved phone-gallery image position must use whole-number percentages from 0 to 100.');
+    }
+    return { x: position.x, y: position.y };
+  }
+
+  function currentPhoneGalleryPosition(image) {
+    const edited = image.dataset.adminObjectPosition;
+    if (edited) {
+      const [x, y] = edited.split(',').map(Number);
+      if (Number.isInteger(x) && Number.isInteger(y)) return { x, y };
+    }
+    const percentages = getComputedStyle(image).objectPosition.match(/\d+(?:\.\d+)?%/g) || [];
+    return {
+      x: percentages[0] ? Math.round(parseFloat(percentages[0])) : 50,
+      y: percentages[1] ? Math.round(parseFloat(percentages[1])) : 50
+    };
+  }
+
+  function setPhoneGalleryPosition(image, position) {
+    image.style.objectPosition = `${position.x}% ${position.y}%`;
+    image.dataset.adminObjectPosition = `${position.x},${position.y}`;
+    image.dataset.adminPositionEdited = 'true';
+    if (activePositionImage === image) positionPreview.style.objectPosition = image.style.objectPosition;
+  }
+
+  function movePhoneGalleryImage(image, direction) {
+    const position = currentPhoneGalleryPosition(image);
+    const step = 10;
+    if (direction === 'left') position.x = Math.min(100, position.x + step);
+    else if (direction === 'right') position.x = Math.max(0, position.x - step);
+    else if (direction === 'up') position.y = Math.min(100, position.y + step);
+    else if (direction === 'down') position.y = Math.max(0, position.y - step);
+    setPhoneGalleryPosition(image, position);
+    setStatus('Photo position adjusted. Choose Save changes to publish it to the shared website.');
   }
 
   function safeMarkup(markup) {
@@ -385,6 +457,33 @@
     return uploadMedia(photoBlob, 'image/webp');
   }
 
+  async function validateTransparentPng(file) {
+    if (file.type !== 'image/png' || file.size > 30 * 1024 * 1024) {
+      throw new Error('Choose a transparent PNG file up to 30 MB.');
+    }
+    const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (!pngSignature.every((byte, index) => signature[index] === byte)) {
+      throw new Error('The selected file is not a valid PNG.');
+    }
+    const decoded = await decodeImageFile(file);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = decoded.width;
+      canvas.height = decoded.height;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('The browser could not inspect the logo transparency.');
+      context.drawImage(decoded.source, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let index = 3; index < pixels.length; index += 4) {
+        if (pixels[index] < 255) return;
+      }
+      throw new Error('The PNG must contain transparent pixels.');
+    } finally {
+      decoded.close();
+    }
+  }
+
   function encodeManagedGallery(items) {
     const bytes = new TextEncoder().encode(JSON.stringify(items));
     let binary = '';
@@ -394,7 +493,45 @@
     return btoa(binary);
   }
 
-  function readCustomWorkCategories(value) {
+  function defaultCategoriesFor(context) {
+    return context === 'brand-work' ? defaultBrandWorkCategories : defaultWorkCategories;
+  }
+
+  function customCategoriesFor(context) {
+    return context === 'brand-work' ? customBrandWorkCategories : customWorkCategories;
+  }
+
+  function setCustomCategoriesFor(context, categories) {
+    if (context === 'brand-work') customBrandWorkCategories = categories;
+    else customWorkCategories = categories;
+  }
+
+  function workItemsFor(context) {
+    return context === 'brand-work' ? managedBrandWorkItems : managedWorkItems;
+  }
+
+  function setWorkItemsFor(context, items) {
+    if (context === 'brand-work') managedBrandWorkItems = items;
+    else managedWorkItems = items;
+  }
+
+  function markManagedGalleryChanged(context = activeWorkContext) {
+    managedGalleryChanged = true;
+    managedGalleryChanges.add(context);
+    managedGalleryChanges.add(context);
+  }
+
+  function hiddenCardIdsFor(context) {
+    return context === 'brand-work' ? hiddenBrandWorkCardIds : hiddenWorkCardIds;
+  }
+
+  function setHiddenCardIdsFor(context, ids) {
+    if (context === 'brand-work') hiddenBrandWorkCardIds = ids;
+    else hiddenWorkCardIds = ids;
+  }
+
+  function readCustomWorkCategories(value, context = 'work') {
+    const defaults = defaultCategoriesFor(context);
     let categories;
     try {
       categories = JSON.parse(value);
@@ -404,8 +541,8 @@
     if (!Array.isArray(categories) || categories.length > 50) {
       throw new Error('The saved Work categories list is invalid.');
     }
-    const usedSlugs = new Set(defaultWorkCategories.map(category => category.slug));
-    const usedLabels = new Set(defaultWorkCategories.map(category => category.label.toLowerCase()));
+    const usedSlugs = new Set(defaults.map(category => category.slug));
+    const usedLabels = new Set(defaults.map(category => category.label.toLowerCase()));
     return categories.map(category => {
       if (!category || typeof category.slug !== 'string' ||
           !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(category.slug) || category.slug.length > 48 ||
@@ -420,29 +557,30 @@
     });
   }
 
-  function availableWorkCategories() {
-    return [...defaultWorkCategories, ...customWorkCategories];
+  function availableWorkCategories(context = 'work') {
+    return [...defaultCategoriesFor(context), ...customCategoriesFor(context)];
   }
 
-  function refreshWorkCategoryControls() {
+  function refreshWorkCategoryControls(context = activeWorkContext) {
     const categorySelect = document.getElementById('admin-work-category');
-    const filterBar = document.querySelector('#work .filters');
+    const filterBar = document.querySelector(`#${context} .filters`);
+    const categories = availableWorkCategories(context);
     if (categorySelect) {
       const selectedCategory = categorySelect.value;
-      categorySelect.replaceChildren(...availableWorkCategories().map(category => {
+      categorySelect.replaceChildren(...categories.map(category => {
         const option = document.createElement('option');
         option.value = category.slug;
         option.textContent = category.label;
         return option;
       }));
-      if (availableWorkCategories().some(category => category.slug === selectedCategory)) {
+      if (categories.some(category => category.slug === selectedCategory)) {
         categorySelect.value = selectedCategory;
       }
     }
     if (filterBar) {
       const activeFilter = filterBar.querySelector('[data-filter].active')?.dataset.filter || 'all';
       filterBar.querySelectorAll('[data-filter]:not([data-filter="all"])').forEach(button => button.remove());
-      availableWorkCategories().forEach(category => {
+      categories.forEach(category => {
         const button = document.createElement('button');
         button.type = 'button';
         button.dataset.filter = category.slug;
@@ -451,7 +589,7 @@
         button.textContent = category.label;
         filterBar.append(button);
       });
-      if (!availableWorkCategories().some(category => category.slug === activeFilter) && activeFilter !== 'all') {
+      if (!categories.some(category => category.slug === activeFilter) && activeFilter !== 'all') {
         const allStories = filterBar.querySelector('[data-filter="all"]');
         if (allStories) allStories.click();
       }
@@ -545,15 +683,15 @@
     }
   }
 
-  function categoryLabel(category) {
-    const definition = availableWorkCategories().find(item => item.slug === category);
+  function categoryLabel(category, context = 'work') {
+    const definition = availableWorkCategories(context).find(item => item.slug === category);
     return (definition?.label || category).toUpperCase();
   }
 
-  function workCardId(article) {
+  function workCardId(article, context = 'work') {
     const media = article.querySelector('.preview-media[data-r2-slot], .preview-media[data-portfolio-slot]');
     const slot = media?.dataset.r2Slot || media?.dataset.portfolioSlot;
-    return slot ? `portfolio:${slot}` : '';
+    return slot ? (context === 'brand-work' ? `portfolio:brand-work:${slot}` : `portfolio:${slot}`) : '';
   }
 
   function readHiddenWorkCardIds(value) {
@@ -570,23 +708,33 @@
     return new Set(ids);
   }
 
-  function removeHiddenWorkCards() {
-    document.querySelectorAll('#work .story-library > article:not(.admin-managed-work-item)').forEach(article => {
-      const id = workCardId(article);
-      if (id && hiddenWorkCardIds.has(id)) article.hidden = true;
+  function removeHiddenWorkCards(context) {
+    document.querySelectorAll(`#${context} .story-library > article:not(.admin-managed-work-item)`).forEach(article => {
+      const id = workCardId(article, context);
+      if (id && hiddenCardIdsFor(context).has(id)) article.hidden = true;
     });
   }
 
-  function createAddWorkCard() {
+  function createAddWorkCard(context) {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'admin-add-work-card';
     card.innerHTML = '<span class="admin-add-work-symbol" aria-hidden="true">+</span><span>Add a story</span><small>PHOTO · VIDEO · CATEGORY</small>';
     card.addEventListener('click', () => {
-      const allStories = document.querySelector('#work [data-filter="all"]');
+      activeWorkContext = context;
+      refreshWorkCategoryControls(context);
+      const allStories = document.querySelector(`#${context} [data-filter="all"]`);
       if (allStories && !allStories.classList.contains('active')) allStories.click();
       workForm.reset();
       syncWorkMediaChoice();
+      document.getElementById('admin-work-dialog-title').textContent =
+        context === 'brand-work' ? 'Add a NBrands story.' : 'Add a story.';
+      document.querySelector('#admin-work-dialog .eyebrow').textContent =
+        context === 'brand-work' ? 'NBRANDS WORK / NEW STORY' : 'SELECTED WORK / NEW STORY';
+      document.querySelector('#admin-work-title').placeholder =
+        context === 'brand-work' ? 'Give this NBrands story a title' : 'Give this story a title';
+      document.querySelector('#admin-work-description').placeholder =
+        context === 'brand-work' ? 'Describe this brand project or piece of work' : 'What makes this celebration special?';
       document.getElementById('admin-work-dialog-status').textContent = '';
       workDialog.showModal();
       workForm.querySelector('input[name="admin-work-media-type"]').focus({ preventScroll: true });
@@ -594,7 +742,7 @@
     return card;
   }
 
-  function createManagedWorkActions(item) {
+  function createManagedWorkActions(item, context = 'work') {
     const actions = document.createElement('div');
     actions.className = 'admin-card-actions';
     actions.setAttribute('aria-label', `Manage ${item.title}`);
@@ -615,12 +763,12 @@
       try {
         setStatus(`Preparing a new cover for ${item.title}…`);
         const imageUrl = await uploadPhotoFile(file);
-        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem) throw new Error('This story was removed before its cover upload finished.');
         if (currentItem.imageUrl) currentItem.imageRevertUrl = currentItem.imageUrl;
         currentItem.imageUrl = imageUrl;
-        managedGalleryChanged = true;
-        renderManagedWorkItems();
+        markManagedGalleryChanged(context);
+        renderManagedWorkItems(context);
         setStatus('Cover replaced. Choose Save changes to publish it to the shared website.');
       } catch (error) {
         setStatus(`Could not replace the story cover: ${error.message}`, true);
@@ -631,12 +779,12 @@
 
     if (item.imageRevertUrl) {
       actions.append(createMediaIconButton('Revert photo', 'undo', () => {
-        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem?.imageRevertUrl) return;
         currentItem.imageUrl = currentItem.imageRevertUrl;
         delete currentItem.imageRevertUrl;
-        managedGalleryChanged = true;
-        renderManagedWorkItems();
+        markManagedGalleryChanged(context);
+        renderManagedWorkItems(context);
         renderMediaControls();
         setStatus('Previous photo restored. Choose Save changes to publish the update.');
       }, 'Restore the previous photo'));
@@ -672,12 +820,12 @@
         if (!isSecureMediaUrl(uploaded.playbackUrl)) {
           throw new Error('The video uploader did not return a secure playback URL.');
         }
-        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem) throw new Error('This story was removed before its video upload finished.');
         if (currentItem.videoUrl) currentItem.videoRevertUrl = currentItem.videoUrl;
         currentItem.videoUrl = uploaded.playbackUrl;
-        managedGalleryChanged = true;
-        renderManagedWorkItems();
+        markManagedGalleryChanged(context);
+        renderManagedWorkItems(context);
         renderMediaControls();
         setStatus('Video attached. Choose Save changes to publish it to the shared website.');
       } catch (error) {
@@ -691,12 +839,12 @@
 
     if (item.videoRevertUrl) {
       actions.append(createMediaIconButton('Revert video', 'undo', () => {
-        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem?.videoRevertUrl) return;
         currentItem.videoUrl = currentItem.videoRevertUrl;
         delete currentItem.videoRevertUrl;
-        managedGalleryChanged = true;
-        renderManagedWorkItems();
+        markManagedGalleryChanged(context);
+        renderManagedWorkItems(context);
         renderMediaControls();
         setStatus('Previous video restored. Choose Save changes to publish the update.');
       }, 'Restore the previous video'));
@@ -704,11 +852,11 @@
 
     if (item.videoUrl && item.imageUrl) {
       const removeVideo = createMediaIconButton('Remove video', 'delete', () => {
-        const currentItem = managedWorkItems.find(candidate => candidate.id === item.id);
+        const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem) return;
         currentItem.videoUrl = '';
-        managedGalleryChanged = true;
-        renderManagedWorkItems();
+        markManagedGalleryChanged(context);
+        renderManagedWorkItems(context);
         renderMediaControls();
         setStatus('Video removed from this story. Choose Save changes to publish the update.');
       }, 'Remove this video from the story');
@@ -717,17 +865,17 @@
 
     const deleteStory = createMediaIconButton('Delete story', 'delete', () => {
       if (!window.confirm(`Remove "${item.title}" from the Work page?`)) return;
-      managedWorkItems = managedWorkItems.filter(candidate => candidate.id !== item.id);
-      managedGalleryChanged = true;
-      renderManagedWorkItems();
+      setWorkItemsFor(context, workItemsFor(context).filter(candidate => candidate.id !== item.id));
+      markManagedGalleryChanged(context);
+      renderManagedWorkItems(context);
       renderMediaControls();
-      setStatus('Story removed. Choose Save changes to publish the update.');
+      setStatus(`Story removed from ${context === 'brand-work' ? 'NBrands work' : 'Work'}. Choose Save changes to publish the update.`);
     }, 'Remove this story from the Work page', 'admin-card-delete');
     actions.append(deleteStory);
     return actions;
   }
 
-  function createManagedWorkCard(item) {
+  function createManagedWorkCard(item, context = 'work') {
     const article = document.createElement('article');
     article.className = 'admin-managed-work-item';
     article.dataset.category = item.category;
@@ -746,6 +894,8 @@
     video.loop = true;
     video.playsInline = true;
     video.preload = 'none';
+    video.muted = true;
+    video.dataset.viewportAutoplay = 'true';
     if (item.imageUrl) video.poster = item.imageUrl;
     video.setAttribute('aria-label', `Watch ${item.title}`);
     if (item.videoUrl) {
@@ -755,34 +905,36 @@
     media.append(video);
 
     const label = document.createElement('small');
-    label.textContent = categoryLabel(item.category);
+    label.textContent = categoryLabel(item.category, context);
     const title = document.createElement('h3');
     title.textContent = item.title;
     const description = document.createElement('p');
     description.textContent = item.description;
-    article.append(createManagedWorkActions(item), media, label, title, description);
+    article.append(createManagedWorkActions(item, context), media, label, title, description);
     return article;
   }
 
-  function renderManagedWorkItems() {
-    const gallery = document.querySelector('#work .story-library');
+  function renderManagedWorkItems(context = 'work') {
+    const gallery = document.querySelector(`#${context} .story-library`);
     if (!gallery) return;
-    const activeFilter = document.querySelector('#work [data-filter].active')?.dataset.filter || 'all';
+    const activeFilter = document.querySelector(`#${context} [data-filter].active`)?.dataset.filter || 'all';
     gallery.querySelector('.admin-add-work-card')?.remove();
     gallery.querySelectorAll('.admin-managed-work-item').forEach(item => item.remove());
-    removeHiddenWorkCards();
-    managedWorkItems.forEach(item => {
-      const card = createManagedWorkCard(item);
+    removeHiddenWorkCards(context);
+    workItemsFor(context).forEach(item => {
+      const card = createManagedWorkCard(item, context);
       card.hidden = activeFilter !== 'all' && item.category !== activeFilter;
       gallery.append(card);
     });
-    if (location.hash === '#/admin' && window.adminAuthenticated === true && pageSelect.value === 'work') {
-      gallery.append(createAddWorkCard());
+    if (location.hash === '#/admin' && window.adminAuthenticated === true && pageSelect.value === context) {
+      gallery.append(createAddWorkCard(context));
     }
   }
 
   function syncWorkControls() {
-    if (pageSelect.value !== 'work' && workDialog.open) workDialog.close();
+    activeWorkContext = pageSelect.value === 'brand-work' ? 'brand-work' : 'work';
+    refreshWorkCategoryControls(activeWorkContext);
+    if (!['work', 'brand-work'].includes(pageSelect.value) && workDialog.open) workDialog.close();
   }
 
   function syncWorkMediaChoice() {
@@ -807,34 +959,69 @@
       elementKey
     ));
     const categoryEntry = entries[workCategoriesKey];
-    if (categoryEntry && (categoryEntry.type !== 'text' || typeof categoryEntry.value !== 'string')) {
-      throw new Error('The saved Work categories have an unsupported format.');
+    const brandCategoryEntry = entries[brandWorkCategoriesKey];
+    for (const [label, entry] of [['Work', categoryEntry], ['NBrands work', brandCategoryEntry]]) {
+      if (entry && (entry.type !== 'text' || typeof entry.value !== 'string')) {
+        throw new Error(`The saved ${label} categories have an unsupported format.`);
+      }
     }
-    const validatedCategories = categoryEntry
-      ? readCustomWorkCategories(categoryEntry.value)
+    const validatedCategories = categoryEntry ? readCustomWorkCategories(categoryEntry.value) : [];
+    const validatedBrandCategories = brandCategoryEntry
+      ? readCustomWorkCategories(brandCategoryEntry.value, 'brand-work')
       : [];
     const categorySlugs = new Set([
       ...defaultWorkCategories.map(category => category.slug),
       ...validatedCategories.map(category => category.slug)
     ]);
+    const brandCategorySlugs = new Set([
+      ...defaultBrandWorkCategories.map(category => category.slug),
+      ...validatedBrandCategories.map(category => category.slug)
+    ]);
+    const phoneGalleryPositionKeys = new Set(Array.from(
+      document.querySelectorAll('#home [data-phone-screen="4"] .phone-gallery img'),
+      phoneGalleryPositionKey
+    ));
     for (const [key, entry] of Object.entries(entries)) {
       if (siteCreditKeys.has(key)) continue;
       if (!entry || typeof entry.value !== 'string') throw new Error('An edit entry is incomplete.');
-      if (key === managedGalleryKey) {
+      if (key.startsWith(phoneGalleryPositionPrefix)) {
+        if (!phoneGalleryPositionKeys.has(key) || entry.type !== 'text') {
+          throw new Error('A saved phone-gallery image position has an unsupported format.');
+        }
+        checked[key] = { type: 'text', value: JSON.stringify(parsePhoneGalleryPosition(entry.value)) };
+      }
+      else if (key === managedGalleryKey) {
         if (entry.type !== 'text') throw new Error('The saved Work gallery has an unsupported format.');
         checked[key] = { type: 'text', value: encodeManagedGallery(decodeManagedGallery(entry.value, categorySlugs)) };
+      }
+      else if (key === managedBrandGalleryKey) {
+        if (entry.type !== 'text') throw new Error('The saved NBrands work gallery has an unsupported format.');
+        checked[key] = { type: 'text', value: encodeManagedGallery(decodeManagedGallery(entry.value, brandCategorySlugs)) };
       }
       else if (key === hiddenWorkCardsKey) {
         if (entry.type !== 'text') throw new Error('The hidden Work cards have an unsupported format.');
         checked[key] = { type: 'text', value: JSON.stringify(Array.from(readHiddenWorkCardIds(entry.value))) };
       }
+      else if (key === hiddenBrandWorkCardsKey) {
+        if (entry.type !== 'text') throw new Error('The hidden NBrands work cards have an unsupported format.');
+        checked[key] = { type: 'text', value: JSON.stringify(Array.from(readHiddenWorkCardIds(entry.value))) };
+      }
       else if (key === workCategoriesKey) {
         checked[key] = { type: 'text', value: JSON.stringify(validatedCategories) };
+      }
+      else if (key === brandWorkCategoriesKey) {
+        checked[key] = { type: 'text', value: JSON.stringify(validatedBrandCategories) };
       }
       else if (key === mediaRevertKey) {
         if (entry.type !== 'text') throw new Error('The saved media revert state has an unsupported format.');
         mediaRevertState = readMediaRevertState(entry.value);
         checked[key] = { type: 'text', value: JSON.stringify(mediaRevertState) };
+      }
+      else if (key === sharedBrandLogoKey) {
+        if (entry.type !== 'image' || !safeImageSource(entry.value)) {
+          throw new Error('The shared logo must be a valid image source.');
+        }
+        checked[key] = { type: 'image', value: entry.value };
       }
       else if (entry.type === 'text') checked[key] = { type: 'text', value: safeMarkup(entry.value) };
       else if (entry.type === 'image' && safeImageSource(entry.value)) checked[key] = { type: 'image', value: entry.value };
@@ -843,12 +1030,16 @@
       else throw new Error('An edit entry contains an unsupported value.');
     }
     customWorkCategories = validatedCategories;
-    refreshWorkCategoryControls();
+    customBrandWorkCategories = validatedBrandCategories;
+    refreshWorkCategoryControls('work');
+    refreshWorkCategoryControls('brand-work');
     return checked;
   }
 
   function applyEdits() {
     renderManagedWorkItems();
+    renderManagedWorkItems('brand-work');
+    window.applyEvrBrandLogo(edits[sharedBrandLogoKey]?.value || defaultBrandLogo);
     for (const element of document.querySelectorAll('body *')) {
       if (editor.contains(element) || element.closest('.site-credit')) continue;
       if (element.dataset.adminTextEdited || element.dataset.adminImageEdited || element.dataset.adminBackgroundEdited) continue;
@@ -863,6 +1054,13 @@
       }
       else if (edit.type === 'background') element.style.backgroundColor = edit.value;
     }
+    document.querySelectorAll('#home [data-phone-screen="4"] .phone-gallery img').forEach(image => {
+      const position = edits[phoneGalleryPositionKey(image)];
+      if (position) {
+        const { x, y } = parsePhoneGalleryPosition(position.value);
+        image.style.objectPosition = `${x}% ${y}%`;
+      }
+    });
   }
 
   function setMode(nextMode) {
@@ -892,6 +1090,7 @@
   }
 
   function mediaContainer(element) {
+    if (element.matches('.phone-gallery img')) return element;
     return element.closest('.preview-media,.story-cover,.scene-card,.corp-hero-media,.corp-reel-card,.corp-work-card,.wide-story-art,figure') ||
       element.parentElement;
   }
@@ -920,7 +1119,12 @@
       image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
       video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/>',
       delete: '<path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/>',
-      undo: '<path d="M3 7v6h6M4 13a8 8 0 1 0 2-5.3L3 10"/>'
+      undo: '<path d="M3 7v6h6M4 13a8 8 0 1 0 2-5.3L3 10"/>',
+      position: '<path d="M7 3H3v4m14-4h4v4M3 17v4h4m14-4v4h-4M8 8h8v8H8z"/>',
+      left: '<path d="M19 12H5m7 7-7-7 7-7"/>',
+      right: '<path d="M5 12h14m-7-7 7 7-7 7"/>',
+      up: '<path d="M12 19V5m-7 7 7-7 7 7"/>',
+      down: '<path d="M12 5v14m-7-7 7 7 7-7"/>'
     };
     svg.innerHTML = icons[iconName];
     button.append(svg);
@@ -980,7 +1184,8 @@
     if (!preview) return;
     const groups = new Map();
     const addToGroup = (element, type) => {
-      if (element.closest('#admin-editor') || element.parentElement?.closest('[hidden]')) return;
+      if (element.closest('#admin-editor') || element.matches('[data-brand-logo]') ||
+          element.parentElement?.closest('[hidden]')) return;
       const root = mediaContainer(element);
       if (!root || root.closest('.admin-managed-work-item') ||
           !hasVisibleMediaContainer(root, preview)) return;
@@ -1021,6 +1226,21 @@
           () => selectPhoto(image),
           `Replace photo · ${recommendedImageSize(root)} · JPG/PNG/WebP/GIF · max 30 MB · optimized to WebP`
         ));
+        if (image.matches('.phone-gallery img')) {
+          panel.dataset.galleryImageControls = 'true';
+          panel.setAttribute('aria-label', 'Replace or reposition this wedding photo');
+          panel.append(createMediaIconButton(
+            'Reposition photo',
+            'position',
+            () => {
+              activePositionImage = image;
+              positionPreview.src = image.currentSrc || image.src;
+              positionPreview.style.objectPosition = image.style.objectPosition || getComputedStyle(image).objectPosition;
+              positionDialog.showModal();
+            },
+            'Adjust this photo’s framing'
+          ));
+        }
         if (mediaRevertState[elementKey(image)]) {
           panel.append(createMediaIconButton(
             'Revert photo',
@@ -1054,18 +1274,20 @@
         }
       }
 
-      if (preview.id === 'work') {
-        const card = root.closest('#work .story-library > article:not(.admin-managed-work-item)');
-        const id = card && workCardId(card);
+      if (preview.id === 'work' || preview.id === 'brand-work') {
+        const context = preview.id;
+        const card = root.closest(`#${context} .story-library > article:not(.admin-managed-work-item)`);
+        const id = card && workCardId(card, context);
         if (card && id) {
           panel.append(createMediaIconButton('Delete story', 'delete', () => {
-            if (!window.confirm('Remove this story from the Work page?')) return;
-            hiddenWorkCardIds.add(id);
+            const label = context === 'brand-work' ? 'NBrands work' : 'Work';
+            if (!window.confirm(`Remove this story from the ${label} page?`)) return;
+            hiddenCardIdsFor(context).add(id);
             card.hidden = true;
-            managedGalleryChanged = true;
+            markManagedGalleryChanged(activeWorkContext);
             renderMediaControls();
-            setStatus('Story removed. Choose Save changes to publish the update.');
-          }, 'Remove this story from the Work page', 'admin-card-delete'));
+            setStatus(`Story removed from ${label}. Choose Save changes to publish the update.`);
+          }, `Remove this story from the ${context === 'brand-work' ? 'NBrands work' : 'Work'} page`, 'admin-card-delete'));
         }
       }
       editor.append(panel);
@@ -1105,6 +1327,11 @@
 
   window.addEventListener('scroll', scheduleMediaControlRefresh, true);
   window.addEventListener('resize', scheduleMediaControlRefresh);
+  document.addEventListener('click', event => {
+    if (event.target instanceof Element && event.target.closest('#process-story [data-process-step]')) {
+      requestAnimationFrame(renderMediaControls);
+    }
+  });
   document.addEventListener('transitionend', event => {
     if (event.propertyName === 'opacity' &&
         event.target instanceof Element &&
@@ -1154,6 +1381,23 @@
   document.querySelectorAll('[data-admin-mode]').forEach(button => {
     button.addEventListener('click', () => setMode(button.dataset.adminMode));
   });
+  positionDialog.querySelectorAll('[data-position-direction]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (activePositionImage) movePhoneGalleryImage(activePositionImage, button.dataset.positionDirection);
+    });
+  });
+  document.getElementById('admin-position-center').addEventListener('click', () => {
+    if (!activePositionImage) return;
+    setPhoneGalleryPosition(activePositionImage, { x: 50, y: 50 });
+    setStatus('Photo centered. Choose Save changes to publish the update.');
+  });
+  document.getElementById('admin-position-close').addEventListener('click', () => positionDialog.close());
+  document.getElementById('admin-position-done').addEventListener('click', () => positionDialog.close());
+  positionDialog.addEventListener('close', () => {
+    activePositionImage = null;
+    positionPreview.removeAttribute('src');
+    positionPreview.style.removeProperty('object-position');
+  });
   document.querySelectorAll('[data-filter]').forEach(button => {
     button.addEventListener('click', () => requestAnimationFrame(positionMediaControls));
   });
@@ -1177,6 +1421,7 @@
     window.route();
     syncWorkControls();
     renderManagedWorkItems();
+    renderManagedWorkItems('brand-work');
     renderMediaControls();
   });
 
@@ -1184,6 +1429,7 @@
     if (location.hash !== '#/admin' || editor.contains(event.target)) return;
     if (event.target instanceof Element &&
         (event.target.closest('.hero-video-toggle') ||
+         event.target.closest('#process-story [data-process-step]') ||
          event.target.closest('.admin-card-actions,.admin-add-work-card,[data-filter]'))) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1239,21 +1485,22 @@
       input.focus();
       return;
     }
-    if (availableWorkCategories().some(category =>
+    const categories = availableWorkCategories(activeWorkContext);
+    if (categories.some(category =>
       category.slug === slug || category.label.toLowerCase() === label.toLowerCase()
     )) {
       status.textContent = 'That category already exists.';
       input.focus();
       return;
     }
-    if (customWorkCategories.length >= 50) {
+    if (customCategoriesFor(activeWorkContext).length >= 50) {
       status.textContent = 'You can add up to 50 custom categories.';
       return;
     }
-    customWorkCategories.push({ slug, label });
-    refreshWorkCategoryControls();
+    setCustomCategoriesFor(activeWorkContext, [...customCategoriesFor(activeWorkContext), { slug, label }]);
+    refreshWorkCategoryControls(activeWorkContext);
     document.getElementById('admin-work-category').value = slug;
-    managedGalleryChanged = true;
+    markManagedGalleryChanged(activeWorkContext);
     input.value = '';
     status.textContent = `${label} added. Save changes after adding the story to publish this category.`;
   });
@@ -1272,9 +1519,11 @@
     event.preventDefault();
     if (!workForm.reportValidity()) return;
     const dialogStatus = document.getElementById('admin-work-dialog-status');
-    if (managedWorkItems.length >= 100) {
-      dialogStatus.textContent = 'The Work gallery supports up to 100 admin-added stories.';
-      setStatus('The Work gallery supports up to 100 admin-added stories.', true);
+    const context = activeWorkContext;
+    const items = workItemsFor(context);
+    if (items.length >= 100) {
+      dialogStatus.textContent = 'This gallery supports up to 100 admin-added stories.';
+      setStatus('This gallery supports up to 100 admin-added stories.', true);
       return;
     }
     const title = document.getElementById('admin-work-title').value.trim();
@@ -1284,7 +1533,7 @@
     const imageFile = mediaType === 'image' ? document.getElementById('admin-work-image').files[0] : null;
     const videoFile = mediaType === 'video' ? document.getElementById('admin-work-video').files[0] : null;
     if (!title || !description || (!imageFile && !videoFile)) return;
-    if (!availableWorkCategories().some(item => item.slug === category)) {
+    if (!availableWorkCategories(context).some(item => item.slug === category)) {
       dialogStatus.textContent = 'Choose a valid story category.';
       setStatus('Choose a valid story category.', true);
       return;
@@ -1323,11 +1572,11 @@
       const id = typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      managedWorkItems.push({ id, title, category, description, imageUrl, videoUrl });
-      managedGalleryChanged = true;
-      renderManagedWorkItems();
+      setWorkItemsFor(context, [...workItemsFor(context), { id, title, category, description, imageUrl, videoUrl }]);
+      markManagedGalleryChanged(context);
+      renderManagedWorkItems(context);
       renderMediaControls();
-      const categoryFilter = Array.from(document.querySelectorAll('#work [data-filter]'))
+      const categoryFilter = Array.from(document.querySelectorAll(`#${context} [data-filter]`))
         .find(button => button.dataset.filter === category);
       if (categoryFilter) categoryFilter.click();
       workDialog.close();
@@ -1358,6 +1607,31 @@
       setStatus(`Could not process this photo: ${error.message}`, true);
     } finally {
       photoPicker.value = '';
+    }
+  });
+
+  logoReplaceButton.addEventListener('click', () => logoPicker.click());
+
+  logoDefaultButton.addEventListener('click', () => {
+    delete edits[sharedBrandLogoKey];
+    window.applyEvrBrandLogo(defaultBrandLogo);
+    setStatus('Default logo selected. Choose Save changes to publish it.');
+  });
+
+  logoPicker.addEventListener('change', async () => {
+    const file = logoPicker.files && logoPicker.files[0];
+    if (!file) return;
+    try {
+      await validateTransparentPng(file);
+      setStatus('Uploading transparent logo…');
+      const source = await uploadPhotoFile(file);
+      edits[sharedBrandLogoKey] = { type: 'image', value: source };
+      window.applyEvrBrandLogo(source);
+      setStatus('Shared logo uploaded. Choose Save changes to publish it everywhere.');
+    } catch (error) {
+      setStatus(`Could not replace the shared logo: ${error.message}`, true);
+    } finally {
+      logoPicker.value = '';
     }
   });
 
@@ -1408,6 +1682,12 @@
         next[elementKey(element)] = { type: 'image', value: element.src };
       }
     });
+    document.querySelectorAll('#home [data-phone-screen="4"] .phone-gallery img[data-admin-position-edited="true"]').forEach(image => {
+      const position = currentPhoneGalleryPosition(image);
+      const key = phoneGalleryPositionKey(image);
+      if (position.x === 50 && position.y === 50) delete next[key];
+      else next[key] = { type: 'text', value: JSON.stringify(position) };
+    });
     document.querySelectorAll('[data-admin-background-edited="true"]').forEach(element => {
       next[elementKey(element)] = { type: 'background', value: element.style.backgroundColor };
     });
@@ -1421,20 +1701,36 @@
       } else {
         delete next[mediaRevertKey];
       }
-      if (managedGalleryChanged) {
-        next[managedGalleryKey] = { type: 'text', value: encodeManagedGallery(managedWorkItems) };
-        next[hiddenWorkCardsKey] = { type: 'text', value: JSON.stringify(Array.from(hiddenWorkCardIds)) };
-        next[workCategoriesKey] = { type: 'text', value: JSON.stringify(customWorkCategories) };
+      for (const context of managedGalleryChanges) {
+        if (context === 'brand-work') {
+          next[managedBrandGalleryKey] = { type: 'text', value: encodeManagedGallery(managedBrandWorkItems) };
+          next[hiddenBrandWorkCardsKey] = { type: 'text', value: JSON.stringify(Array.from(hiddenBrandWorkCardIds)) };
+          next[brandWorkCategoriesKey] = { type: 'text', value: JSON.stringify(customBrandWorkCategories) };
+        } else {
+          next[managedGalleryKey] = { type: 'text', value: encodeManagedGallery(managedWorkItems) };
+          next[hiddenWorkCardsKey] = { type: 'text', value: JSON.stringify(Array.from(hiddenWorkCardIds)) };
+          next[workCategoriesKey] = { type: 'text', value: JSON.stringify(customWorkCategories) };
+        }
       }
       const saved = await saveSharedContent({ version: 1, entries: next });
       edits = validateEntries(saved.entries);
       managedWorkItems = edits[managedGalleryKey]
         ? decodeManagedGallery(edits[managedGalleryKey].value)
         : [];
+      managedBrandWorkItems = edits[managedBrandGalleryKey]
+        ? decodeManagedGallery(edits[managedBrandGalleryKey].value, new Set([
+          ...defaultBrandWorkCategories.map(category => category.slug),
+          ...customBrandWorkCategories.map(category => category.slug)
+        ]))
+        : [];
       hiddenWorkCardIds = edits[hiddenWorkCardsKey]
         ? readHiddenWorkCardIds(edits[hiddenWorkCardsKey].value)
         : new Set();
+      hiddenBrandWorkCardIds = edits[hiddenBrandWorkCardsKey]
+        ? readHiddenWorkCardIds(edits[hiddenBrandWorkCardsKey].value)
+        : new Set();
       managedGalleryChanged = false;
+      managedGalleryChanges.clear();
       pendingVideos.clear();
       document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
         element.innerHTML = safeMarkup(element.innerHTML);
@@ -1443,6 +1739,10 @@
       });
       document.querySelectorAll('[data-admin-image-edited="true"]').forEach(element => {
         delete element.dataset.adminImageEdited;
+      });
+      document.querySelectorAll('[data-admin-position-edited="true"]').forEach(element => {
+        delete element.dataset.adminPositionEdited;
+        delete element.dataset.adminObjectPosition;
       });
       document.querySelectorAll('[data-admin-background-edited="true"]').forEach(element => {
         delete element.dataset.adminBackgroundEdited;
@@ -1571,8 +1871,17 @@
       managedWorkItems = edits[managedGalleryKey]
         ? decodeManagedGallery(edits[managedGalleryKey].value)
         : [];
+      managedBrandWorkItems = edits[managedBrandGalleryKey]
+        ? decodeManagedGallery(edits[managedBrandGalleryKey].value, new Set([
+          ...defaultBrandWorkCategories.map(category => category.slug),
+          ...customBrandWorkCategories.map(category => category.slug)
+        ]))
+        : [];
       hiddenWorkCardIds = edits[hiddenWorkCardsKey]
         ? readHiddenWorkCardIds(edits[hiddenWorkCardsKey].value)
+        : new Set();
+      hiddenBrandWorkCardIds = edits[hiddenBrandWorkCardsKey]
+        ? readHiddenWorkCardIds(edits[hiddenBrandWorkCardsKey].value)
         : new Set();
       applyEdits();
       renderMediaControls();

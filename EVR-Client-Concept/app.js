@@ -1,9 +1,54 @@
 'use strict';
 const byId = id => document.getElementById(id);
 let activeExperience = 'home';
+const viewportAutoplayPreference = matchMedia('(prefers-reduced-motion: reduce)');
+let viewportAutoplayObserver;
+
+function syncViewportAutoplay(video) {
+  const route = video.closest('.route');
+  const rect = video.getBoundingClientRect();
+  const visibleWidth = Math.max(0, Math.min(rect.right, innerWidth) - Math.max(rect.left, 0));
+  const visibleHeight = Math.max(0, Math.min(rect.bottom, innerHeight) - Math.max(rect.top, 0));
+  const isVisible = rect.width > 0 && rect.height > 0 &&
+    (visibleWidth * visibleHeight) / (rect.width * rect.height) >= 0.15;
+  if (isVisible && !route?.hidden && !document.hidden && !viewportAutoplayPreference.matches) {
+    video.muted = true;
+    video.play().catch(error => {
+      if (isVisible && !route?.hidden) console.warn('Visible section video autoplay was blocked.', error);
+    });
+  } else {
+    video.pause();
+  }
+}
+
+function syncViewportAutoplayVideos() {
+  document.querySelectorAll('video[data-viewport-autoplay]').forEach(syncViewportAutoplay);
+}
+
+window.syncViewportAutoplayVideos = syncViewportAutoplayVideos;
+if ('IntersectionObserver' in window) {
+  viewportAutoplayObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.target instanceof HTMLVideoElement) syncViewportAutoplay(entry.target);
+    });
+  }, { threshold: [0, 0.15] });
+  document.querySelectorAll('video[data-viewport-autoplay]').forEach(video => viewportAutoplayObserver.observe(video));
+}
+window.addEventListener('scroll', () => requestAnimationFrame(syncViewportAutoplayVideos), { passive: true });
+document.addEventListener('visibilitychange', syncViewportAutoplayVideos);
+viewportAutoplayPreference.addEventListener('change', syncViewportAutoplayVideos);
+
 function enableVideoReplay(node) {
   if (node instanceof HTMLVideoElement) node.loop = true;
   if (node instanceof Element) node.querySelectorAll('video').forEach(video => { video.loop = true; });
+  if (node instanceof HTMLVideoElement && node.matches('[data-viewport-autoplay]')) {
+    viewportAutoplayObserver?.observe(node);
+    syncViewportAutoplay(node);
+  }
+  if (node instanceof Element) node.querySelectorAll('video[data-viewport-autoplay]').forEach(video => {
+    viewportAutoplayObserver?.observe(video);
+    syncViewportAutoplay(video);
+  });
 }
 document.querySelectorAll('video').forEach(enableVideoReplay);
 new MutationObserver(records => {
@@ -30,7 +75,9 @@ function route() {
   for (const section of target) {
     section.hidden = section.id !== activeRoute || (isAdmin && !canPreviewAdminPage);
   }
+  syncViewportAutoplayVideos();
   syncCelebrationFilm(activeRoute);
+  syncBrandWorkCaseStudyVideo(activeRoute);
   if (typeof window.syncHomeHeroVideo === 'function') window.syncHomeHeroVideo();
   const page = byId(activeRoute);
   const mount = page.querySelector('[data-estimate-mount]');
@@ -49,6 +96,11 @@ function route() {
   else if (savedExperience === 'home' || savedExperience === 'corporate') activeExperience = savedExperience;
   history.replaceState({ ...history.state, evrExperience: activeExperience }, '');
   document.body.classList.toggle('corporate-view', activeExperience === 'corporate');
+  document.querySelectorAll('[data-footer-experience]').forEach(footerSection => {
+    footerSection.hidden = footerSection.dataset.footerExperience !== activeExperience;
+  });
+  document.querySelector('.site-credit .footer-back-top').href = activeExperience === 'corporate' ? '#/corporate' : '#/home';
+  if (typeof window.syncFooterVideos === 'function') window.syncFooterVideos();
   document.title = activeRoute === 'admin'
     ? 'EVR Studio | EVR Productions'
     : activeRoute === 'studio'
@@ -74,6 +126,7 @@ function route() {
 window.addEventListener('hashchange', route);
 window.addEventListener('load', () => requestAnimationFrame(() => window.scrollTo(0, 0)));
 const celebrationVideo = document.querySelector('#celebration-film video');
+const caseStudyVideo = document.querySelector('#brand-work .detail-split video');
 function syncCelebrationFilm(activeRoute) {
   if (!celebrationVideo) return;
   if (activeRoute !== 'weddings') {
@@ -81,17 +134,16 @@ function syncCelebrationFilm(activeRoute) {
     return;
   }
   celebrationVideo.muted = true;
-  const startPlayback = () => {
-    if (byId('weddings').hidden) return;
-    if (celebrationVideo.duration > 29 && celebrationVideo.currentTime < 29) {
-      celebrationVideo.currentTime = 29;
-    }
-    celebrationVideo.play().catch(error => {
-      console.warn('Wedding celebration film autoplay was blocked.', error);
-    });
-  };
-  if (celebrationVideo.readyState >= HTMLMediaElement.HAVE_METADATA) startPlayback();
-  else celebrationVideo.addEventListener('loadedmetadata', startPlayback, { once: true });
+  syncViewportAutoplay(celebrationVideo);
+}
+function syncBrandWorkCaseStudyVideo(activeRoute) {
+  if (!caseStudyVideo) return;
+  if (activeRoute !== 'brand-work') {
+  caseStudyVideo.pause();
+  return;
+  }
+  caseStudyVideo.muted = true;
+  syncViewportAutoplay(caseStudyVideo);
 }
 if (celebrationVideo) celebrationVideo.addEventListener('play', () => {
   if (celebrationVideo.currentTime < 29 && celebrationVideo.duration > 29) {
@@ -185,17 +237,18 @@ inquiryForm.addEventListener('submit', event => {
   inquiryStatus.textContent = 'Your enquiry is ready. Choose WhatsApp or email, review the message, then press Send to contact EVR.';
 });
 const projectDetails = {
-  wedding: { title: 'A celebration, remembered', image: 'wedding-scene.svg', brief: 'Example: document the people and moments across an agreed wedding celebration.', deliverables: 'Example: selected photographs, a wedding film and a teaser. Final scope supplied by EVR.' },
-  prewedding: { title: 'Before the celebrations', image: 'wedding-scene.svg', brief: 'Example: create a relaxed pre-wedding story in a meaningful location, with the couple choosing a direction they feel comfortable with.', deliverables: 'Example: an agreed selection of edited photographs and an optional short film. Locations, permissions and travel confirmed separately.' },
-  celebration: { title: 'The room comes alive', image: 'wedding-scene.svg', brief: 'Example: cover a family celebration, its performances and the people around them.', deliverables: 'Example: selected photographs and a highlights edit, with event hours and final formats agreed before booking.' },
-  brand: { title: 'A brand, introduced', image: 'studio-scene.svg', brief: 'Example: introduce a business through a clear, focused brand story.', deliverables: 'Example: one brand film and short-form cutdowns in agreed formats.' },
-  reels: { title: 'The detail that matters', image: 'studio-scene.svg', brief: 'Example: highlight the details and intended use of a product through a planned short-form shoot.', deliverables: 'Example: a scoped set of vertical edits with approved captions. Quantities, usage and formats agreed before production.' },
-  podcast: { title: 'A conversation, captured', image: 'studio-scene.svg', brief: 'Example: record a conversation for an ongoing content series.', deliverables: 'Example: an edited episode and supporting short-form clips.' }
+  wedding: { title: 'A celebration, remembered', image: 'assets/wedding-couple-portrait.jpg', imageAlt: 'Bride and groom in traditional wedding attire, standing together', brief: 'Plan coverage around the people, rituals and moments that matter to you.', deliverables: 'Discuss photography, a wedding film and any requested edits with EVR. Final scope is confirmed before booking.' },
+  prewedding: { title: 'Before the celebrations', image: 'assets/wedding-pre-ceremony-couple.jpg', imageAlt: 'Bride and groom sharing a quiet moment together before the celebration', brief: 'Share a setting and direction that feel personal to you for a relaxed pre-wedding story.', deliverables: 'Discuss edited photographs and any requested film. Locations, permissions and travel are confirmed separately.' },
+  celebration: { title: 'The room comes alive', image: 'assets/wedding-family-hug.jpg', imageAlt: 'A bride embraces a family member during an emotional wedding moment', brief: 'Plan coverage around the celebration, its performances and the people around you.', deliverables: 'Discuss selected photographs and a highlights edit with EVR. Event hours and final formats are agreed before booking.' },
+  brand: { title: 'A brand, introduced', image: 'studio-scene.svg', brief: 'Introduce your business through a clear, focused brand story.', deliverables: 'Discuss a brand film and any short-form cutdowns in the agreed formats.' },
+  reels: { title: 'The detail that matters', image: 'studio-scene.svg', brief: 'Highlight the details and intended use of your product through a planned short-form shoot.', deliverables: 'Discuss vertical edits and approved captions. Quantities, usage and formats are agreed before production.' },
+  podcast: { title: 'A conversation, captured', image: 'studio-scene.svg', brief: 'Plan a conversation for a one-off recording or an ongoing content series.', deliverables: 'Discuss an edited episode and any supporting short-form clips.' }
 };
 document.querySelectorAll('[data-project]').forEach(button => button.addEventListener('click', () => {
   const project = projectDetails[button.dataset.project];
   byId('project-title').textContent = project.title;
   byId('project-image').src = project.image;
+  byId('project-image').alt = project.imageAlt || 'EVR wedding coverage';
   byId('project-brief').textContent = project.brief;
   byId('project-deliverables').textContent = project.deliverables;
   byId('project-dialog').showModal();

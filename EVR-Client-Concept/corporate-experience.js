@@ -2,7 +2,7 @@
 
 (() => {
   const corporate = document.getElementById('corporate');
-  const services = document.getElementById('corp-services');
+  const services = corporate.querySelector('#corp-services');
   const stage = services.querySelector('.corp-service-stage');
   const panels = Array.from(services.querySelectorAll('.corp-service-panel'));
   const buttons = Array.from(services.querySelectorAll('[data-corp-service]'));
@@ -10,19 +10,27 @@
   const hero = corporate.querySelector('.corp-hero');
   const heroMedia = corporate.querySelector('.corp-hero-media');
   const heroBackground = corporate.querySelector('.corp-hero-bg video');
-  const reels = corporate.querySelector('.corp-reel-section');
-  const reelCards = Array.from(reels.querySelectorAll('[data-corp-reel]'));
-  const funnelSteps = Array.from(corporate.querySelectorAll('[data-funnel-stage]'));
-  const funnelPosition = corporate.querySelector('.corp-funnel-position');
+  const finalVideo = corporate.querySelector('.corp-final-video');
   const header = document.querySelector('header');
-  const ambientVideos = Array.from(corporate.querySelectorAll('.corp-hero-bg video'));
+  const ambientVideos = Array.from(corporate.querySelectorAll('[data-corp-ambient]'));
+  const scrollRevealTargets = Array.from(corporate.querySelectorAll(
+    '.corp-client-groups article, .corp-client-groups li, .corp-format-list li, .corp-work-card, .corp-video-story, .corp-production-band > div, .corp-delivery-map > *, .corp-proof > div, .corp-metric-grid article, .corp-final-content'
+  ));
+  const metrics = corporate.querySelector('.corp-metrics');
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
   const clamp = value => Math.max(0, Math.min(1, value));
   let frame = 0;
   let current = -1;
-  let currentFunnel = -1;
-
-  corporate.querySelectorAll('.corp-reel-card img, .corp-work-card img').forEach(image => {
+  let scrollRevealObserver;
+  const revealIndexes = new Map();
+  scrollRevealTargets.forEach(target => {
+    const siblings = target.parentElement;
+    const index = revealIndexes.get(siblings) || 0;
+    target.classList.add('corp-scroll-reveal');
+    target.style.setProperty('--corp-reveal-index', String(index));
+    revealIndexes.set(siblings, index + 1);
+  });
+  corporate.querySelectorAll('.corp-reel-card img').forEach(image => {
     image.loading = 'lazy';
     image.decoding = 'async';
   });
@@ -37,6 +45,25 @@
     wrapper.append(content);
     details.append(wrapper);
   });
+
+  function configureScrollReveals() {
+    if (scrollRevealObserver) scrollRevealObserver.disconnect();
+    if (preference.matches || !('IntersectionObserver' in window)) {
+      corporate.classList.remove('corp-motion-ready');
+      scrollRevealTargets.forEach(target => target.classList.add('is-visible'));
+      return;
+    }
+    corporate.classList.add('corp-motion-ready');
+    scrollRevealTargets.forEach(target => target.classList.remove('is-visible'));
+    scrollRevealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        scrollRevealObserver.unobserve(entry.target);
+      });
+    }, { threshold: .12, rootMargin: '0px 0px -5% 0px' });
+    scrollRevealTargets.forEach(target => scrollRevealObserver.observe(target));
+  }
 
   function syncHeader() {
     header.classList.toggle('is-scrolled', document.body.classList.contains('corporate-view') && scrollY > 50);
@@ -87,27 +114,10 @@
     const heroProgress = clamp(-hero.getBoundingClientRect().top / hero.offsetHeight);
     heroMedia.style.transform = `translateY(${heroProgress * -30}px) rotate(${3 - heroProgress * 6}deg)`;
     heroBackground.style.transform = `translateY(${heroProgress * 18}px) scale(${1 + heroProgress * .15})`;
-    const reelProgress = clamp((innerHeight - reels.getBoundingClientRect().top) / (innerHeight + reels.offsetHeight));
-    reelCards.forEach(card => {
-      const side = Number(card.dataset.corpReel);
-      const rotation = innerWidth <= 700 ? 0 : side * (3 - reelProgress * 6);
-      card.style.transform = `translateY(${(1 - reelProgress) * 16}px) rotate(${rotation}deg)`;
-    });
-    if (funnelSteps.length) {
-      const viewportMiddle = innerHeight / 2;
-      const active = funnelSteps.reduce((nearest, step, index) => {
-        const distance = Math.abs(step.getBoundingClientRect().top + step.offsetHeight / 2 - viewportMiddle);
-        return distance < nearest.distance ? { index, distance } : nearest;
-      }, { index: 0, distance: Infinity }).index;
-      if (active !== currentFunnel) {
-        currentFunnel = active;
-        funnelSteps.forEach((step, index) => {
-          if (index === active) step.setAttribute('aria-current', 'step');
-          else step.removeAttribute('aria-current');
-          step.classList.toggle('is-current', index === active);
-        });
-        funnelPosition.textContent = `${String(active + 1).padStart(2, '0')} / ${['HOOK', 'NURTURE', 'CONVERT'][active]}`;
-      }
+    if (finalVideo) {
+      const finalBounds = finalVideo.parentElement.getBoundingClientRect();
+      const progress = clamp((innerHeight - finalBounds.top) / (innerHeight + finalBounds.height));
+      finalVideo.style.setProperty('--corp-final-parallax', `${((.5 - progress) * 18).toFixed(1)}px`);
     }
   }
 
@@ -119,11 +129,6 @@
     const canPin = !preference.matches && innerHeight >= (innerWidth <= 700 ? 740 : 700);
     services.classList.toggle('is-pinned', canPin);
     current = -1;
-    if (preference.matches) {
-      funnelSteps.forEach(step => step.classList.remove('is-current'));
-      funnelPosition.textContent = '01 / HOOK · 02 / NURTURE · 03 / CONVERT';
-      currentFunnel = -1;
-    }
     if (!canPin) {
       delete services.dataset.progress;
       delete services.dataset.service;
@@ -141,7 +146,7 @@
     if (preference.matches) {
       heroMedia.removeAttribute('style');
       heroBackground.removeAttribute('style');
-      reelCards.forEach(card => card.removeAttribute('style'));
+      if (finalVideo) finalVideo.style.removeProperty('--corp-final-parallax');
     }
     requestRender();
   }
@@ -159,6 +164,7 @@
       }
     });
   });
+
   corporate.querySelectorAll('[data-corp-jump]').forEach(button => {
     button.disabled = false;
     button.addEventListener('click', () => {
@@ -173,6 +179,8 @@
   addEventListener('hashchange', requestRender);
   addEventListener('hashchange', syncHeader);
   preference.addEventListener('change', configure);
+  preference.addEventListener('change', configureScrollReveals);
+  configureScrollReveals();
   configure();
   requestRender();
 
@@ -198,101 +206,6 @@
     });
   });
 
-  const reelDialog = document.getElementById('corp-reel-dialog');
-  const reelDialogVideo = reelDialog.querySelector('video');
-  const reelDialogStatus = reelDialog.querySelector('p');
-  reelDialogVideo.muted = true;
-  function stopReelPreview(card) {
-    const video = card.querySelector('video');
-    if (!video.hasAttribute('src')) return;
-    video.pause();
-    video.currentTime = 0;
-    card.classList.remove('is-playing');
-  }
-  function startReelPreview(card) {
-    if (preference.matches || !card.dataset.r2VideoUrl) return;
-    const video = card.querySelector('video');
-    video.muted = true;
-    if (!video.hasAttribute('src')) {
-      video.src = card.dataset.r2VideoUrl;
-      video.load();
-    }
-    card.classList.add('is-playing');
-    video.play().catch(() => {
-      card.classList.remove('is-playing');
-      card.title = 'Inline preview unavailable. Select to open the video player.';
-    });
-  }
-  function openReel(card) {
-    if (!card.dataset.r2VideoUrl) return;
-    stopReelPreview(card);
-    reelDialogVideo.pause();
-    reelDialogVideo.removeAttribute('src');
-    reelDialogVideo.replaceChildren();
-    reelDialogVideo.src = card.dataset.r2VideoUrl;
-    reelDialogVideo.poster = card.querySelector('img')?.currentSrc || '';
-    reelDialogStatus.textContent = 'EVR-produced video served from Cloudflare R2.';
-    reelDialog.showModal();
-    reelDialogVideo.play().catch(() => {
-      reelDialogStatus.textContent = 'Use the video controls to start the motion sample.';
-    });
-  }
-  const reelVisibilityObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting && !corporate.hidden && !preference.matches && !document.hidden) {
-        startReelPreview(entry.target);
-      } else {
-        stopReelPreview(entry.target);
-      }
-    });
-  }, { threshold: .15, rootMargin: '100px' });
-  reels.querySelectorAll('[data-reel-card]').forEach(card => {
-    const video = card.querySelector('video');
-    video.muted = true;
-    video.playsInline = true;
-    card.addEventListener('click', () => openReel(card));
-    video.addEventListener('error', () => {
-      card.classList.remove('is-playing');
-      card.title = 'Motion preview unavailable. Select to check the video player.';
-    });
-  });
-  reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => reelVisibilityObserver.observe(card));
-  addEventListener('hashchange', () => {
-    if (corporate.hidden) {
-      reelCards.forEach(stopReelPreview);
-    } else {
-      reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => {
-        reelVisibilityObserver.unobserve(card);
-        reelVisibilityObserver.observe(card);
-      });
-    }
-  });
-  preference.addEventListener('change', () => {
-    if (preference.matches) reelCards.forEach(stopReelPreview);
-    else reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => {
-      reelVisibilityObserver.unobserve(card);
-      reelVisibilityObserver.observe(card);
-    });
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) reelCards.forEach(stopReelPreview);
-    else if (!corporate.hidden && !preference.matches) {
-      reelCards.filter(card => card.dataset.r2VideoUrl).forEach(card => {
-        reelVisibilityObserver.unobserve(card);
-        reelVisibilityObserver.observe(card);
-      });
-    }
-  });
-  reelDialog.querySelector('[data-close-reel]').addEventListener('click', () => reelDialog.close());
-  reelDialog.addEventListener('close', () => {
-    reelDialogVideo.pause();
-    reelDialogVideo.currentTime = 0;
-  });
-  reelDialogVideo.addEventListener('error', () => {
-    reelDialogStatus.textContent = 'The selected video could not load. Check the media URL and storage access.';
-  });
-
-  const metrics = corporate.querySelector('.corp-metrics');
   let metricsAnimated = false;
   const metricsObserver = new IntersectionObserver(entries => {
     if (metricsAnimated || !entries.some(entry => entry.isIntersecting)) return;
@@ -316,37 +229,4 @@
   }, { threshold: .35 });
   metricsObserver.observe(metrics);
 
-  const capabilities = corporate.querySelector('.corp-capabilities');
-  const capabilityCount = capabilities.querySelector('[data-capability-count]');
-  const capabilityCards = Array.from(capabilities.querySelectorAll('.corp-capability-grid article'));
-  capabilityCards.forEach((card, index) => card.style.setProperty('--capability-index', String(index)));
-  const revealCapabilities = () => {
-    capabilities.classList.add('is-visible');
-    capabilityCount.textContent = String(capabilityCards.length).padStart(2, '0');
-  };
-  if (!('IntersectionObserver' in window) || preference.matches) {
-    revealCapabilities();
-  } else {
-    capabilities.classList.add('has-reveal');
-    const capabilitiesObserver = new IntersectionObserver(entries => {
-      if (!entries.some(entry => entry.isIntersecting)) return;
-      capabilitiesObserver.disconnect();
-      capabilities.classList.add('is-visible');
-      const target = Number(capabilityCount.dataset.countTarget);
-      const started = performance.now();
-      function animateCapabilityCount(now) {
-        const progress = Math.min(1, (now - started) / 650);
-        capabilityCount.textContent = String(Math.round(target * progress)).padStart(2, '0');
-        if (progress < 1) requestAnimationFrame(animateCapabilityCount);
-      }
-      requestAnimationFrame(animateCapabilityCount);
-    }, { threshold: .2 });
-    capabilitiesObserver.observe(capabilities);
-    preference.addEventListener('change', event => {
-      if (event.matches) {
-        capabilitiesObserver.disconnect();
-        revealCapabilities();
-      }
-    });
-  }
 })();

@@ -3,24 +3,43 @@
 (() => {
   const home = document.getElementById('home');
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
-  const footerVideo = document.querySelector('.footer-film-video[data-src]');
-  if (footerVideo && !preference.matches) {
-    const loadFooterVideo = () => {
-      footerVideo.src = footerVideo.dataset.src;
-      footerVideo.load();
-    };
-    if ('IntersectionObserver' in window) {
-      const footerVideoObserver = new IntersectionObserver(entries => {
-        if (entries.some(entry => entry.isIntersecting)) {
-          loadFooterVideo();
-          footerVideoObserver.disconnect();
+  const footerVideoObservers = new Map();
+  window.syncFooterVideos = () => {
+    document.querySelectorAll('.footer-film-video[data-src]').forEach(footerVideo => {
+      const isInactive = footerVideo.closest('[data-footer-experience][hidden]');
+      const existingObserver = footerVideoObservers.get(footerVideo);
+      if (isInactive || preference.matches) {
+        existingObserver?.disconnect();
+        footerVideoObservers.delete(footerVideo);
+        footerVideo.pause();
+        return;
+      }
+      if (existingObserver) return;
+      const startPlayback = () => {
+        if (!footerVideo.src) {
+          footerVideo.src = footerVideo.dataset.src;
+          footerVideo.load();
+          return;
         }
-      }, { rootMargin: '200px' });
-      footerVideoObserver.observe(footerVideo);
-    } else {
-      loadFooterVideo();
-    }
-  }
+        footerVideo.play().catch(error => {
+          console.warn('Footer background video playback was blocked.', error);
+        });
+      };
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(entries => {
+          if (!entries.some(entry => entry.isIntersecting)) return;
+          observer.disconnect();
+          footerVideoObservers.delete(footerVideo);
+          startPlayback();
+        }, { rootMargin: '200px' });
+        footerVideoObservers.set(footerVideo, observer);
+        observer.observe(footerVideo);
+      } else {
+        startPlayback();
+      }
+    });
+  };
+  window.syncFooterVideos();
   const process = document.getElementById('process-story');
   const stage = process.querySelector('.process-stage');
   const steps = Array.from(process.querySelectorAll('[data-process-step]'));
@@ -82,7 +101,7 @@
     const strength = innerWidth <= 700 ? .55 : 1;
     phone.style.transform = `translateY(${-Math.sin(progress * Math.PI) * 8}px) rotateX(${(4 - progress * 7) * strength}deg) rotateY(${(-12 + progress * 24) * strength}deg) rotateZ(${(-2 + progress * 4) * strength}deg)`;
     phone.style.setProperty('--glint-x', `${-90 + progress * 180}%`);
-    notification.style.transform = `translate(${(1 - ease(withinStep / .25)) * 22}px, ${Math.sin(progress * Math.PI * 2) * 12}px)`;
+    notification.style.transform = 'none';
     notification.style.opacity = String(.55 + .45 * ease(withinStep / .25));
   }
 
@@ -482,12 +501,14 @@
     video.autoplay = true;
     video.className = 'r2-autoplay-preview';
     if (image) video.poster = image.currentSrc || image.src;
-    video.setAttribute('aria-label', 'EVR video or illustrative motion sample');
+    video.setAttribute('aria-label', container.dataset.r2VideoTitle
+      ? `EVR video preview: ${container.dataset.r2VideoTitle}`
+      : 'EVR video');
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'preview-close';
     close.textContent = '×';
-    close.setAttribute('aria-label', 'Close motion sample');
+    close.setAttribute('aria-label', 'Close video');
     close.hidden = true;
     const audio = document.createElement('button');
     audio.type = 'button';
@@ -555,7 +576,7 @@
         if (request !== mediaRequest) return;
         setPlayerMuted(player, true);
         reportError(failure.name === 'NotAllowedError'
-          ? 'Playback was blocked. Use the video play control to start the sample.'
+          ? 'Playback was blocked. Use the video play control to start the video.'
           : 'This video could not play. Check that the selected media is publicly accessible.');
       }
     });

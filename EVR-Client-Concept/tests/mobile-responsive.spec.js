@@ -78,7 +78,7 @@ test('site footer has its video-ready feature and Novantix credit without mobile
     const footer = page.locator('.site-footer');
     const credit = page.locator('.site-credit');
     await footer.scrollIntoViewIfNeeded();
-    const feature = footer.locator('.footer-feature');
+    const feature = footer.locator('.footer-feature[data-footer-experience="home"]');
     const featureBounds = await feature.boundingBox();
     expect(featureBounds.x).toBe(0);
     expect(featureBounds.width).toBe(width);
@@ -86,16 +86,16 @@ test('site footer has its video-ready feature and Novantix credit without mobile
     expect(await feature.evaluate(element => getComputedStyle(element).borderRadius)).toBe('0px');
     expect(await credit.evaluate(element => getComputedStyle(element).backgroundColor))
       .toBe(await footer.evaluate(element => getComputedStyle(element).backgroundColor));
-    await expect(footer.locator('#footer-feature-heading')).toHaveAccessibleName('Some days deserve to live forever.');
+    await expect(footer.locator('#wedding-footer-heading')).toHaveAccessibleName('Some days deserve to live forever.');
     await expect(footer).not.toContainText('Thoughtfully made in Hyderabad, for celebrations everywhere.');
     await expect(page.locator('#floating-quote')).toBeHidden();
     expect(await footer.evaluate(element => getComputedStyle(element).paddingBottom)).toBe('0px');
-    const footerVideo = footer.locator('.footer-film-video');
+    const footerVideo = feature.locator('.footer-film-video');
     await expect(footerVideo).toHaveAttribute('poster', 'assets/hero-bride-garden.jpg');
     await expect(footerVideo).toHaveAttribute('data-src', 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/d58260e7-d13d-4a99-b049-2fff341109af.mp4');
     await expect(footerVideo).toHaveAttribute('autoplay', '');
     await expect.poll(() => footerVideo.getAttribute('src')).toBe('https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/d58260e7-d13d-4a99-b049-2fff341109af.mp4');
-    await expect(footer.locator('a[href="mailto:evrproductionss@gmail.com"]')).toBeVisible();
+    await expect(footer.locator('.footer-main[data-footer-experience="home"] a[href="mailto:evrproductionss@gmail.com"]')).toBeVisible();
     await expect(credit.locator('> *')).toHaveCount(4);
     await expect(credit.locator('.site-credit-label')).toHaveText('DESIGNED & DEVELOPED BY');
     await expect(credit.locator('.site-credit-brand')).toHaveAttribute('href', 'https://novantixtech.com');
@@ -131,7 +131,8 @@ test('weddings page shows the celebration film beside its related copy', async (
     const video = section.locator('video');
     await expect(section.locator('h2')).toHaveText(/A celebration needs\s*room to unfold\./);
     await expect(video).toHaveAttribute('controls', '');
-    await expect(video).toHaveAttribute('autoplay', '');
+    await expect(video).toHaveAttribute('data-viewport-autoplay', '');
+    expect(await video.evaluate(element => element.autoplay)).toBe(false);
     await expect(video).toHaveAttribute('muted', '');
     await expect(video).toHaveAttribute('poster', 'assets/video-posters/r2/video_2026-10-31_07-42-11-cropped.jpg');
     await expect(video.locator('source')).toHaveAttribute('src', 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Half%20Saree%20Cropped/video_2026-10-31_07-42-11.mp4');
@@ -160,13 +161,20 @@ test('wedding celebration film autoplays muted from 00:29.0', async ({ page }) =
     const initialStartTime = currentTime;
     const startsMuted = video.muted;
     video.dispatchEvent(new Event('play'));
-    return { initialStartTime, replayStartTime: currentTime, startsMuted, autoplay: video.autoplay };
+    return {
+      initialStartTime,
+      replayStartTime: currentTime,
+      startsMuted,
+      viewportAutoplay: video.hasAttribute('data-viewport-autoplay'),
+      autoplay: video.autoplay
+    };
   });
   expect(playback).toEqual({
-    initialStartTime: 29,
+    initialStartTime: 0,
     replayStartTime: 29,
     startsMuted: true,
-    autoplay: true
+    viewportAutoplay: true,
+    autoplay: false
   });
 });
 

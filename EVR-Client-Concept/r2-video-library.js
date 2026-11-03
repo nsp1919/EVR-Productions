@@ -22,9 +22,12 @@
     { file: 'video_2026-10-31_07-40-04.mp4', poster: 'family-anniversary.jpg', category: 'celebration', label: 'FAMILY / MILESTONE STORY', title: 'Growing up, together', description: 'A family film centred on shared portraits and a little one’s milestones.', project: 'celebration', homeGroup: 'family' }
   ];
   const corporateVideos = [
-    { slot: 'corporate-presenter', file: 'Reel 4.mp4', poster: 'nbrands-healthcare-presenter.jpg', label: '01 / HEALTHCARE EDUCATION' },
-    { slot: 'corporate-healthcare-product', file: 'reel_6.mp4', poster: 'nbrands-healthcare-product.jpg', label: '02 / HEALTHCARE PRODUCT REEL' },
-    { slot: 'corporate-exhibition', file: 'video_2026-10-31_07-41-51.mp4', poster: 'brand-expo-highlights.jpg', label: '06 / EXHIBITION HIGHLIGHTS' }
+    { slot: 'corporate-hero', file: 'video_2026-10-31_07-41-51.mp4', poster: 'brand-expo-highlights.jpg', label: 'NBRANDS / BRAND EXHIBITION HIGHLIGHTS', title: 'Brand exhibition highlights', description: 'A portrait event film featuring the exhibition space, people and production details.' },
+    { slot: 'corporate-studio-background', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/89721c74-832d-4fef-804a-4be8761574f7.mp4', poster: 'nbrands-empty-studio.jpg', label: 'NBRANDS / EMPTY STUDIO BACKGROUND' },
+    { slot: 'corporate-event-space', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/866aac4c-064f-4d22-9c71-7901cceecea9.mp4', poster: 'nbrands-event-space.jpg', label: '01 / EVENT SPACE', title: 'A room ready to celebrate', description: 'A vertical venue reveal that lets the lighting, set-up and guest experience introduce the occasion.' },
+    { slot: 'corporate-event-detail', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/e306b0ab-f251-4a36-8e86-ca939ced8e20.mp4', poster: 'nbrands-event-details.jpg', label: '02 / CELEBRATION FILM', title: 'A celebration, built around the details', description: 'Follow the lighting, decorations and birthday moments in a short highlight shaped for the vertical screen.' },
+    { slot: 'corporate-healthcare-explainer', file: 'Reel 4.mp4', poster: 'nbrands-healthcare-explainer.jpg', label: '03 / HEALTHCARE EXPLAINER', title: 'A healthcare story, made human', description: 'An animated opening leads into a doctor’s explanation, bringing character-led visuals and an on-screen expert together.' },
+    { slot: 'corporate-product-story', file: 'reel_6.mp4', poster: 'nbrands-product-story-still.jpg', label: '04 / DOCTOR-LED PRODUCT STORY', title: 'Show the product in trusted hands', description: 'A doctor-led presentation that brings the product and its everyday use into focus.' }
   ];
   const portfolioFiles = new Set([
     'anna (2).mp4',
@@ -51,14 +54,14 @@
   }
 
   function configureSlot(container, video, projectType) {
-    const url = videoUrl(video.file);
+    const url = video.publicUrl || videoUrl(video.file);
     container.dataset.r2VideoUrl = url;
     container.dataset.r2VideoTitle = video.title || video.label;
     container.dataset.r2SlotLabel = video.label;
     const image = container.querySelector('img');
     if (image) {
       image.src = posterUrl(video.poster);
-      image.alt = `${video.title || video.label} video poster`;
+      image.alt = container.matches('.corp-reel-card') ? '' : `${video.title || video.label} video poster`;
     }
     const play = container.querySelector('.preview-play');
     if (play) {
@@ -67,11 +70,10 @@
     }
     if (container.matches('.corp-reel-card')) {
       const cardVideo = container.querySelector('video');
-      if (cardVideo) cardVideo.setAttribute('aria-label', `EVR-produced ${video.label.toLowerCase()} video`);
+      if (cardVideo) cardVideo.setAttribute('aria-label', `EVR-produced ${video.title || video.label} video`);
       container.classList.add('has-project-video');
-      container.setAttribute('aria-label', `Open ${video.label.toLowerCase()} video`);
-      const caption = container.querySelector(':scope > span:last-child');
-      if (caption) caption.textContent = video.label;
+      container.setAttribute('role', 'group');
+      container.setAttribute('aria-label', `EVR-produced ${video.title || video.label} video preview`);
     } else {
       const player = container.querySelector('video');
       if (player) player.setAttribute('aria-label', `Play ${video.title || video.label}`);
@@ -133,19 +135,16 @@
     if (video) configureSlot(container, video, 'wedding');
   });
 
-  const corporateSlots = document.querySelectorAll('#corporate [data-r2-slot]');
+  const corporateSlots = document.querySelectorAll('#corporate [data-r2-slot], #services [data-r2-slot], #approach [data-r2-slot], #brand-work [data-r2-slot]');
   corporateSlots.forEach((container, index) => {
     const video = corporateVideos.find(item => item.slot === container.dataset.r2Slot);
-    if (video) {
-      video.title = video.label;
-      configureSlot(container, video, 'studio');
-    }
+    if (video) configureSlot(container, video, 'studio');
   });
   document.querySelectorAll('#corporate [data-r2-background-slot]').forEach(container => {
     const video = corporateVideos.find(item => item.slot === container.dataset.r2BackgroundSlot);
     if (!video) return;
     container.poster = posterUrl(video.poster);
-    container.src = videoUrl(video.file);
+    container.src = video.publicUrl || videoUrl(video.file);
     container.load();
   });
 })();
