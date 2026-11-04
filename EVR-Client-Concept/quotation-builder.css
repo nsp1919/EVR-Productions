@@ -51,6 +51,7 @@
 .builder-summary dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #dce2dc; font-size: 12px; }
 .builder-summary dd { margin: 0; max-width: 55%; text-align: right; }
 .builder-summary .builder-total { display: block; margin: 14px 0; font-size: 28px; font-weight: 700; color: var(--builder-accent); }
+.builder-summary .builder-price-note { margin: 0 0 14px; color: #5c6963; font-size: 12px; line-height: 1.55; }
 .builder-summary .button { width: 100%; margin: 5px 0; background: var(--builder-accent); color: #fff; border: none; font-size: 12px; }
 .builder-summary .button.secondary { background: #edf1e9; color: #263d30; }
 .builder-summary [role="status"] { color: #8d2e22; min-height: 20px; }

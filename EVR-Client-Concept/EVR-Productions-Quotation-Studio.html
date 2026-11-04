@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#172622">
   <title>EVR Productions | Quotation Studio</title>
-  <link rel="stylesheet" href="brand-logo.css">
+  <link rel="stylesheet" href="brand-logo.css?v=transparent-logo-pair-1">
   <style>
     :root {
       color-scheme: light;
@@ -250,7 +250,7 @@
 </head>
 <body data-load-shared-logo="true">
   <header class="masthead">
-    <div class="brand"><div class="brand-name"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo src="/assets/evr-productions-logo.png" alt="EVR Productions"></span><span class="screen-reader-only">EVR Productions</span></div></div>
+    <div class="brand"><div class="brand-name"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo="dark" src="/assets/evr-productions-logo-dark.png" alt="EVR Productions"></span><span class="screen-reader-only">EVR Productions</span></div></div>
     <div class="masthead-note">Quotation Studio · Hyderabad, India</div>
   </header>
   <main>
@@ -265,7 +265,7 @@
         <section class="card">
           <div class="card-heading"><span class="card-number">01</span><h2>Client &amp; project</h2></div>
           <div class="field-grid">
-            <label>Quotation type<select id="quote-type"><option value="wedding">Wedding &amp; celebration</option><option value="corporate">NBrands / corporate production</option></select></label>
+            <label>Quotation type<select id="quote-type"><option value="wedding">Wedding &amp; celebration</option><option value="corporate">EVR Brand Studio production</option></select></label>
             <label>Client name<input id="client" maxlength="100" autocomplete="name" required></label>
             <label>Couple / brand / project<input id="project" maxlength="160" required></label>
             <label>Quotation reference<input id="reference" maxlength="60" required></label>
@@ -326,7 +326,7 @@
   <dialog id="print-dialog" class="print-dialog" aria-labelledby="print-title">
     <div class="print-actions"><button type="button" class="button primary" id="print-button">Print / Save as PDF</button><button type="button" class="button ghost" id="close-preview">Close preview</button></div>
     <article class="quotation">
-      <header class="quotation-head"><div class="quotation-brand"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo src="/assets/evr-productions-logo.png" alt="EVR Productions"></span></div><div class="quotation-ref"><strong>QUOTATION</strong><span id="print-reference"></span><span id="print-date"></span></div></header>
+      <header class="quotation-head"><div class="quotation-brand"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo="light" src="/assets/evr-productions-logo-light.png" alt="EVR Productions"></span></div><div class="quotation-ref"><strong>QUOTATION</strong><span id="print-reference"></span><span id="print-date"></span></div></header>
       <p class="quotation-kicker">A PROPOSAL PREPARED FOR YOU</p>
       <h2 id="print-title">A clear plan.<br><em>A memorable result.</em></h2>
       <div class="client-grid"><div>PREPARED FOR<strong id="print-client"></strong></div><div>PROJECT<strong id="print-project"></strong></div><div>LOCATION<strong id="print-location"></strong></div></div>
@@ -337,7 +337,7 @@
       <div id="print-totals" class="proposal-totals"></div>
       <div id="print-notes" class="proposal-notes" hidden></div>
       <section class="proposal-terms"><h3>Terms &amp; next steps</h3><p id="print-terms"></p></section>
-      <footer class="proposal-footer"><span class="proposal-brand"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo src="/assets/evr-productions-logo.png" alt="EVR Productions"></span></span><span>Hyderabad, Telangana · evrproductionss@gmail.com · +91 99517 18375</span></footer>
+      <footer class="proposal-footer"><span class="proposal-brand"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo="light" src="/assets/evr-productions-logo-light.png" alt="EVR Productions"></span></span><span>Hyderabad, Telangana · evrproductionss@gmail.com · +91 99517 18375</span></footer>
     </article>
   </dialog>
   <script>
@@ -436,7 +436,7 @@
           const group = document.createElement('fieldset');
           group.className = 'rate-group';
           const legend = document.createElement('legend');
-          legend.textContent = type === 'wedding' ? 'Weddings & celebrations' : 'NBrands / corporate';
+          legend.textContent = type === 'wedding' ? 'Weddings & celebrations' : 'EVR Brand Studio';
           group.append(legend);
           for (const item of definitions().filter(entry => entry.type === type)) {
             const key = keyFor(type, item.group, item.key);
@@ -919,6 +919,6 @@
       renderEvents();
     })();
   </script>
-<script src="brand-logo.js"></script>
+<script src="brand-logo.js?v=transparent-logo-pair-1"></script>
 </body>
 </html>

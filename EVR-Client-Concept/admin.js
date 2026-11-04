@@ -37,8 +37,12 @@
   const managedBrandGalleryKey = '#brand-work-gallery-items-v1';
   const hiddenBrandWorkCardsKey = '#brand-work-gallery-hidden-cards-v1';
   const brandWorkCategoriesKey = '#brand-work-gallery-categories-v1';
-  const sharedBrandLogoKey = '#brand-logo-v1';
-  const defaultBrandLogo = '/assets/evr-productions-logo.png';
+  const sharedBrandLogoKey = '#brand-logo-v2';
+  const legacyBrandLogoKey = '#brand-logo-v1';
+  const defaultBrandLogos = {
+    light: '/assets/evr-productions-logo-light.png',
+    dark: '/assets/evr-productions-logo-dark.png'
+  };
   const phoneGalleryPositionPrefix = '#phone-gallery-image-position-v1:';
   const mediaRevertKey = '#media-revert-state-v1';
   const defaultWorkCategories = [
@@ -49,7 +53,7 @@
     { slug: 'maternity', label: 'Maternity' },
     { slug: 'half-saree', label: 'Half Saree' },
     { slug: 'engagement', label: 'Engagement parties' },
-    { slug: 'other-functions', label: 'Other functions' }
+    { slug: 'other-functions', label: 'Other events' }
   ];
   const defaultBrandWorkCategories = [
     { slug: 'event', label: 'Events' },
@@ -211,7 +215,7 @@
     const reel = video.closest('.corp-reel-card');
     if (reel) {
       reel.classList.add('has-project-video');
-      const title = reel.querySelector(':scope > span:last-child')?.textContent.trim() || 'NBrands';
+      const title = reel.querySelector(':scope > span:last-child')?.textContent.trim() || 'EVR Brand Studio';
       reel.setAttribute('aria-label', `Play EVR-produced ${title.toLowerCase()} video`);
     }
 
@@ -484,6 +488,112 @@
     }
   }
 
+  function parseBrandLogoSet(value) {
+    let logoSet;
+    try {
+      logoSet = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The shared logo set is invalid: ${error.message}`);
+    }
+    if (!logoSet || typeof logoSet !== 'object' || Array.isArray(logoSet) ||
+        !safeImageSource(logoSet.light) || !safeImageSource(logoSet.dark)) {
+      throw new Error('The shared logo set must contain valid light- and dark-background images.');
+    }
+    return { light: logoSet.light, dark: logoSet.dark };
+  }
+
+  async function uploadSharedBrandLogo(file) {
+    const decoded = await decodeImageFile(file);
+    let variants;
+    try {
+      const scale = Math.min(1, 1600 / Math.max(decoded.width, decoded.height));
+      const width = Math.max(1, Math.round(decoded.width * scale));
+      const height = Math.max(1, Math.round(decoded.height * scale));
+      const sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = width;
+      sourceCanvas.height = height;
+      const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
+      if (!sourceContext) throw new Error('The browser could not prepare the logo image.');
+      sourceContext.drawImage(decoded.source, 0, 0, width, height);
+      const sourcePixels = sourceContext.getImageData(0, 0, width, height);
+      let left = width;
+      let top = height;
+      let right = -1;
+      let bottom = -1;
+      for (let index = 3; index < sourcePixels.data.length; index += 4) {
+        const alpha = sourcePixels.data[index];
+        sourcePixels.data[index] = alpha < 65 ? 0 : Math.min(255, Math.round((alpha - 65) * 255 / 175));
+        if (sourcePixels.data[index] > 8) {
+          const pixel = index / 4;
+          const x = pixel % width;
+          const y = Math.floor(pixel / width);
+          left = Math.min(left, x);
+          top = Math.min(top, y);
+          right = Math.max(right, x);
+          bottom = Math.max(bottom, y);
+        }
+      }
+      if (right < left || bottom < top) throw new Error('The transparent PNG contains no visible logo artwork.');
+      const padX = Math.round((right - left + 1) * 0.025);
+      const padY = Math.round((bottom - top + 1) * 0.035);
+      const crop = {
+        left: Math.max(0, left - padX),
+        top: Math.max(0, top - padY),
+        right: Math.min(width, right + padX + 1),
+        bottom: Math.min(height, bottom + padY + 1)
+      };
+      const cropWidth = crop.right - crop.left;
+      const cropHeight = crop.bottom - crop.top;
+      const makeCanvas = (darkBackground) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = cropWidth;
+        canvas.height = cropHeight;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('The browser could not prepare both logo variants.');
+        const pixels = context.createImageData(width, height);
+        pixels.data.set(sourcePixels.data);
+        if (darkBackground) {
+          for (let index = 0; index < pixels.data.length; index += 4) {
+            if (pixels.data[index + 3] === 0) continue;
+            const red = pixels.data[index];
+            const green = pixels.data[index + 1];
+            const blue = pixels.data[index + 2];
+            const isGold = red >= 105 && green >= 55 &&
+              red > green * 1.13 && green > blue * 1.18;
+            if (!isGold) {
+              pixels.data[index] = 255;
+              pixels.data[index + 1] = 250;
+              pixels.data[index + 2] = 239;
+            }
+          }
+        }
+        context.putImageData(pixels, -crop.left, -crop.top);
+        return canvas;
+      };
+      variants = {
+        light: makeCanvas(false),
+        dark: makeCanvas(true)
+      };
+    } finally {
+      decoded.close();
+    }
+    const toWebp = canvas => new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error('The browser could not encode a logo variant.'));
+      }, 'image/webp', 0.92);
+    });
+    const [lightBlob, darkBlob] = await Promise.all([
+      toWebp(variants.light),
+      toWebp(variants.dark)
+    ]);
+    const [light, dark] = await Promise.all([
+      uploadMedia(lightBlob, 'image/webp'),
+      uploadMedia(darkBlob, 'image/webp')
+    ]);
+    return { light, dark };
+  }
+
   function encodeManagedGallery(items) {
     const bytes = new TextEncoder().encode(JSON.stringify(items));
     let binary = '';
@@ -728,11 +838,11 @@
       workForm.reset();
       syncWorkMediaChoice();
       document.getElementById('admin-work-dialog-title').textContent =
-        context === 'brand-work' ? 'Add a NBrands story.' : 'Add a story.';
+        context === 'brand-work' ? 'Add an EVR Brand Studio story.' : 'Add a story.';
       document.querySelector('#admin-work-dialog .eyebrow').textContent =
-        context === 'brand-work' ? 'NBRANDS WORK / NEW STORY' : 'SELECTED WORK / NEW STORY';
+        context === 'brand-work' ? 'EVR BRAND STUDIO / NEW STORY' : 'SELECTED WORK / NEW STORY';
       document.querySelector('#admin-work-title').placeholder =
-        context === 'brand-work' ? 'Give this NBrands story a title' : 'Give this story a title';
+        context === 'brand-work' ? 'Give this EVR Brand Studio story a title' : 'Give this story a title';
       document.querySelector('#admin-work-description').placeholder =
         context === 'brand-work' ? 'Describe this brand project or piece of work' : 'What makes this celebration special?';
       document.getElementById('admin-work-dialog-status').textContent = '';
@@ -869,7 +979,7 @@
       markManagedGalleryChanged(context);
       renderManagedWorkItems(context);
       renderMediaControls();
-      setStatus(`Story removed from ${context === 'brand-work' ? 'NBrands work' : 'Work'}. Choose Save changes to publish the update.`);
+      setStatus(`Story removed from ${context === 'brand-work' ? 'EVR Brand Studio work' : 'Work'}. Choose Save changes to publish the update.`);
     }, 'Remove this story from the Work page', 'admin-card-delete');
     actions.append(deleteStory);
     return actions;
@@ -960,7 +1070,7 @@
     ));
     const categoryEntry = entries[workCategoriesKey];
     const brandCategoryEntry = entries[brandWorkCategoriesKey];
-    for (const [label, entry] of [['Work', categoryEntry], ['NBrands work', brandCategoryEntry]]) {
+    for (const [label, entry] of [['Work', categoryEntry], ['EVR Brand Studio work', brandCategoryEntry]]) {
       if (entry && (entry.type !== 'text' || typeof entry.value !== 'string')) {
         throw new Error(`The saved ${label} categories have an unsupported format.`);
       }
@@ -995,7 +1105,7 @@
         checked[key] = { type: 'text', value: encodeManagedGallery(decodeManagedGallery(entry.value, categorySlugs)) };
       }
       else if (key === managedBrandGalleryKey) {
-        if (entry.type !== 'text') throw new Error('The saved NBrands work gallery has an unsupported format.');
+        if (entry.type !== 'text') throw new Error('The saved EVR Brand Studio work gallery has an unsupported format.');
         checked[key] = { type: 'text', value: encodeManagedGallery(decodeManagedGallery(entry.value, brandCategorySlugs)) };
       }
       else if (key === hiddenWorkCardsKey) {
@@ -1003,7 +1113,7 @@
         checked[key] = { type: 'text', value: JSON.stringify(Array.from(readHiddenWorkCardIds(entry.value))) };
       }
       else if (key === hiddenBrandWorkCardsKey) {
-        if (entry.type !== 'text') throw new Error('The hidden NBrands work cards have an unsupported format.');
+        if (entry.type !== 'text') throw new Error('The hidden EVR Brand Studio work cards have an unsupported format.');
         checked[key] = { type: 'text', value: JSON.stringify(Array.from(readHiddenWorkCardIds(entry.value))) };
       }
       else if (key === workCategoriesKey) {
@@ -1018,10 +1128,10 @@
         checked[key] = { type: 'text', value: JSON.stringify(mediaRevertState) };
       }
       else if (key === sharedBrandLogoKey) {
-        if (entry.type !== 'image' || !safeImageSource(entry.value)) {
-          throw new Error('The shared logo must be a valid image source.');
+        if (entry.type !== 'text') {
+          throw new Error('The shared logo set has an unsupported format.');
         }
-        checked[key] = { type: 'image', value: entry.value };
+        checked[key] = { type: 'text', value: JSON.stringify(parseBrandLogoSet(entry.value)) };
       }
       else if (entry.type === 'text') checked[key] = { type: 'text', value: safeMarkup(entry.value) };
       else if (entry.type === 'image' && safeImageSource(entry.value)) checked[key] = { type: 'image', value: entry.value };
@@ -1039,7 +1149,13 @@
   function applyEdits() {
     renderManagedWorkItems();
     renderManagedWorkItems('brand-work');
-    window.applyEvrBrandLogo(edits[sharedBrandLogoKey]?.value || defaultBrandLogo);
+    const legacyLogo = edits[legacyBrandLogoKey]?.value;
+    const logoSet = edits[sharedBrandLogoKey]
+      ? parseBrandLogoSet(edits[sharedBrandLogoKey].value)
+      : legacyLogo
+        ? { ...defaultBrandLogos, light: legacyLogo }
+        : defaultBrandLogos;
+    window.applyEvrBrandLogo(logoSet);
     for (const element of document.querySelectorAll('body *')) {
       if (editor.contains(element) || element.closest('.site-credit')) continue;
       if (element.dataset.adminTextEdited || element.dataset.adminImageEdited || element.dataset.adminBackgroundEdited) continue;
@@ -1054,6 +1170,18 @@
       }
       else if (edit.type === 'background') element.style.backgroundColor = edit.value;
     }
+    const legacyWeddingMenuLabels = new Map([
+      ['Weddings & Events', 'Wedding Services'],
+      ['Our work', 'Wedding Stories']
+    ]);
+    document.querySelectorAll('#main-nav [data-nav-experience="home"] a').forEach(link => {
+      const currentLabel = link.textContent.trim();
+      const replacement = legacyWeddingMenuLabels.get(currentLabel);
+      if (!replacement) return;
+      link.textContent = replacement;
+      const edit = edits[elementKey(link)];
+      if (edit?.type === 'text') edit.value = replacement;
+    });
     document.querySelectorAll('#home [data-phone-screen="4"] .phone-gallery img').forEach(image => {
       const position = edits[phoneGalleryPositionKey(image)];
       if (position) {
@@ -1280,14 +1408,14 @@
         const id = card && workCardId(card, context);
         if (card && id) {
           panel.append(createMediaIconButton('Delete story', 'delete', () => {
-            const label = context === 'brand-work' ? 'NBrands work' : 'Work';
+            const label = context === 'brand-work' ? 'EVR Brand Studio work' : 'Work';
             if (!window.confirm(`Remove this story from the ${label} page?`)) return;
             hiddenCardIdsFor(context).add(id);
             card.hidden = true;
             markManagedGalleryChanged(activeWorkContext);
             renderMediaControls();
             setStatus(`Story removed from ${label}. Choose Save changes to publish the update.`);
-          }, `Remove this story from the ${context === 'brand-work' ? 'NBrands work' : 'Work'} page`, 'admin-card-delete'));
+          }, `Remove this story from the ${context === 'brand-work' ? 'EVR Brand Studio work' : 'Work'} page`, 'admin-card-delete'));
         }
       }
       editor.append(panel);
@@ -1614,8 +1742,9 @@
 
   logoDefaultButton.addEventListener('click', () => {
     delete edits[sharedBrandLogoKey];
-    window.applyEvrBrandLogo(defaultBrandLogo);
-    setStatus('Default logo selected. Choose Save changes to publish it.');
+    delete edits[legacyBrandLogoKey];
+    window.applyEvrBrandLogo(defaultBrandLogos);
+    setStatus('Default logo set selected. Choose Save changes to publish it.');
   });
 
   logoPicker.addEventListener('change', async () => {
@@ -1623,11 +1752,12 @@
     if (!file) return;
     try {
       await validateTransparentPng(file);
-      setStatus('Uploading transparent logo…');
-      const source = await uploadPhotoFile(file);
-      edits[sharedBrandLogoKey] = { type: 'image', value: source };
-      window.applyEvrBrandLogo(source);
-      setStatus('Shared logo uploaded. Choose Save changes to publish it everywhere.');
+      setStatus('Creating and uploading the transparent logo set…');
+      const logoSet = await uploadSharedBrandLogo(file);
+      edits[sharedBrandLogoKey] = { type: 'text', value: JSON.stringify(logoSet) };
+      delete edits[legacyBrandLogoKey];
+      window.applyEvrBrandLogo(logoSet);
+      setStatus('Shared logo set uploaded. Choose Save changes to publish both versions everywhere.');
     } catch (error) {
       setStatus(`Could not replace the shared logo: ${error.message}`, true);
     } finally {

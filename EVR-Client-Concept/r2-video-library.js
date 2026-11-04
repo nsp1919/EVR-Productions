@@ -22,8 +22,8 @@
     { file: 'video_2026-10-31_07-40-04.mp4', poster: 'family-anniversary.jpg', category: 'celebration', label: 'FAMILY / MILESTONE STORY', title: 'Growing up, together', description: 'A family film centred on shared portraits and a little one’s milestones.', project: 'celebration', homeGroup: 'family' }
   ];
   const corporateVideos = [
-    { slot: 'corporate-hero', file: 'video_2026-10-31_07-41-51.mp4', poster: 'brand-expo-highlights.jpg', label: 'NBRANDS / BRAND EXHIBITION HIGHLIGHTS', title: 'Brand exhibition highlights', description: 'A portrait event film featuring the exhibition space, people and production details.' },
-    { slot: 'corporate-studio-background', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/89721c74-832d-4fef-804a-4be8761574f7.mp4', poster: 'nbrands-empty-studio.jpg', label: 'NBRANDS / EMPTY STUDIO BACKGROUND' },
+    { slot: 'corporate-hero', file: 'video_2026-10-31_07-41-51.mp4', poster: 'brand-expo-highlights.jpg', label: 'EVR BRAND STUDIO / BRAND EXHIBITION HIGHLIGHTS', title: 'Brand exhibition highlights', description: 'A portrait event film featuring the exhibition space, people and production details.' },
+    { slot: 'corporate-studio-background', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/89721c74-832d-4fef-804a-4be8761574f7.mp4', poster: 'nbrands-empty-studio.jpg', label: 'EVR BRAND STUDIO / EMPTY STUDIO BACKGROUND' },
     { slot: 'corporate-event-space', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/866aac4c-064f-4d22-9c71-7901cceecea9.mp4', poster: 'nbrands-event-space.jpg', label: '01 / EVENT SPACE', title: 'A room ready to celebrate', description: 'A vertical venue reveal that lets the lighting, set-up and guest experience introduce the occasion.' },
     { slot: 'corporate-event-detail', publicUrl: 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/e306b0ab-f251-4a36-8e86-ca939ced8e20.mp4', poster: 'nbrands-event-details.jpg', label: '02 / CELEBRATION FILM', title: 'A celebration, built around the details', description: 'Follow the lighting, decorations and birthday moments in a short highlight shaped for the vertical screen.' },
     { slot: 'corporate-healthcare-explainer', file: 'Reel 4.mp4', poster: 'nbrands-healthcare-explainer.jpg', label: '03 / HEALTHCARE EXPLAINER', title: 'A healthcare story, made human', description: 'An animated opening leads into a doctor’s explanation, bringing character-led visuals and an on-screen expert together.' },
@@ -140,11 +140,45 @@
     const video = corporateVideos.find(item => item.slot === container.dataset.r2Slot);
     if (video) configureSlot(container, video, 'studio');
   });
-  document.querySelectorAll('#corporate [data-r2-background-slot]').forEach(container => {
+  const corporateBackgroundVideos = document.querySelectorAll('#corporate [data-r2-background-slot]');
+  corporateBackgroundVideos.forEach(container => {
     const video = corporateVideos.find(item => item.slot === container.dataset.r2BackgroundSlot);
     if (!video) return;
     container.poster = posterUrl(video.poster);
-    container.src = video.publicUrl || videoUrl(video.file);
-    container.load();
+    container.dataset.r2BackgroundUrl = video.publicUrl || videoUrl(video.file);
   });
+
+  let backgroundObserver;
+  window.syncCorporateBackgroundVideos = activeRoute => {
+    backgroundObserver?.disconnect();
+    if (activeRoute !== 'corporate') {
+      corporateBackgroundVideos.forEach(video => video.pause());
+      return;
+    }
+
+    const loadBackground = video => {
+      if (video.closest('.route')?.hidden || video.getAttribute('src')) return;
+      const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      video.autoplay = !reducedMotion;
+      video.src = video.dataset.r2BackgroundUrl;
+      video.load();
+      if (!reducedMotion && !document.hidden) {
+        video.play().catch(() => { video.dataset.playback = 'unavailable'; });
+      }
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      corporateBackgroundVideos.forEach(loadBackground);
+      return;
+    }
+    backgroundObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        loadBackground(entry.target);
+        backgroundObserver.unobserve(entry.target);
+      });
+    }, { rootMargin: '200px 0px' });
+    corporateBackgroundVideos.forEach(video => backgroundObserver.observe(video));
+  };
+  window.syncCorporateBackgroundVideos(location.hash.replace(/^#\/?/, '') || 'home');
 })();

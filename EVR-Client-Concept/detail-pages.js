@@ -18,15 +18,17 @@
       page,
       media: Array.from(page.querySelectorAll('[data-drift]')),
       headings: Array.from(page.querySelectorAll('[data-scroll-underline]')),
+      aboutLogo: page.querySelector('.about-hero-mark'),
     };
   });
   const scrollWheels = Array.from(document.querySelectorAll('[data-scroll-wheel]'));
   let frame = 0;
+  let chapterPinning = false;
 
   function bounds(scene) {
     return {
-      start: scene.root.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(scene.stage).top),
-      travel: scene.root.offsetHeight - scene.stage.offsetHeight,
+      start: scene.root.getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(scene.stage).top) || 0),
+      travel: Math.max(1, scene.root.offsetHeight - scene.stage.offsetHeight),
     };
   }
   function select(scene, index) {
@@ -52,20 +54,34 @@
       const { start, travel } = bounds(scene);
       const progress = clamp((scrollY - start) / travel);
       const position = progress * (scene.panels.length - 1);
-      select(scene, Math.round(position));
+      const selectedIndex = Math.round(position);
+      const copyIndex = innerWidth <= 700
+        ? selectedIndex
+        : Math.min(scene.panels.length - 1, Math.floor(position));
+      select(scene, selectedIndex);
+      scene.panels.forEach((panel, index) => {
+        panel.classList.toggle('is-copy-current', index === copyIndex);
+      });
       scene.root.dataset.progress = progress.toFixed(4);
       scene.meter.style.transform = `scaleX(${progress})`;
       scene.panels.forEach((panel, index) => {
         const distance = index - position;
         const art = panel.querySelector('.chapter-art');
         const mobile = innerWidth <= 700;
-        art.style.transform = `translate${mobile ? 'X' : 'Y'}(${distance * 115}%) rotate(${distance * (mobile ? 2 : 5)}deg) scale(${1 - Math.min(1, Math.abs(distance)) * .06})`;
-        art.style.opacity = String(clamp(1.15 - Math.abs(distance)));
+        const active = index === selectedIndex;
+        art.style.transform = mobile
+          ? active
+            ? 'translateY(0) rotate(0deg) scale(1)'
+            : `translateY(${distance * 115}%) rotate(${distance}deg) scale(.94)`
+          : `translateY(${distance * 115}%) rotate(${distance * 5}deg) scale(${1 - Math.min(1, Math.abs(distance)) * .06})`;
+        art.style.opacity = String(mobile
+          ? Number(active)
+          : clamp(1.15 - Math.abs(distance)));
         panel.style.zIndex = String(10 - Math.abs(index - scene.current));
         panel.querySelector('.chapter-copy').style.transform = `translateY(${Math.abs(distance) * 9}px)`;
       });
     });
-    pages.forEach(({ page, media, headings }) => {
+    pages.forEach(({ page, media, headings, aboutLogo }) => {
       if (page.hidden) return;
       media.forEach(element => {
         const rect = element.getBoundingClientRect();
@@ -76,6 +92,18 @@
         const progress = clamp((innerHeight * .9 - element.getBoundingClientRect().top) / (innerHeight * .55));
         element.style.setProperty('--reading-progress', String(progress));
       });
+      if (aboutLogo) {
+        if (preference.matches) {
+          aboutLogo.removeAttribute('style');
+        } else {
+          const rect = aboutLogo.getBoundingClientRect();
+          const progress = clamp((innerHeight - rect.top) / (innerHeight + rect.height));
+          aboutLogo.style.setProperty('--about-logo-opacity', String(.3 + progress * .7));
+          aboutLogo.style.setProperty('--about-logo-y', `${(1 - progress) * 32}px`);
+          aboutLogo.style.setProperty('--about-logo-scale', String(.94 + progress * .06));
+          aboutLogo.style.setProperty('--about-logo-arc-angle', `${-32 + progress * 48}deg`);
+        }
+      }
     });
     scrollWheels.forEach(wheel => {
       if (wheel.closest('.route')?.hidden) return;
@@ -87,7 +115,10 @@
     if (!frame) frame = requestAnimationFrame(render);
   }
   function configure() {
-    const canPin = !preference.matches && innerHeight >= (innerWidth <= 700 ? 820 : 760);
+    const pinThreshold = innerWidth <= 700 ? 680 : 760;
+    const releaseThreshold = Math.max(0, pinThreshold - 100);
+    const canPin = !preference.matches && innerHeight >= (chapterPinning ? releaseThreshold : pinThreshold);
+    chapterPinning = canPin;
     scenes.forEach(scene => {
       scene.root.classList.toggle('is-chapter-pinned', canPin);
       scene.root.style.setProperty('--chapter-travel', `${scene.panels.length * (innerWidth <= 700 ? 40 : 60)}svh`);
@@ -102,6 +133,7 @@
           panel.inert = false;
           panel.removeAttribute('aria-hidden');
           panel.classList.remove('is-current');
+          panel.classList.remove('is-copy-current');
           panel.removeAttribute('style');
           panel.querySelector('.chapter-art').removeAttribute('style');
           panel.querySelector('.chapter-copy').removeAttribute('style');
@@ -109,9 +141,10 @@
       }
     });
     if (preference.matches) {
-      pages.forEach(({ media, headings }) => {
+      pages.forEach(({ media, headings, aboutLogo }) => {
         media.forEach(element => element.removeAttribute('style'));
         headings.forEach(element => element.style.removeProperty('--reading-progress'));
+        aboutLogo?.removeAttribute('style');
       });
       scrollWheels.forEach(wheel => wheel.removeAttribute('style'));
     }

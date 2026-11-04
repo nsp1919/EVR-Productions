@@ -165,6 +165,10 @@ test('one transparent PNG replacement updates and persists every shared EVR logo
   const api = await mockAdminApi(page);
   const logo = path.resolve(__dirname, '..', 'assets', 'evr-productions-logo.png');
   await page.goto('/#/admin');
+  expect(await page.locator('.brand-logo-plate').first().evaluate(element => {
+    const style = getComputedStyle(element);
+    return [style.backgroundColor, style.borderWidth, style.boxShadow];
+  })).toEqual(['rgba(0, 0, 0, 0)', '0px', 'none']);
 
   const opaquePng = Buffer.from(await page.evaluate(() => {
     const canvas = document.createElement('canvas');
@@ -186,23 +190,90 @@ test('one transparent PNG replacement updates and persists every shared EVR logo
 
   await page.locator('#admin-logo-replace').click();
   await page.locator('#admin-logo-file').setInputFiles(logo);
-  await expect(page.locator('#admin-status')).toContainText('Choose Save changes to publish it everywhere');
-  const logoSource = await page.locator('[data-brand-logo]').first().getAttribute('src');
-  expect(await page.locator('[data-brand-logo]').evaluateAll((images, expectedSource) =>
-    images.length > 0 && images.every(image => image.src === expectedSource), logoSource
+  await expect(page.locator('#admin-status')).toContainText('publish both versions everywhere');
+  const logoSources = await page.locator('[data-brand-logo]').evaluateAll(images =>
+    images.reduce((sources, image) => {
+      sources[image.dataset.brandLogo] = image.getAttribute('src');
+      return sources;
+    }, {})
+  );
+  expect(logoSources.light).toContain('media-1.webp');
+  expect(logoSources.dark).toContain('media-2.webp');
+  expect(await page.locator('[data-brand-logo]').evaluateAll((images, sources) =>
+    images.length > 0 && images.every(image => image.getAttribute('src') === sources[image.dataset.brandLogo]),
+    logoSources
   )).toBe(true);
+  await expect(page.locator('.phone-top [data-brand-logo]')).toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('#services .service-wheel-brand [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('.footer-brand-block [data-brand-logo]').first())
+    .toHaveAttribute('src', logoSources.dark);
 
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
-  expect(api.getContent().entries['#brand-logo-v1']).toEqual({ type: 'image', value: logoSource });
+  expect(api.getContent().entries['#brand-logo-v2']).toEqual({
+    type: 'text',
+    value: JSON.stringify(logoSources)
+  });
 
   await page.reload();
   await expect(page.locator('#admin-status')).toContainText('Shared website content loaded');
-  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSource);
+  await expect(page.locator('header .brand-logo-link [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('.footer-brand-block [data-brand-logo]').first())
+    .toHaveAttribute('src', logoSources.dark);
+  await expect(page.locator('#quote-print-document .quote-print-brand [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('#quote-print-document .quote-print-footer [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.dark);
+  await page.goto('/#/estimate');
+  const publicBuilder = page.locator('#wedding-quotation-builder');
+  await publicBuilder.locator('.builder-grid label').filter({ hasText: 'Client name' }).locator('input').fill('Asha Rao');
+  await publicBuilder.locator('.builder-choices label').filter({ hasText: 'Engagement' }).locator('input').check();
+  await publicBuilder.locator('[data-item="photographer"]').first().fill('1');
+  await publicBuilder.getByRole('button', { name: 'Preview / print estimate' }).click();
+  await expect(page.locator('#quote-print-dialog')).toBeVisible();
+  await expect(page.locator('#quote-print-document .quote-print-brand [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('#quote-print-document .quote-print-footer [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.dark);
+
+  await page.locator('#quote-print-close').click();
+  await page.goto('/#/studio');
+  await expect(page.locator('#quote-studio-app')).toBeVisible();
+  await page.locator('.quote-settings summary').click();
+  await page.locator('[data-rate-key="wedding:crew:traditional-photo"]').fill('12500');
+  await page.locator('#quote-reviewed').check();
+  await page.locator('#quote-save-settings').click();
+  await page.locator('#quote-client').fill('Asha Rao');
+  await page.locator('#quote-project').fill('Wedding coverage');
+  await page.locator('#quote-event-choices label').filter({ hasText: 'Engagement' }).locator('input').check();
+  await page.getByLabel('Engagement, day 1, Traditional photographer / day quantity').fill('1');
+  await page.locator('#quote-preview').click();
+  await expect(page.locator('#quote-print-dialog')).toBeVisible();
+  await expect(page.locator('#quote-print-document .quote-print-brand [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('#quote-print-document .quote-print-footer [data-brand-logo]'))
+    .toHaveAttribute('src', logoSources.dark);
+
   await page.goto('/sample-quotation.html');
-  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSource);
+  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSources.light);
   await page.goto('/EVR-Productions-Quotation-Studio.html');
-  await expect(page.locator('[data-brand-logo]').first()).toHaveAttribute('src', logoSource);
+  await expect(page.locator('.masthead [data-brand-logo]')).toHaveAttribute('src', logoSources.dark);
+  await expect(page.locator('.quotation-head [data-brand-logo]')).toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('.proposal-footer [data-brand-logo]')).toHaveAttribute('src', logoSources.light);
+  await page.locator('.settings summary').click();
+  await page.locator('[data-rate-key="wedding:crew:traditional-photo"]').fill('12500');
+  await page.locator('#reviewed').check();
+  await page.locator('#save-settings').click();
+  await page.locator('#client').fill('Asha Rao');
+  await page.locator('#project').fill('Wedding coverage');
+  await page.locator('.choice').filter({ hasText: 'Engagement' }).locator('input').check();
+  await page.getByLabel('Traditional photographer / day, day 1, quantity').fill('1');
+  await page.locator('#preview').click();
+  await expect(page.locator('#print-dialog')).toBeVisible();
+  await expect(page.locator('.quotation-head [data-brand-logo]')).toHaveAttribute('src', logoSources.light);
+  await expect(page.locator('.proposal-footer [data-brand-logo]')).toHaveAttribute('src', logoSources.light);
 });
 
 test('admin can replace a Work portfolio card video from its contextual control', async ({ page }) => {
@@ -272,7 +343,7 @@ test('admin can add and publish a new celebration story with an image', async ({
     'Maternity',
     'Half Saree',
     'Engagement parties',
-    'Other functions'
+    'Other events'
   ]);
   await page.locator('#admin-work-title').fill('A new family celebration');
   await page.locator('#admin-work-category').selectOption('celebration');
@@ -369,7 +440,7 @@ test('admin can create and publish a custom Work category', async ({ page }) => 
   await expect(page.locator('#work .admin-managed-work-item[data-category="baby-shower"]')).toBeVisible();
 });
 
-test('admin can manage NBrands work, add categories, and delete gallery items', async ({ page }) => {
+test('admin can manage EVR Brand Studio work, add categories, and delete gallery items', async ({ page }) => {
   const api = await mockAdminApi(page);
   const photo = path.resolve(__dirname, '..', 'assets', 'process-cards', 'process-card-01-your-moments.png');
   await page.addInitScript(() => {
@@ -399,7 +470,7 @@ test('admin can manage NBrands work, add categories, and delete gallery items', 
     .toContain('portfolio:brand-work:corporate-event-detail');
 
   await addStory.click();
-  await expect(page.locator('#admin-work-dialog-title')).toHaveText('Add a NBrands story.');
+  await expect(page.locator('#admin-work-dialog-title')).toHaveText('Add an EVR Brand Studio story.');
   await expect(page.locator('#admin-work-category option')).toHaveText(['Events', 'Healthcare']);
 
   await page.locator('#admin-work-new-category').fill('Campaigns');

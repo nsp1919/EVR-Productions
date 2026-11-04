@@ -98,3 +98,86 @@ test('standalone EVR quotation file saves approved local rates and previews a qu
   await expect(page.locator('#print-rows')).toContainText('INR 25,000.00');
   await expect(page.locator('#print-terms')).toContainText('EVR Productions');
 });
+
+test('public wedding estimator shows only the overall price in its estimate and PDF', async ({ page }) => {
+  await page.goto('/#/estimate');
+  const builder = page.locator('#wedding-quotation-builder');
+  await expect(page.locator('#estimate-calculator')).toHaveCount(0);
+  await builder.locator('.builder-grid label').filter({ hasText: 'Client name' }).locator('input').fill('Asha Rao');
+  await builder.locator('.builder-choices label').filter({ hasText: 'Engagement' }).locator('input').check();
+  await builder.locator('[data-item="photographer"]').first().fill('2');
+  await builder.locator('.builder-quantities label').filter({ hasText: 'Album 25' }).locator('input').fill('1');
+
+  await expect.poll(() => builder.locator('.builder-total').evaluate(element => element.value))
+    .toBe('Estimated total: INR 28,500.00');
+  await expect(builder.locator('.builder-quantities small')).toHaveCount(0);
+  await expect(builder.locator('.builder-event').nth(0)).not.toContainText('INR');
+  await expect(builder.locator('.builder-summary dl')).not.toContainText('INR');
+  await builder.getByRole('button', { name: 'Preview / print estimate' }).click();
+  await expect(page.locator('#quote-print-dialog')).toBeVisible();
+  await expect(page.locator('#print-reference')).toHaveText('EVR-WEDDING-ESTIMATE');
+  await expect(page.locator('#print-rows tr')).toHaveCount(2);
+  await expect(page.locator('#print-rows tr').first()).toContainText('Engagement');
+  await expect(page.locator('#print-rows')).not.toContainText('INR');
+  await expect(page.locator('[data-quote-price-column]')).toHaveCount(2);
+  for (const column of await page.locator('[data-quote-price-column]').all()) {
+    await expect(column).toBeHidden();
+  }
+  await expect(page.locator('#print-totals')).toContainText('INR 28,500.00');
+  await expect(page.locator('#print-notes')).toContainText('not a confirmed booking');
+  const logo = await page.locator('#quote-print-document .quote-print-brand img').evaluate(image => ({
+    loaded: image.complete && image.naturalWidth > 0,
+    source: image.currentSrc
+  }));
+  expect(logo.loaded).toBe(true);
+  expect(logo.source).toContain('evr-productions-logo-light.png');
+  const footerLogo = await page.locator('.quote-print-footer [data-brand-logo]').evaluate(image => ({
+    loaded: image.complete && image.naturalWidth > 0,
+    source: image.currentSrc
+  }));
+  expect(footerLogo.loaded).toBe(true);
+  expect(footerLogo.source).toContain('evr-productions-logo-dark.png');
+
+  await page.locator('#quote-print-close').click();
+  await builder.getByRole('button', { name: 'Discuss this estimate' }).click();
+  await expect(page.locator('[name="brief"]')).toHaveValue(/Estimated total: INR 28,500\.00/);
+  await expect(page.locator('[name="brief"]')).not.toHaveValue(/INR 8,000\.00/);
+  await expect(page.locator('[name="brief"]')).not.toHaveValue(/INR 12,500\.00/);
+});
+
+test('public production estimator keeps pricing call-based', async ({ page }) => {
+  await page.goto('/#/production-quote');
+  await expect(page.locator('#estimate-calculator')).toHaveCount(0);
+  const builder = page.locator('#corporate-quotation-builder');
+  await expect(builder).toBeVisible();
+  await page.locator('#production-quote [data-scroll-to="corporate-quotation-builder"]').click();
+  await expect(builder).toBeFocused();
+  await builder.locator('.builder-grid label').filter({ hasText: 'Client name' }).locator('input').fill('Asha Rao');
+  await builder.locator('.builder-choices label').filter({ hasText: 'Brand / corporate film' }).locator('input').check();
+  await builder.locator('[data-item="producer"]').first().fill('1');
+
+  await expect.poll(() => builder.locator('.builder-total').evaluate(element => element.value))
+    .toBe('Pricing will be discussed on a call.');
+  await builder.getByRole('button', { name: 'Preview / print quote request' }).click();
+  await expect(page.locator('#quote-print-dialog')).toBeVisible();
+  await expect(page.locator('#print-rows')).toContainText('Discuss with EVR');
+  await expect(page.locator('#print-totals')).toContainText('Discuss with EVR');
+  await expect(page.locator('#print-notes')).toContainText('not a priced quotation');
+});
+
+test('public pre-wedding estimate matches the standalone three-day package rate', async ({ page }) => {
+  await page.goto('/#/estimate');
+  const builder = page.locator('#wedding-quotation-builder');
+  await builder.locator('.builder-grid label').filter({ hasText: 'Client name' }).locator('input').fill('Asha Rao');
+  await builder.locator('.builder-choices label').filter({ hasText: 'Pre-wedding shoot' }).locator('input').check();
+  const packagePanel = builder.locator('.builder-event').filter({ hasText: 'Pre-wedding shoot' });
+  await packagePanel.locator('select').first().selectOption('3');
+
+  await expect.poll(() => builder.locator('.builder-total').evaluate(element => element.value))
+    .toBe('Estimated total: INR 1,00,000.00');
+  await expect(packagePanel).not.toContainText('INR');
+  await builder.getByRole('button', { name: 'Preview / print estimate' }).click();
+  await expect(page.locator('#print-rows')).toContainText('3-day package');
+  await expect(page.locator('#print-rows')).not.toContainText('INR');
+  await expect(page.locator('#print-totals')).toContainText('INR 1,00,000.00');
+});

@@ -3,7 +3,7 @@
   const catalogues = {
     wedding: {
       title: 'Build your wedding quotation.',
-      intro: 'Plan each event, its shoot days and the keepsakes. Pricing will be discussed on a call with EVR.',
+      intro: 'Plan each event, its shoot days and the keepsakes. See one overall estimate based on current EVR wedding rates.',
       events: ['Engagement', 'Groom haldi', 'Bride haldi', 'Groom rituals', 'Bride rituals', 'Wedding', 'Sangeet', 'Vratam', 'Reception', 'Pre-wedding shoot', 'Custom celebration'],
       crew: [
         ['photographer', 'Traditional photographer / day'],
@@ -37,6 +37,27 @@
       ]
     }
   };
+  const weddingRates = {
+    prewedding: [60000, 80000, 100000],
+    crew: {
+      photographer: 8000,
+      videographer: 8000,
+      candid: 12000,
+      cinema: 16000,
+      drone: 10000,
+      screen: 20000,
+      stream: 10000
+    },
+    outputs: {
+      invite: 1000,
+      teaser: 5000,
+      film: 20000,
+      fullvideo: 10000,
+      album25: 12500,
+      album30: 15000,
+      drive: 10000
+    }
+  };
   const node = (tag, text, className) => {
     const element = document.createElement(tag);
     if (text) element.textContent = text;
@@ -66,6 +87,9 @@
     wrapper.append(select);
     parent.append(wrapper);
     return select;
+  }
+  function formatMoney(value) {
+    return `INR ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   function quantity(parent, label, key) {
     const input = field(parent, label, 'number', '0');
@@ -104,7 +128,9 @@
     info.append(fields);
     const eventsCard = node('div', '', 'builder-card');
     eventsCard.append(node('h3', type === 'wedding' ? '02 / Events & coverage' : '02 / Shoots & production'));
-    eventsCard.append(node('p', 'Choose the crew needed for each shoot day. Sessions describe timing only. Select zero to exclude an item. Deselecting an event keeps its settings until this page is reloaded.'));
+    eventsCard.append(node('p', type === 'wedding'
+      ? 'Choose events, days and crew to see one overall estimate. Sessions describe timing only. Select zero to exclude an item.'
+      : 'Choose the crew needed for each shoot day. Sessions describe timing only. Select zero to exclude an item. Deselecting an event keeps its settings until this page is reloaded.'));
     const choices = node('div', '', 'builder-choices');
     const panels = node('div');
     const eventStates = [];
@@ -115,11 +141,13 @@
       panel.hidden = true;
       panel.append(node('legend', name));
       const prewedding = type === 'wedding' && name === 'Pre-wedding shoot';
-      const days = options(panel, prewedding ? 'Package duration' : 'Shoot days', (prewedding ? [1, 2] : [1, 2, 3, 4, 5]).map(n => [String(n), `${n} day${n > 1 ? 's' : ''}`]));
+      const days = options(panel, prewedding ? 'Package duration' : 'Shoot days', (prewedding ? [1, 2, 3] : [1, 2, 3, 4, 5]).map(n => [String(n), `${n} day${n > 1 ? 's' : ''}`]));
       days.dataset.days = index;
-      if (prewedding) panel.append(node('p', 'Choose the requested duration. Crew, hours, inclusions, travel and pricing will be discussed with EVR on a call.'));
+      if (prewedding) {
+        panel.append(node('p', 'Includes a cinematographer, candid photographer and drone. The selected package is included in your overall estimate; confirm the final scope, travel and permissions with EVR.'));
+      }
       const dayStates = [];
-      for (let day = 1; day <= (prewedding ? 2 : 5); day++) {
+      for (let day = 1; day <= (prewedding ? 3 : 5); day++) {
         const box = node('div', '', 'builder-day');
         box.hidden = day > 1;
         box.append(node('h4', `Day ${day}`));
@@ -128,7 +156,11 @@
         const session = options(grid, 'Session / time window', [['tbc', 'To be confirmed'], ['morning', 'Morning'], ['evening', 'Evening'], ['both', 'Morning & evening']]);
         box.append(grid);
         const quantities = node('div', '', 'builder-quantities');
-        const crew = prewedding ? [] : config.crew.map(([id, label]) => ({ id, label, input: quantity(quantities, label, id) }));
+        const crew = prewedding ? [] : config.crew.map(([id, label]) => ({
+          id,
+          label,
+          input: quantity(quantities, label, id)
+        }));
         box.append(quantities);
         panel.append(box);
         dayStates.push({ box, date, session, crew });
@@ -149,23 +181,33 @@
     const outputsCard = node('div', '', 'builder-card');
     outputsCard.append(node('h3', '03 / Finished deliverables'));
     const outputGrid = node('div', '', 'builder-quantities');
-    const outputs = config.outputs.map(([id, label]) => ({ id, label, input: quantity(outputGrid, label, id) }));
+    const outputs = config.outputs.map(([id, label]) => ({
+      id,
+      label,
+      input: quantity(outputGrid, label, id)
+    }));
     outputsCard.append(outputGrid);
     const notes = field(outputsCard, 'Additional requirements / raw files / specifications (not priced)', 'textarea');
-    outputsCard.append(node('p', 'Raw footage is not assumed included. EVR will discuss all requirements, travel, permissions, usage and pricing with you on a call.'));
+    outputsCard.append(node('p', type === 'wedding'
+      ? 'Rates are estimates. Raw footage, travel, permissions, taxes and custom requirements must be confirmed with EVR.'
+      : 'Raw footage is not assumed included. EVR will discuss all requirements, travel, permissions, usage and pricing with you on a call.'));
     content.append(info, eventsCard, outputsCard);
     const summary = node('aside', '', 'builder-summary');
-    summary.append(node('p', 'QUOTE REQUEST / NOT A BOOKING', 'eyebrow'), node('h3', 'Your requirements.'));
+    summary.append(node('p', type === 'wedding' ? 'PRICE ESTIMATE / NOT A BOOKING' : 'QUOTE REQUEST / NOT A BOOKING', 'eyebrow'), node('h3', 'Your requirements.'));
     const breakdown = node('dl');
     const total = node('output', '', 'builder-total');
     total.setAttribute('aria-label', 'Pricing information');
+    const priceNote = node('p', '', 'builder-price-note');
+    priceNote.textContent = type === 'wedding'
+      ? 'Estimate only. Final dates, coverage, travel, permissions, taxes and availability must be confirmed by EVR.'
+      : 'Corporate production pricing is discussed with EVR after reviewing the brief.';
     const status = node('p');
     status.setAttribute('role', 'status');
-    const preview = node('button', 'Preview / print quote request', 'button');
+    const preview = node('button', type === 'wedding' ? 'Preview / print estimate' : 'Preview / print quote request', 'button');
     preview.type = 'submit';
-    const request = node('button', 'Discuss this scope', 'button secondary');
+    const request = node('button', type === 'wedding' ? 'Discuss this estimate' : 'Discuss this scope', 'button secondary');
     request.type = 'button';
-    summary.append(breakdown, total, preview, request, status, node('p', 'No prices are shown online. EVR will confirm scope and pricing after a call. Preview your requirements or save them as PDF. Nothing is sent automatically.'));
+    summary.append(breakdown, total, priceNote, preview, request, status, node('p', 'Nothing is sent automatically. Review your estimate or request before choosing how to contact EVR.'));
     form.append(content, summary);
     section.append(heading, form);
     mount.after(section);
@@ -179,26 +221,36 @@
     function calculate() {
       const lines = [], scope = [], groups = [];
       let valid = true;
-      function add(item, prefix = '') {
+      function add(item, prefix = '', unitRate) {
         const qty = item.input.valueAsNumber;
         if (!Number.isInteger(qty) || qty < 0 || qty > 20) { valid = false; return; }
-        if (qty) lines.push({ name: prefix + item.label, qty });
+        if (qty) {
+          const amount = unitRate === undefined ? null : unitRate * qty;
+          lines.push({ name: prefix + item.label, qty, rate: unitRate ?? null, amount });
+        }
       }
       for (const event of eventStates.filter(event => event.toggle.checked)) {
         const before = lines.length;
         if (event.prewedding) {
-          lines.push({ name: `${event.name} / ${event.days.value}-day request`, qty: 1 });
+          const rate = weddingRates.prewedding[Number(event.days.value) - 1];
+          lines.push({ name: `${event.name} / ${event.days.value}-day package`, qty: 1, rate, amount: rate });
         }
         event.dayStates.slice(0, Number(event.days.value)).forEach((day, index) => {
           scope.push(`${event.name} / Day ${index + 1}: ${day.date.value || 'date TBC'}; ${day.session.selectedOptions[0].textContent}.`);
-          day.crew.forEach(item => add(item, `${event.name} / Day ${index + 1} / `));
+          day.crew.forEach(item => add(item, `${event.name} / Day ${index + 1} / `,
+            type === 'wedding' ? weddingRates.crew[item.id] : undefined));
         });
-        groups.push([event.name, `${event.days.value} day(s), ${lines.length - before} selected item(s)`]);
+        const eventLines = lines.slice(before);
+        const amount = type === 'wedding' ? eventLines.reduce((sum, item) => sum + item.amount, 0) : null;
+        groups.push([event.name, `${event.days.value} day(s), ${eventLines.length} selected item(s)`, amount]);
       }
       const before = lines.length;
-      outputs.forEach(item => add(item));
-      groups.push(['Deliverables', `${lines.slice(before).reduce((sum, item) => sum + item.qty, 0)} requested`]);
-      return { valid, lines, scope, groups };
+      outputs.forEach(item => add(item, '', type === 'wedding' ? weddingRates.outputs[item.id] : undefined));
+      const outputLines = lines.slice(before);
+      const outputAmount = type === 'wedding' ? outputLines.reduce((sum, item) => sum + item.amount, 0) : null;
+      groups.push(['Deliverables', `${outputLines.reduce((sum, item) => sum + item.qty, 0)} requested`, outputAmount]);
+      const subtotal = type === 'wedding' ? lines.reduce((sum, item) => sum + item.amount, 0) : null;
+      return { valid, lines, scope, groups, subtotal };
     }
     function update() {
       const result = calculate();
@@ -208,7 +260,9 @@
         row.append(node('dt', label), node('dd', result.valid ? value : 'Check inputs'));
         breakdown.append(row);
       }
-      total.value = 'Pricing will be discussed on a call.';
+      total.value = type === 'wedding'
+        ? result.lines.length ? `Estimated total: ${formatMoney(result.subtotal)}` : 'Select options to see an estimate.'
+        : 'Pricing will be discussed on a call.';
       preview.disabled = request.disabled = !result.valid || !result.lines.length;
       status.textContent = result.valid ? (result.lines.length ? '' : 'Select coverage or deliverables to start your quotation.') : 'Use whole quantities between 0 and 20. Blank or fractional quantities cannot be quoted.';
     }
@@ -219,21 +273,66 @@
       if (!client.value.trim()) { status.textContent = 'Enter a client name before continuing.'; client.focus(); return null; }
       return result;
     }
+    function presentPreview(result) {
+      const dialog = byId('quote-print-dialog');
+      const money = value => formatMoney(value);
+      byId('print-reference').textContent = `EVR-${type === 'wedding' ? 'WEDDING-ESTIMATE' : 'PRODUCTION-REQUEST'}`;
+      byId('print-date').textContent = quoteDate.value || 'Date to be confirmed';
+      byId('quote-print-title').textContent = type === 'wedding' ? 'Wedding estimate' : 'Production scope request';
+      byId('print-client').textContent = client.value.trim();
+      byId('print-project').textContent = project.value.trim() || (type === 'wedding' ? 'Wedding coverage' : 'Brand production');
+      byId('print-location').textContent = location.value.trim() || 'To be confirmed';
+      byId('print-contact').textContent = '';
+      const scopeMount = byId('print-scope');
+      scopeMount.replaceChildren();
+      const scopeDetails = [
+        `Quotation date: ${quoteDate.value || 'To be confirmed'}.`,
+        ...Array.from(fields.querySelectorAll('[data-detail]'), input => {
+          const value = input.tagName === 'SELECT' ? input.selectedOptions[0].textContent : input.value.trim();
+          return value ? `${input.dataset.detail}: ${value}.` : '';
+        }).filter(Boolean),
+        ...result.scope,
+        `Additional requirements: ${notes.value.trim() || 'None specified'}.`
+      ];
+      for (const detail of scopeDetails) {
+        const paragraph = node('p', detail);
+        scopeMount.append(paragraph);
+      }
+      const rows = byId('print-rows');
+      rows.replaceChildren();
+      const priceColumns = dialog.querySelectorAll('[data-quote-price-column]');
+      priceColumns.forEach(column => { column.hidden = type === 'wedding'; });
+      for (const item of result.lines) {
+        const row = document.createElement('tr');
+        const values = type === 'wedding'
+          ? [item.name, String(item.qty)]
+          : [item.name, String(item.qty), 'Discuss with EVR', 'Discuss with EVR'];
+        for (const value of values) row.append(node('td', value));
+        rows.append(row);
+      }
+      const totals = byId('print-totals');
+      totals.replaceChildren();
+      const totalLine = node('div', '', type === 'wedding' ? 'quote-print-grand' : '');
+      totalLine.append(
+        node('span', type === 'wedding' ? 'Estimated total' : 'Pricing'),
+        node('strong', type === 'wedding' ? money(result.subtotal) : 'Discuss with EVR')
+      );
+      totals.append(totalLine);
+      const estimateNote = type === 'wedding'
+        ? 'This is an estimate based on EVR wedding rates, not a confirmed booking. Dates, availability, travel, permissions, taxes and any changes to scope must be confirmed with EVR.'
+        : 'This is a production scope request, not a priced quotation or confirmed booking. EVR will discuss pricing after reviewing the brief.';
+      byId('print-notes').hidden = false;
+      byId('print-notes').textContent = estimateNote;
+      byId('print-terms').textContent = estimateNote;
+      dialog.showModal();
+    }
     form.addEventListener('input', update);
     form.addEventListener('change', update);
     form.addEventListener('submit', event => {
       event.preventDefault();
       const result = prepared();
       if (!result) return;
-      byId('pdf-ref').textContent = `EVR-${type === 'wedding' ? 'WEDDING' : 'BRAND'}-SAMPLE`;
-      byId('pdf-client').textContent = client.value.trim();
-      byId('pdf-project').textContent = project.value.trim() || (type === 'wedding' ? 'Wedding coverage' : 'Brand production');
-      const details = [`Quotation date: ${quoteDate.value || 'TBC'}. Location: ${location.value.trim() || 'TBC'}.`];
-      fields.querySelectorAll('[data-detail]').forEach(input => {
-        const value = input.tagName === 'SELECT' ? input.selectedOptions[0].textContent : input.value.trim();
-        if (value) details.push(`${input.dataset.detail}: ${value}`);
-      });
-      presentQuotation(result.lines, null, [...details, ...result.scope], `Additional requirements: ${notes.value.trim() || 'None specified'}. Scope, inclusions and pricing will be discussed on a call. This is a quote request, not a confirmed booking.`);
+      presentPreview(result);
     });
     request.addEventListener('click', () => {
       const result = prepared();
@@ -243,12 +342,15 @@
         status.textContent = 'Your existing enquiry brief was kept. Save this quote as PDF for your discussion; clear the enquiry brief first if you want to replace it.';
         return;
       }
-      const text = [`Detailed ${type} quote request: ${project.value.trim() || config.title}`, 'Pricing will be discussed on a call.', ...result.lines.map(item => `${item.name} x ${item.qty}`), ...result.scope, notes.value.trim()].filter(Boolean).join('\n');
-      if (text.length > brief.maxLength) {
+      const text = type === 'wedding'
+        ? [`Wedding estimate request: ${project.value.trim() || config.title}`, ...result.lines.map(item => `${item.name} x ${item.qty}`), `Estimated total: ${formatMoney(result.subtotal)}. Final scope and pricing require EVR confirmation.`, ...result.scope, notes.value.trim()]
+        : [`Detailed production quote request: ${project.value.trim() || config.title}`, 'Pricing will be discussed on a call.', ...result.lines.map(item => `${item.name} x ${item.qty}`), ...result.scope, notes.value.trim()];
+      const briefText = text.filter(Boolean).join('\n');
+      if (briefText.length > brief.maxLength) {
         status.textContent = 'This scope is longer than the enquiry field allows. Please save the full quotation as PDF and use a short enquiry brief.';
         return;
       }
-      brief.value = text;
+      brief.value = briefText;
       const name = document.querySelector('[name="name"]');
       if (!name.value) name.value = client.value.trim();
       const venue = document.querySelector('[name="location"]');

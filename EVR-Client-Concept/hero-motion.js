@@ -169,13 +169,13 @@
     const progress = clamp((scrollY - start) / travel);
     const gather = phase(progress, 0.015, 0.21);
     const expand = phase(progress, 0.20, 0.49);
-    const depart = phase(progress, 0.50, 0.61);
+    const depart = phase(progress, 0.60, 0.71);
     const introExit = phase(progress, 0.02, 0.18);
-    const statementIn = phase(progress, 0.30, 0.46);
-    const statementOut = phase(progress, 0.50, 0.59);
-    const insightIn = phase(progress, 0.54, 0.60);
-    const insightOut = phase(progress, 0.76, 0.82);
-    const notesIn = phase(progress, 0.76, 0.81);
+    const statementIn = phase(progress, 0.36, 0.45);
+    const statementOut = phase(progress, 0.57, 0.64);
+    const insightIn = phase(progress, 0.64, 0.70);
+    const insightOut = phase(progress, 0.80, 0.86);
+    const notesIn = phase(progress, 0.80, 0.86);
     updateCardControls(progress < .16);
     revealWords(insightWords, phase(progress, .60, .76));
 
@@ -192,7 +192,7 @@
     const initialX = mobile ? [.33, .68, .5, .45, .55, .5] : [.68, .84, .76, .73, .77, .75];
     const initialY = mobile ? [.72, .72, .69, .69, .69, .69] : [.47, .49, .44, .45, .45, .45];
     const spreadX = mobile ? [.18, .5, .82, .18, .5, .82] : [.12, .5, .88, .13, .5, .87];
-    const spreadY = mobile ? [.18, .13, .18, .73, .79, .73] : [.20, .18, .21, .72, .75, .72];
+    const spreadY = mobile ? [.13, .12, .13, .87, .88, .87] : [.13, .12, .13, .87, .88, .87];
     const initialAngle = [-12, 11, -1, 7, -6, 3];
     const finalAngle = [-9, 4, 10, 8, -5, -9];
     const stackedX = [.44, .56, .5, .48, .52, .5];

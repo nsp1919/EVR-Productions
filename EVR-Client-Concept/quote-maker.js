@@ -218,7 +218,7 @@
     for (const type of Object.keys(catalogues)) {
       const group = document.createElement('fieldset');
       const legend = document.createElement('legend');
-      legend.textContent = type === 'wedding' ? 'Weddings & celebrations' : 'NBrands / corporate';
+      legend.textContent = type === 'wedding' ? 'Weddings & celebrations' : 'EVR Brand Studio';
       group.append(legend);
       for (const definition of rateDefinitions().filter(item => item.type === type)) {
         const key = rateKey(type, definition.kind, definition.id);

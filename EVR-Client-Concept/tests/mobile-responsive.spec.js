@@ -54,8 +54,24 @@ test('mobile navigation opens and exposes each experience menu', async ({ page }
   for (const [route, destination] of [['home', '#/weddings'], ['corporate', '#/services']]) {
     await page.goto(`/#/${route}`);
     const menuButton = page.locator('#menu-toggle');
+    const experienceSwitch = page.locator('.experience-switch');
+    const logoBounds = await page.locator('header > .brand-logo-link').boundingBox();
+    const switchBounds = await experienceSwitch.boundingBox();
+    const menuBounds = await menuButton.boundingBox();
+    if (route === 'corporate') {
+      const indicator = await experienceSwitch.evaluate(element => {
+        const style = getComputedStyle(element, '::before');
+        return { left: style.left, transform: style.transform };
+      });
+      expect(parseFloat(indicator.left)).toBeGreaterThan(switchBounds.width * .45);
+      expect(parseFloat(indicator.left)).toBeLessThan(switchBounds.width * .55);
+      expect(indicator.transform).toBe('none');
+    }
     await expect(menuButton).toBeVisible();
     await expect(menuButton).toHaveCSS('min-height', '44px');
+    expect(Math.abs((menuBounds.y + menuBounds.height / 2) - (logoBounds.y + logoBounds.height / 2))).toBeLessThan(8);
+    expect(switchBounds.y).toBeGreaterThan(logoBounds.y + logoBounds.height - 2);
+    expect(switchBounds.width).toBeGreaterThanOrEqual(320);
     await menuButton.click();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     const destinationLink = page.locator(`#main-nav a[href="${destination}"]`);
@@ -68,6 +84,177 @@ test('mobile navigation opens and exposes each experience menu', async ({ page }
     expect(navBounds.left).toBeGreaterThanOrEqual(0);
     expect(navBounds.right).toBeLessThanOrEqual(390);
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 390);
+  }
+
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto('/#/home');
+  const narrowMenuBounds = await page.locator('#menu-toggle').boundingBox();
+  const narrowLogoBounds = await page.locator('header > .brand-logo-link').boundingBox();
+  expect(Math.abs((narrowMenuBounds.y + narrowMenuBounds.height / 2) - (narrowLogoBounds.y + narrowLogoBounds.height / 2))).toBeLessThan(8);
+  await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
+});
+
+test('mobile pinned sections animate below the sticky header', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  const pinnedSections = [
+    { route: 'home', selector: '#process-story', stage: '.process-stage', minHeight: 740 },
+    { route: 'weddings', selector: '#weddings [data-chapter-story]', stage: '.chapter-stage', minHeight: 680 },
+    { route: 'process', selector: '#process [data-chapter-story]', stage: '.chapter-stage', minHeight: 680 },
+    { route: 'services', selector: '#services [data-chapter-story]', stage: '.chapter-stage', minHeight: 680 },
+    { route: 'approach', selector: '#approach [data-chapter-story]', stage: '.chapter-stage', minHeight: 680 },
+    { route: 'corporate', selector: '#corporate #corp-services', stage: '.corp-service-stage', minHeight: 740 }
+  ];
+
+  for (const height of [700, 844]) {
+    await page.setViewportSize({ width: 390, height });
+    for (const { route, selector, stage, minHeight } of pinnedSections) {
+      if (height < minHeight) continue;
+      await page.goto(`/#/${route}`);
+      const section = page.locator(selector);
+      await expect(section).toHaveClass(/is-(?:pinned|chapter-pinned)/);
+      await section.evaluate((root, stageSelector) => {
+        const stickyStage = root.querySelector(stageSelector);
+        const top = parseFloat(getComputedStyle(stickyStage).top) || 0;
+        const start = root.getBoundingClientRect().top + window.scrollY - top;
+        const travel = root.offsetHeight - stickyStage.offsetHeight;
+        window.scrollTo(0, start + travel * .5);
+      }, stage);
+      await expect.poll(() => section.getAttribute('data-progress').then(Number)).toBeGreaterThan(.45);
+      const clearance = await section.evaluate((root, stageSelector) => {
+        const stageBounds = root.querySelector(stageSelector).getBoundingClientRect();
+        const headerBounds = document.querySelector('header').getBoundingClientRect();
+        return stageBounds.top - headerBounds.bottom;
+      }, stage);
+      expect(clearance).toBeGreaterThanOrEqual(0);
+    }
+  }
+});
+
+test('mobile pinned sections tolerate viewport changes and fall back to normal scrolling', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto('/#/weddings');
+  const weddingStory = page.locator('#weddings [data-chapter-story]');
+  await expect(weddingStory).toHaveClass(/is-chapter-pinned/);
+  await page.setViewportSize({ width: 390, height: 740 });
+  await expect(weddingStory).toHaveClass(/is-chapter-pinned/);
+  await page.setViewportSize({ width: 390, height: 560 });
+  await expect(weddingStory).not.toHaveClass(/is-chapter-pinned/);
+  expect(await weddingStory.locator('.chapter-panel').evaluateAll(panels =>
+    panels.every(panel => !panel.inert && !panel.hasAttribute('aria-hidden'))
+  )).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/corporate');
+  const corporateServices = page.locator('#corporate #corp-services');
+  await expect(corporateServices).toHaveClass(/is-pinned/);
+  await page.setViewportSize({ width: 390, height: 680 });
+  await expect(corporateServices).toHaveClass(/is-pinned/);
+  await page.setViewportSize({ width: 390, height: 600 });
+  await expect(corporateServices).not.toHaveClass(/is-pinned/);
+  expect(await corporateServices.locator('.corp-service-panel').evaluateAll(panels =>
+    panels.every(panel => !panel.inert && !panel.hasAttribute('aria-hidden'))
+  )).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto('/#/home');
+  const filmSequence = page.locator('#home .film-sequence[data-film-sequence="wedding"]');
+  await expect(filmSequence).not.toHaveClass(/is-pinned/);
+  await page.setViewportSize({ width: 390, height: 560 });
+  await expect(filmSequence).not.toHaveClass(/is-pinned/);
+  await page.setViewportSize({ width: 390, height: 500 });
+  await expect(filmSequence).not.toHaveClass(/is-pinned/);
+  expect(await filmSequence.locator('.film-sequence-panel').evaluateAll(panels =>
+    panels.every(panel => !panel.inert && panel.dataset.visible === 'true')
+  )).toBe(true);
+});
+
+test('mobile wedding and production chapter artwork stays portrait', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const portraitGroups = [
+    { route: 'weddings', selector: '#weddings #wedding-chapters .chapter-art:not(.process-card-art)' },
+    { route: 'services', selector: '#services #service-chapters .chapter-art:not(.process-card-art)' }
+  ];
+  for (const { route, selector } of portraitGroups) {
+    await page.goto(`/#/${route}`);
+    const dimensions = await page.locator(selector).evaluateAll(artworks =>
+      artworks.map(artwork => ({
+        width: artwork.offsetWidth,
+        height: artwork.offsetHeight
+      }))
+    );
+    expect(dimensions.length).toBeGreaterThan(0);
+    expect(dimensions.every(({ width, height }) => height > width)).toBe(true);
+  }
+
+  await page.goto('/#/approach');
+  const videoArt = page.locator('#approach #approach-chapters [data-r2-slot="corporate-product-story"]');
+  const videoDimensions = await videoArt.evaluate(artwork => ({
+    width: artwork.offsetWidth,
+    height: artwork.offsetHeight,
+    ratio: getComputedStyle(artwork).aspectRatio
+  }));
+  expect(videoDimensions.height).toBeGreaterThan(videoDimensions.width);
+  expect(videoDimensions.ratio).toBe('9 / 16');
+});
+
+test('mobile pinned chapter transitions keep incoming artwork out of the text column', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stories = [
+    { route: 'weddings', selector: '#weddings #wedding-chapters', progress: .325, expectedHeading: 'The rituals.\nThe reactions.\nThe real feeling.' },
+    { route: 'process', selector: '#process #planning-story', progress: .18, expectedHeading: 'Put the important\nthings in writing.' },
+    { route: 'services', selector: '#services #service-chapters', progress: .325, expectedHeading: 'Start strong.\nSay something.' },
+    { route: 'approach', selector: '#approach #approach-chapters', progress: .325, expectedHeading: 'A direction\neveryone can use.' }
+  ];
+
+  for (const { route, selector, progress, expectedHeading } of stories) {
+    await page.goto(`/#/${route}`);
+    const story = page.locator(selector);
+    await expect(story).toHaveClass(/is-chapter-pinned/);
+    await story.evaluate((root, progress) => {
+      document.documentElement.style.scrollBehavior = 'auto';
+      const stage = root.querySelector('.chapter-stage');
+      const start = root.getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(stage).top) || 0);
+      const travel = root.offsetHeight - stage.offsetHeight;
+      scrollTo({ top: start + travel * progress, behavior: 'instant' });
+    }, progress);
+    await expect.poll(() => story.getAttribute('data-step')).toBe('1');
+    await expect.poll(() => story.evaluate(root => Array.from(root.querySelectorAll('.chapter-copy')).find(copy => {
+      const style = getComputedStyle(copy);
+      return style.visibility === 'visible' && Number(style.opacity) > .95;
+    })?.querySelector('h3')?.innerText)).toBe(expectedHeading);
+    const layout = await story.evaluate(root => {
+      const visibleCopy = Array.from(root.querySelectorAll('.chapter-copy')).filter(copy => {
+        const style = getComputedStyle(copy);
+        return style.visibility === 'visible' && Number(style.opacity) > .95;
+      });
+      const artworks = Array.from(root.querySelectorAll('.chapter-art'));
+      const copyBounds = visibleCopy[0]?.getBoundingClientRect();
+      return {
+        visibleCopyText: visibleCopy[0]?.querySelector('h3').innerText,
+        visibleCopyCount: visibleCopy.length,
+        visibleArtCount: artworks.filter(art => Number(getComputedStyle(art).opacity) > .95).length,
+        hiddenArtCount: artworks.filter(art => Number(getComputedStyle(art).opacity) === 0).length,
+        artsOverlapCopy: artworks.some(art => {
+          if (Number(getComputedStyle(art).opacity) === 0) return false;
+          const bounds = art.getBoundingClientRect();
+          return bounds.right > copyBounds.left && bounds.left < copyBounds.right
+            && bounds.bottom > copyBounds.top && bounds.top < copyBounds.bottom;
+        }),
+        artTransforms: artworks.map(art => getComputedStyle(art).transform)
+      };
+    });
+    expect(layout.visibleCopyCount).toBe(1);
+    expect(layout.visibleCopyText).toBe(expectedHeading);
+    expect(layout.visibleArtCount).toBe(1);
+    expect(layout.hiddenArtCount).toBeGreaterThan(0);
+    expect(layout.artsOverlapCopy, `${route} artwork should stay within its own column: ${JSON.stringify(layout)}`).toBe(false);
+    expect(layout.artTransforms.every(transform => transform.startsWith('matrix('))).toBe(true);
   }
 });
 
@@ -129,6 +316,7 @@ test('weddings page shows the celebration film beside its related copy', async (
     await page.goto('/#/weddings');
     const section = page.locator('#celebration-film');
     const video = section.locator('video');
+    await video.scrollIntoViewIfNeeded();
     await expect(section.locator('h2')).toHaveText(/A celebration needs\s*room to unfold\./);
     await expect(video).toHaveAttribute('controls', '');
     await expect(video).toHaveAttribute('data-viewport-autoplay', '');

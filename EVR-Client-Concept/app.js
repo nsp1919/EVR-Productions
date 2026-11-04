@@ -3,6 +3,24 @@ const byId = id => document.getElementById(id);
 let activeExperience = 'home';
 const viewportAutoplayPreference = matchMedia('(prefers-reduced-motion: reduce)');
 let viewportAutoplayObserver;
+const siteHeader = document.querySelector('header');
+
+function syncPinnedHeaderOffset() {
+  if (innerWidth > 700) {
+    document.documentElement.style.removeProperty('--mobile-pinned-top');
+    return;
+  }
+  const headerTop = Number.parseFloat(getComputedStyle(siteHeader).top) || 0;
+  document.documentElement.style.setProperty(
+    '--mobile-pinned-top',
+    `${Math.ceil(siteHeader.offsetHeight + headerTop + 8)}px`
+  );
+}
+
+new ResizeObserver(syncPinnedHeaderOffset).observe(siteHeader);
+window.addEventListener('resize', syncPinnedHeaderOffset);
+window.visualViewport?.addEventListener('resize', syncPinnedHeaderOffset);
+syncPinnedHeaderOffset();
 
 function syncViewportAutoplay(video) {
   const route = video.closest('.route');
@@ -11,6 +29,20 @@ function syncViewportAutoplay(video) {
   const visibleHeight = Math.max(0, Math.min(rect.bottom, innerHeight) - Math.max(rect.top, 0));
   const isVisible = rect.width > 0 && rect.height > 0 &&
     (visibleWidth * visibleHeight) / (rect.width * rect.height) >= 0.15;
+  if (isVisible && !route?.hidden && !document.hidden) {
+    let sourceAssigned = false;
+    if (video.dataset.src && !video.getAttribute('src')) {
+      video.src = video.dataset.src;
+      video.removeAttribute('data-src');
+      sourceAssigned = true;
+    }
+    video.querySelectorAll('source[data-src]').forEach(source => {
+      source.src = source.dataset.src;
+      source.removeAttribute('data-src');
+      sourceAssigned = true;
+    });
+    if (sourceAssigned) video.load();
+  }
   if (isVisible && !route?.hidden && !document.hidden && !viewportAutoplayPreference.matches) {
     video.muted = true;
     video.play().catch(error => {
@@ -75,19 +107,14 @@ function route() {
   for (const section of target) {
     section.hidden = section.id !== activeRoute || (isAdmin && !canPreviewAdminPage);
   }
+  if (typeof window.syncCorporateBackgroundVideos === 'function') {
+    window.syncCorporateBackgroundVideos(activeRoute);
+  }
   syncViewportAutoplayVideos();
   syncCelebrationFilm(activeRoute);
   syncBrandWorkCaseStudyVideo(activeRoute);
   if (typeof window.syncHomeHeroVideo === 'function') window.syncHomeHeroVideo();
   const page = byId(activeRoute);
-  const mount = page.querySelector('[data-estimate-mount]');
-  if (mount) {
-    mount.append(byId('estimate-calculator'));
-    if (byId('estimate-type').value !== mount.dataset.estimateMount) {
-      byId('estimate-type').value = mount.dataset.estimateMount;
-      byId('estimate-type').dispatchEvent(new Event('change'));
-    }
-  }
   if (typeof window.applyAdminEdits === 'function') window.applyAdminEdits();
   const savedExperience = history.state && history.state.evrExperience;
   if (page.dataset.experienceOwner) activeExperience = page.dataset.experienceOwner;
@@ -105,7 +132,7 @@ function route() {
     ? 'EVR Studio | EVR Productions'
     : activeRoute === 'studio'
       ? 'Private Quotation Studio | EVR Productions'
-    : activeExperience === 'corporate' ? 'NBrands | EVR Productions' : 'Weddings & Functions | EVR Productions';
+    : activeExperience === 'corporate' ? 'Brand Production | EVR Productions' : 'Weddings & Events | EVR Productions';
   document.querySelector('.experience-switch').dataset.active = activeExperience;
   document.querySelectorAll('[data-experience]').forEach(link => {
     if (link.dataset.experience === activeRoute) link.setAttribute('aria-current', 'page');
@@ -114,14 +141,17 @@ function route() {
   document.querySelectorAll('[data-nav-experience]').forEach(menu => {
     menu.hidden = menu.dataset.navExperience !== activeExperience;
   });
-  byId('main-nav').setAttribute('aria-label', activeExperience === 'corporate' ? 'NBrands navigation' : 'Weddings and Functions navigation');
+  byId('main-nav').setAttribute('aria-label', activeExperience === 'corporate' ? 'Brand Production navigation' : 'Weddings and Events navigation');
   byId('main-nav').querySelectorAll('a').forEach(link => {
     if (link.hash === '#/' + activeRoute) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   byId('main-nav').classList.remove('is-open');
   byId('menu-toggle').setAttribute('aria-expanded', 'false');
-  requestAnimationFrame(() => window.scrollTo(0, 0));
+  requestAnimationFrame(() => {
+    syncPinnedHeaderOffset();
+    window.scrollTo(0, 0);
+  });
 }
 window.addEventListener('hashchange', route);
 window.addEventListener('load', () => requestAnimationFrame(() => window.scrollTo(0, 0)));
@@ -153,11 +183,8 @@ if (celebrationVideo) celebrationVideo.addEventListener('play', () => {
 byId('menu-toggle').addEventListener('click', () => {
   const open = byId('main-nav').classList.toggle('is-open');
   byId('menu-toggle').setAttribute('aria-expanded', String(open));
+  requestAnimationFrame(syncPinnedHeaderOffset);
 });
-document.querySelectorAll('[data-estimate-type], [data-corp-estimate]').forEach(link => link.addEventListener('click', () => {
-  byId('estimate-type').value = link.dataset.estimateType || 'corporate';
-  byId('estimate-type').dispatchEvent(new Event('change'));
-}));
 document.querySelectorAll('[data-service]').forEach(link => link.addEventListener('click', () => {
   byId('service').value = link.dataset.service;
 }));
@@ -254,40 +281,9 @@ document.querySelectorAll('[data-project]').forEach(button => button.addEventLis
   byId('project-dialog').showModal();
 }));
 byId('close-project').addEventListener('click', () => byId('project-dialog').close());
-function estimate() {
-  const days = byId('estimate-days').valueAsNumber;
-  const outputs = byId('estimate-outputs').valueAsNumber;
-  const valid = Number.isInteger(days) && days >= 1 && days <= 10 && Number.isInteger(outputs) && outputs >= 0 && outputs <= 20;
-  byId('estimate-request').disabled = !valid;
-  byId('estimate-status').textContent = valid ? '' : 'Enter 1-10 whole shoot days and 0-20 whole short edits.';
-  const breakdown = byId('estimate-breakdown');
-  breakdown.replaceChildren();
-  if (!valid) return null;
-  const lines = [
-    ['Shoot days', String(days)],
-    ['Main film edit', byId('estimate-film').value === 'yes' ? 'Requested' : 'Not requested'],
-    ['Short edits', String(outputs)],
-    ['Pricing', 'Discussed on a call']
-  ];
-  for (const [label, value] of lines) {
-    const row = document.createElement('div');
-    if (label === 'Pricing') row.className = 'grand';
-    const title = document.createElement('dt'); title.textContent = label;
-    const detail = document.createElement('dd'); detail.textContent = value;
-    row.append(title, detail); breakdown.append(row);
-  }
-  return { days, outputs, type: byId('estimate-type').value };
-}
-for (const id of ['estimate-days', 'estimate-outputs', 'estimate-film']) byId(id).addEventListener('input', estimate);
-byId('estimate-type').addEventListener('change', () => {
-  const corporate = byId('estimate-type').value === 'corporate';
-  byId('estimate-output-label').firstChild.textContent = corporate ? 'Short-form cutdowns' : 'Teaser edits';
-  byId('estimate-outputs').value = corporate ? '3' : '1';
-  estimate();
-});
 function initialiseMotion() {
   const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const revealTargetSelector = '.section-heading, .world, .home-projects>article, .service-overview>div, .four-steps>div, .estimate-invite, .service-hero, .faq details, .paper, .quote-summary, .date-enquiry, .agreement-grid>article, .client-voices, .team-section, .corp-reveal, .detail-reveal, .story-library>article';
+  const revealTargetSelector = '.section-heading, .world, .home-projects>article, .service-overview>div, .four-steps>div, .estimate-invite, .service-hero, .faq details, .paper, .date-enquiry, .agreement-grid>article, .client-voices, .team-section, .corp-reveal, .detail-reveal, .story-library>article';
   const revealTargets = document.querySelectorAll(revealTargetSelector);
   const textRevealTargets = Array.from(document.querySelectorAll('.route h2, .route h3, .route p, .route li'))
     .filter(element => element.textContent.trim() && !element.closest(`${revealTargetSelector}, .hero, .hero-story, .process-story, .chapter-story`));
@@ -346,19 +342,5 @@ function initialiseMotion() {
   window.addEventListener('hashchange', () => requestAnimationFrame(updateScrollProgress));
   updateScrollProgress();
 }
-byId('estimate-request').addEventListener('click', () => {
-  const result = estimate();
-  if (!result) return;
-  byId('service').value = result.type === 'wedding' ? 'Wedding' : 'Corporate / content';
-  const brief = document.querySelector('[name="brief"]');
-  const summary = `Quote request for discussion: ${result.days} shoot day(s), ${result.outputs} short edit(s), main film edit ${byId('estimate-film').value}. Pricing will be discussed on a call. Please confirm the final scope.`;
-  if (brief.value && !brief.value.startsWith('Quote request for discussion:')) {
-    byId('estimate-status').textContent = 'Your existing brief has been kept. Discuss the requested scope with EVR on your call.';
-  } else {
-    brief.value = summary;
-  }
-  location.hash = '/request';
-});
 route();
-estimate();
 initialiseMotion();

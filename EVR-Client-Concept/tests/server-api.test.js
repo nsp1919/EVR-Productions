@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const authHandler = require('../api/auth');
+const brandLogoHandler = require('../api/brand-logo');
 const r2ImageUploadHandler = require('../api/r2-image-upload');
 const r2VideoUploadHandler = require('../api/r2-video-upload');
 const { validateContent } = require('../server/content-store');
@@ -325,6 +326,23 @@ test('shared content validation rejects unsupported edit values', () => {
   assert.throws(() => validateContent({ version: 1, entries: {
     image: { type: 'image', value: 'javascript:alert(1)' }
   } }), /unsupported value/);
+});
+
+test('public logo endpoint selects only validated shared logo images', () => {
+  const logos = { light: 'https://media.example.com/light.webp', dark: 'https://media.example.com/dark.webp' };
+  assert.deepEqual(brandLogoHandler.getBrandLogoSet({ entries: {
+    '#brand-logo-v2': { type: 'text', value: JSON.stringify(logos) },
+    private: { type: 'text', value: 'not returned' }
+  } }), logos);
+  assert.deepEqual(brandLogoHandler.getBrandLogoSet({ entries: {
+    '#brand-logo-v1': { type: 'image', value: 'https://media.example.com/legacy.webp' }
+  } }), {
+    light: 'https://media.example.com/legacy.webp',
+    dark: '/assets/evr-productions-logo-dark.png'
+  });
+  assert.throws(() => brandLogoHandler.getBrandLogoSet({ entries: {
+    '#brand-logo-v2': { type: 'text', value: JSON.stringify({ light: 'javascript:alert(1)', dark: logos.dark }) }
+  } }), /invalid/);
 });
 
 test('R2 video uploads require admin auth and reject invalid multipart actions', async () => {

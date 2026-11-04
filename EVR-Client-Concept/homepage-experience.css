@@ -36,8 +36,6 @@
 #date-enquiry-status { font-size: 12px; margin: 16px 0 0; color: #516957; }
 .enquiry-send-options { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
 .enquiry-send-options .button { flex: 1 1 180px; }
-.format-ribbon { padding: 25px 10px; border-block: 1px solid #e4e6de; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; font-size: 11px; color: #727d75; }
-.format-ribbon span:first-child { font: 18px Georgia, serif; color: #41544a; }
 .home-projects > article { padding: 0 0 24px; overflow: hidden; }
 .home-projects > article > .text-link { display: inline-block; margin: 20px 20px 0; }
 .preview-media { position: relative; overflow: hidden; border-radius: 16px; background: #d9e4dd; aspect-ratio: 3 / 4; isolation: isolate; }
@@ -91,7 +89,8 @@
 .phone-shell::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, #ffffff25 45%, transparent 60%); transform: translateX(var(--glint-x, -90%)); pointer-events: none; }
 .phone-camera { width: 83px; height: 18px; background: #24302b; margin: 8px auto 17px; border-radius: 20px; }
 .phone-top { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 12px; border-bottom: 1px solid #e0e4d9; color: #486344; }
-.phone-top b { font-size: 17px; letter-spacing: 2px; }
+.phone-top .phone-brand-logo { flex: 0 0 auto; padding: 1px 3px; border-radius: 3px; }
+.phone-top .brand-logo-image { width: 52px; height: 23px; }
 .phone-top span { font-size: 6px; letter-spacing: .3px; }
 .phone-screen { position: absolute; top: 77px; left: 0; right: 0; padding: 18px 15px; text-align: left; }
 .phone-screen > small { font-size: 7px; color: #956246; letter-spacing: .7px; }
@@ -146,21 +145,21 @@
 .footer-feature-shade { background: linear-gradient(90deg, #10251ff5 0%, #10251fe8 30%, #10251f9c 58%, #10251f24 100%), linear-gradient(0deg, #10251f 0%, #10251fdd 12%, #10251f00 54%), linear-gradient(180deg, #10251f55 0%, transparent 35%); }
 .footer-feature-content { max-width: 850px; }
 .footer-feature-content .eyebrow { color: #edc993; font-size: 9px; }
-.footer-feature-content h2 { margin: 16px 0 0; color: #fffaf0; font: normal clamp(48px, 6vw, 84px)/.98 Georgia, serif; letter-spacing: -.055em; }
+.site-footer .footer-feature-content h2 { margin: 16px 0 0; color: #fffaf0; font: normal clamp(34px, 4vw, 56px)/1.2 Georgia, "Times New Roman", serif; letter-spacing: -.035em; text-wrap: balance; }
 .footer-feature-content h2 em { color: #f0c99a; }
-.footer-feature-content > p:not(.eyebrow) { margin: 18px 0 24px; color: #f0e9dd; font: 17px/1.5 Georgia, serif; }
+.footer-feature-content > p:not(.eyebrow) { margin: 18px 0 24px; color: #f0e9dd; font: 16px/1.7 Arial, Helvetica, sans-serif; }
 .footer-feature-content .button { gap: 12px; border-radius: 999px; padding: 15px 21px; }
 .footer-feature-index { position: absolute; right: 24px; bottom: 20px; color: #fffaf0c9; font-size: 8px; letter-spacing: 1.4px; }
 .footer-main { display: grid; grid-template-columns: 1.2fr .8fr 1fr; gap: clamp(28px, 6vw, 90px); padding: 58px 2% 48px; }
 .footer-brand-block .brand { color: #fff6e6; }
 .footer-brand-block > p { margin: 24px 0 19px; color: #d7ddd2; font: 18px/1.6 Georgia, serif; }
-.footer-location { display: inline-block; color: #c1cfc3; font-size: 10px; line-height: 1.9; }
+.footer-location { display: inline-block; color: #c1cfc3; font: 12px/1.8 Georgia, "Times New Roman", serif; letter-spacing: .01em; }
 .footer-location > span { margin-right: 5px; color: #e7bd87; }
-.site-footer h2 { margin: 4px 0 22px; color: #e7bd87; font: 10px Arial, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
-.footer-nav-group > a, .footer-contact-group > a { display: flex; width: fit-content; align-items: center; gap: 8px; margin: 14px 0; color: #e0e5dc; font-size: 12px; transition: color .2s ease, transform .2s ease; }
+.site-footer h2 { margin: 4px 0 22px; color: #e7bd87; font: normal 19px/1.2 Georgia, "Times New Roman", serif; letter-spacing: .01em; }
+.footer-nav-group > a, .footer-contact-group > a { display: flex; width: fit-content; align-items: center; gap: 8px; margin: 15px 0; color: #e0e5dc; font: 15px/1.4 Georgia, "Times New Roman", serif; transition: color .2s ease, transform .2s ease; }
 .footer-nav-group > a:hover, .footer-contact-group > a:hover { color: #f0c99a; transform: translateX(3px); }
 .footer-contact-group > a:first-of-type { color: #fff6e6; font-weight: 700; }
-.footer-back-top { color: #e7bd87; font-size: 10px; white-space: nowrap; }
+.footer-back-top { color: #e7bd87; font: 12px/1.4 Georgia, "Times New Roman", serif; white-space: nowrap; }
 .site-credit { position: relative; display: flex; min-height: 132px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 22px 4%; border-top: 1px solid #d7b78335; background: #10251f; color: #b7c4ba; text-align: center; }
 .site-credit-label { color: #d7b783; font-size: 8px; font-weight: 700; letter-spacing: 2px; }
 .site-credit-brand { color: #fff8eb; font: 600 clamp(14px, 1.5vw, 16px)/1.2 Georgia, serif; letter-spacing: .01em; text-decoration: none; transition: color .2s ease; }
@@ -253,37 +252,35 @@
   .experience-section { margin-block: 65px; }
   .date-enquiry { grid-template-columns: 1fr; gap: 25px; }
   .date-card { padding: 23px; }
-  .format-ribbon { gap: 18px; justify-content: center; }
-  .format-ribbon span:first-child { flex: 0 0 100%; text-align: center; }
-  .format-ribbon span { font-size: 10px; }
   .agreement-grid { grid-template-columns: 1fr; gap: 0; margin-top: 25px; }
   .agreement-grid article { padding: 20px 12px; }
   .agreement-grid h3 { margin: 10px 0; }
-  .process-story { --process-top: 84px; --process-height: max(640px, calc(100svh - var(--process-top))); margin-top: 40px; }
+  .process-story { --process-top: var(--mobile-pinned-top, 145px); --process-height: max(640px, calc(100svh - var(--process-top))); margin-top: 40px; }
   .process-story.is-pinned { height: calc(var(--process-height) + 180svh); }
-  .process-stage { grid-template-columns: 1fr; align-content: start; gap: 20px; padding: 22px 2%; }
+  .process-stage { grid-template-columns: 1fr; align-content: start; gap: 12px; padding: 14px 2%; }
   .process-copy h2 { font-size: 31px; }
   .process-copy h2 br { display: none; }
   .process-copy .eyebrow { font-size: 8px; margin-bottom: 10px; }
-  .process-copy > p:not(.eyebrow) { font-size: 10px; margin: 10px 0; }
-  .process-copy > .concept-note { font-size: 8px !important; line-height: 1.5; }
-  .process-progress { margin: 12px 0; }
-  .process-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-bottom: 7px; }
+  .process-copy > p:not(.eyebrow) { font-size: 10px; line-height: 1.45; margin: 7px 0; }
+  .process-copy > .process-agreement { line-height: 1.4; }
+  .process-copy > .concept-note { font-size: 8px !important; line-height: 1.35; }
+  .process-progress { margin: 8px 0; }
+  .process-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-bottom: 5px; }
   .process-steps li { padding: 0; }
-  .process-steps button { flex-direction: column; align-items: start; gap: 5px; font: 10px/1.35 Arial, sans-serif; min-height: 59px; width: 100%; padding: 5px; border-radius: 8px; }
+  .process-steps button { flex-direction: column; align-items: start; gap: 4px; font: 10px/1.3 Arial, sans-serif; min-height: 52px; width: 100%; padding: 5px; border-radius: 8px; }
   .process-steps li.active button { background: #eee7dc; }
   .experience-ready .process-steps li p { display: none; }
   .process-copy > .text-link { font-size: 9px; }
   .phone-scene { width: 270px; height: auto; }
-  .phone-shell { width: 194px; height: 322px; border-width: 5px; border-radius: 27px; }
+  .phone-shell { width: 206px; height: 380px; border-width: 5px; border-radius: 29px; }
   .phone-camera { width: 65px; height: 11px; margin: 5px auto 9px; }
   .phone-top { padding: 0 10px 7px; }
-  .phone-top b { font-size: 12px; }
+  .phone-top .brand-logo-image { width: 42px; height: 18px; }
   .phone-top span { font-size: 5px; }
-  .phone-screen { top: 43px; padding: 10px; }
+  .phone-screen { top: 45px; padding: 10px; }
   .phone-screen > small { font-size: 5px; }
   .phone-screen h3 { font-size: 20px; margin: 8px 0; }
-  .phone-screen > img { height: 76px; }
+  .phone-screen > img { height: 88px; }
   .phone-panel { padding: 9px; margin-top: 7px; }
   .phone-panel b { font-size: 8px; }
   .phone-panel p { font-size: 7px; margin: 5px 0; }
@@ -291,10 +288,10 @@
   .phone-mini-card { font-size: 14px; padding: 12px; margin-top: 7px; }
   .phone-bottom { font-size: 5px; padding: 10px; }
   .phone-gallery { gap: 4px; }
-  .phone-gallery img { height: 48px; }
-  .phone-screen[data-phone-screen="4"] { top: 41px; padding: 8px; }
+  .phone-gallery img { height: 52px; }
+  .phone-screen[data-phone-screen="4"] { top: 43px; padding: 8px; }
   .phone-screen[data-phone-screen="4"] h3 { font-size: 17px; line-height: 1; margin: 5px 0 7px; }
-  .phone-screen[data-phone-screen="4"] .phone-gallery img { height: 34px; }
+  .phone-screen[data-phone-screen="4"] .phone-gallery img { height: 40px; }
   .phone-screen[data-phone-screen="4"] .phone-panel { padding: 6px; margin-top: 5px; }
   .phone-screen[data-phone-screen="4"] .phone-panel b { font-size: 7px; }
   .phone-screen[data-phone-screen="4"] .phone-panel p { font-size: 6px; margin: 3px 0; }
@@ -320,16 +317,16 @@
   .site-footer { padding: 0; }
   .footer-feature { min-height: clamp(340px, 100vw, 390px); align-items: end; padding: 24px 7% 40px; background-position: 58% center; }
   .footer-feature-shade { background: linear-gradient(0deg, #10251fff 0%, #10251fea 18%, #10251f8c 56%, #10251f24 100%), linear-gradient(90deg, #10251fc2 0%, #10251f38 100%); }
-  .footer-feature-content h2 { margin-top: 10px; font-size: clamp(30px, 9vw, 42px); }
+  .site-footer .footer-feature-content h2 { margin-top: 10px; font-size: clamp(30px, 8vw, 38px); line-height: 1.22; }
   .footer-feature-content > p:not(.eyebrow) { margin: 12px 0 18px; }
   .footer-feature-content > p:not(.eyebrow) { font-size: 14px; }
-  .corporate-view .corporate-footer-feature .footer-feature-content h2 { margin-top: 12px; font-size: clamp(30px, 8vw, 38px); line-height: 1.22; }
+  .corporate-view .corporate-footer-feature .footer-feature-content h2 { margin-top: 12px; }
   .corporate-view .corporate-footer-feature .footer-feature-content > p:not(.eyebrow) { margin: 14px 0 20px; font-size: 14px; }
   .footer-feature-index { right: 16px; bottom: 13px; font-size: 6px; letter-spacing: 1px; }
   .footer-main { grid-template-columns: 1fr 1fr; gap: 34px 22px; padding: 38px 1% 32px; }
   .footer-brand-block { grid-column: 1 / -1; }
   .site-footer h2 { margin-bottom: 16px; }
-  .footer-nav-group > a, .footer-contact-group > a { overflow-wrap: anywhere; font-size: 11px; }
+  .footer-nav-group > a, .footer-contact-group > a { overflow-wrap: anywhere; font-size: 13px; }
   .site-credit { min-height: 148px; gap: 8px; padding: 20px 6% 40px; }
   .site-credit-brand { font-size: 14px; }
   .site-credit-cta { font-size: 10px; }
@@ -464,6 +461,13 @@
   .film-sequence-copy > p:not(.film-sequence-position) { font-size: 11px; }
   .film-sequence.is-pinned .film-sequence-stage { min-height: 450px; }
 }
+@media (max-width: 700px) {
+  .film-sequence[data-film-sequence="wedding"]:not(.is-pinned) .film-sequence-stage { display: block; min-height: 0; }
+  .film-sequence[data-film-sequence="wedding"]:not(.is-pinned) .film-sequence-visual { height: auto; }
+  .film-sequence[data-film-sequence="wedding"]:not(.is-pinned) .film-sequence-panel { position: relative; inset: auto; width: 100%; margin: 0 0 28px; transform: none; opacity: 1; visibility: visible; }
+  .film-sequence[data-film-sequence="wedding"]:not(.is-pinned) .film-sequence-panel .preview-media { height: auto; max-height: 62svh; }
+  .film-sequence[data-film-sequence="wedding"] .section-heading > p { display: none; }
+}
 @media (max-width: 560px) {
   .home-video-section { width: min(100% - 32px, 480px); margin-block: 76px; }
   .home-video-section .section-heading { display: block; }
@@ -479,7 +483,7 @@
   .lyrical-family-feature > div:last-child { padding: 22px; }
   .lyrical-film-feature:nth-child(2) > .family-film-media,
   .lyrical-film-feature:nth-child(2) > div:last-child { order: 0; }
-  .film-sequence { --film-sticky-top: 88px; }
+  .film-sequence { --film-sticky-top: var(--mobile-pinned-top, 145px); }
   .film-sequence-track { height: auto; }
   .film-sequence-stage { display: block; min-height: 0; }
   .film-sequence-copy { max-width: none; margin-bottom: 22px; }

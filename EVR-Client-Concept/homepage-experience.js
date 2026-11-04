@@ -255,6 +255,7 @@
     lyricalFilmCards.forEach(card => lyricalFilmObserver.observe(card));
   }
   let syncSequenceAutoplay = () => {};
+  let filmSequencePinning = false;
   function renderFilmSequence(sequence) {
     sequence.frame = 0;
     if (home.hidden || !sequence.root.classList.contains('is-pinned')) return;
@@ -330,10 +331,14 @@
     sequence.frame = requestAnimationFrame(() => renderFilmSequence(sequence));
   }
   function configureFilmSequences() {
-    const canPin = !preference.matches && innerHeight >= 620;
+    const pinThreshold = 620;
+    const releaseThreshold = pinThreshold - 100;
+    const canPin = !preference.matches && innerHeight >= (filmSequencePinning ? releaseThreshold : pinThreshold);
+    filmSequencePinning = canPin;
     configureHalfSareeMobileReveal();
     filmSequences.forEach(sequence => {
       const shouldPin = canPin
+        && !(sequence.root.dataset.filmSequence === 'wedding' && innerWidth <= 700)
         && !(sequence.root.dataset.filmSequence === 'half-saree' && innerWidth <= 560);
       sequence.root.classList.toggle('is-pinned', shouldPin);
       sequence.root.style.setProperty('--film-count', String(sequence.panels.length));

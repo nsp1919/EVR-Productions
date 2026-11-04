@@ -11,9 +11,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .brand-logo-image {
@@ -56,12 +58,17 @@ header > .brand-logo-link .brand-logo-image {
 }
 
 .quote-print-footer-brand .brand-logo-image {
-  width: 112px;
-  height: 42px;
+  width: 132px;
+  height: 58px;
 }
 
-.service-wheel-brand .brand-logo-plate {
-  padding: 2px 3px;
+.service-wheel-brand > .brand-logo-plate {
+  margin: 0;
+  font-size: initial;
+  font-weight: initial;
+  line-height: normal;
+  letter-spacing: normal;
+  padding: 0;
 }
 
 .service-wheel-brand .brand-logo-image {
@@ -92,12 +99,5 @@ header > .brand-logo-link .brand-logo-image {
   .admin-login-visual-brand .brand-logo-image {
     width: 148px;
     height: 60px;
-  }
-}
-
-@media print {
-  .quote-print-brand .brand-logo-plate {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
   }
 }

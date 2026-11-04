@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { mockAdminApi } = require('./admin-api-mock');
 
 test('public pages do not expose demo or illustration disclaimers', async ({ page }) => {
   const routes = [
@@ -18,38 +19,103 @@ test('public pages do not expose demo or illustration disclaimers', async ({ pag
   expect(quotationText, 'outdated sample quotation copy').not.toMatch(staleCopy);
 });
 
-test('wedding homepage stays focused and the experience switch opens NBrands', async ({ page }) => {
+test('public pages render while shared content is still loading', async ({ page }) => {
+  await page.route('**/api/content', async route => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await route.continue();
+  });
+  await page.goto('/#/home');
+  await expect(page.locator('#home')).toBeVisible();
+  await expect(page.locator('#home h1')).toBeVisible();
+});
+
+test('below-the-fold wedding film defers its Cloudflare source until visible', async ({ page }) => {
+  const videoUrl = 'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/EVR%20Videos/Half%20Saree%20Cropped/video_2026-10-31_07-42-11.mp4';
+  await page.route('https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/**', route => route.abort());
+  await page.goto('/#/weddings');
+  const video = page.locator('#celebration-film video');
+  const source = video.locator('source');
+  await expect(source).toHaveAttribute('data-src', videoUrl);
+  expect(await source.getAttribute('src')).toBeNull();
+  await video.scrollIntoViewIfNeeded();
+  await expect(source).toHaveAttribute('src', videoUrl);
+  await expect(source).not.toHaveAttribute('data-src');
+});
+
+test('wedding homepage stays focused and the experience switch opens Brand Production', async ({ page }) => {
   await page.goto('/#/home');
 
   await expect(page.locator('.demo-bar')).toHaveCount(0);
   const weddingSwitch = page.locator('.experience-switch [data-experience="home"]');
   const nbrandsSwitch = page.locator('.experience-switch [data-experience="corporate"]');
-  await expect(weddingSwitch).toHaveText('Weddings & Functions');
-  await expect(nbrandsSwitch).toHaveText('NBrands');
+  await expect(weddingSwitch).toHaveText('Weddings & Events');
+  await expect(nbrandsSwitch).toHaveText('Brand Production');
   await expect(page.locator('#home')).toBeVisible();
-  await expect(page).toHaveTitle('Weddings & Functions | EVR Productions');
+  await expect(page).toHaveTitle('Weddings & Events | EVR Productions');
+  await expect(page.locator('#main-nav [data-nav-experience="home"]')).toContainText(
+    /Wedding ServicesWedding StoriesOur ProcessAbout EVRContact/
+  );
+  await expect(page.locator('footer [data-nav-experience="home"]')).toContainText(
+    /Wedding ServicesWedding StoriesOur ProcessAbout EVR/
+  );
   await expect(page.locator('.site-footer .footer-feature[data-footer-experience="home"]')).toBeVisible();
   await expect(page.locator('.site-footer .footer-main[data-footer-experience="home"]')).toBeVisible();
   await expect(page.locator('.site-footer .footer-feature[data-footer-experience="corporate"]')).toBeHidden();
   await expect(page.locator('.site-footer .footer-main[data-footer-experience="corporate"]')).toBeHidden();
   await expect(page.locator('footer [data-nav-experience="home"]')).toBeVisible();
   await expect(page.locator('footer [data-nav-experience="corporate"]')).toBeHidden();
+  const weddingFooterTypography = await page.locator('.site-footer .footer-nav-group[data-nav-experience="home"]').evaluate(element => ({
+    heading: getComputedStyle(element.querySelector('h2')).fontFamily,
+    link: getComputedStyle(element.querySelector('a')).fontFamily
+  }));
+  expect(weddingFooterTypography.heading).toContain('Georgia');
+  expect(weddingFooterTypography.link).toContain('Georgia');
+  const weddingFooterFeatureTypography = await page.locator('.site-footer .footer-feature[data-footer-experience="home"]').evaluate(element => {
+    const heading = getComputedStyle(element.querySelector('h2'));
+    const paragraph = getComputedStyle(element.querySelector('.footer-feature-content > p:not(.eyebrow)'));
+    return {
+      headingFamily: heading.fontFamily,
+      headingSize: heading.fontSize,
+      headingLineHeight: heading.lineHeight,
+      paragraphFamily: paragraph.fontFamily,
+      paragraphSize: paragraph.fontSize,
+      paragraphLineHeight: paragraph.lineHeight
+    };
+  });
+
   const sharedCreditText = await page.locator('.site-credit').innerText();
   const weddingFooterColor = await page.locator('.site-footer').evaluate(element => getComputedStyle(element).backgroundColor);
 
   const weddingContent = await page.locator('#home').innerText();
   expect(weddingContent).not.toMatch(/\b(?:brand|corporate|podcast)\b/i);
+  expect(weddingContent).not.toMatch(/\bfunctions?\b/i);
+  await expect(page.locator('#home .hero-copy .eyebrow')).toContainText('WEDDINGS & EVENTS');
+  await expect(page.locator('#home .service-strip, #home .format-ribbon')).toHaveCount(0);
+  await expect(page.locator('#home .celebration-choice-section')).toContainText('WEDDINGS, EVENTS & FAMILY');
+  await expect(page.locator('#home .celebration-service-links')).toContainText('Events & celebrations');
   await expect(page.locator('#home .corp-client-spotlight')).toHaveCount(0);
   await expect(page.locator('#date-service option')).toHaveCount(4);
 
   await nbrandsSwitch.click();
   await expect(page).toHaveURL(/#\/corporate$/);
   await expect(page.locator('#corporate')).toBeVisible();
-  await expect(page).toHaveTitle('NBrands | EVR Productions');
+  await expect(page).toHaveTitle('Brand Production | EVR Productions');
+  await expect(page.locator('#main-nav [data-nav-experience="corporate"]')).toContainText(
+    /ServicesOur ProcessBrand PortfolioAbout EVRContact/
+  );
+  await expect(page.locator('footer [data-nav-experience="corporate"]')).toContainText(
+    /Brand Production homeServicesOur ProcessBrand Portfolio/
+  );
   await expect(page.locator('.site-footer .footer-feature[data-footer-experience="home"]')).toBeHidden();
   await expect(page.locator('.site-footer .footer-main[data-footer-experience="home"]')).toBeHidden();
   await expect(page.locator('.site-footer .footer-feature[data-footer-experience="corporate"]')).toBeVisible();
   await expect(page.locator('.site-footer .footer-main[data-footer-experience="corporate"]')).toBeVisible();
+  const brandFooterTypography = await page.locator('.site-footer .footer-nav-group[data-nav-experience="corporate"]').evaluate(element => ({
+    heading: getComputedStyle(element.querySelector('h2')).fontFamily,
+    link: getComputedStyle(element.querySelector('a')).fontFamily
+  }));
+  expect(brandFooterTypography.heading).toContain('Georgia');
+  expect(brandFooterTypography.link).toContain('Georgia');
   await expect(page.locator('.site-footer .corporate-footer-feature')).toContainText('Stories that move people.');
   await expect(page.locator('.site-footer .corporate-footer-feature')).toContainText(
     'we turn your ideas into stories your audience will remember.'
@@ -60,15 +126,35 @@ test('wedding homepage stays focused and the experience switch opens NBrands', a
     const style = getComputedStyle(element);
     return {
       fontFamily: style.fontFamily,
-      fontSize: Number.parseFloat(style.fontSize),
-      lineHeight: Number.parseFloat(style.lineHeight),
+      fontSize: style.fontSize,
+      lineHeight: style.lineHeight,
       textTransform: style.textTransform
     };
   });
   expect(footerHeadingStyle.fontFamily).toContain('Georgia');
-  expect(footerHeadingStyle.fontSize).toBeLessThanOrEqual(56);
-  expect(footerHeadingStyle.lineHeight / footerHeadingStyle.fontSize).toBeCloseTo(1.2, 1);
+  expect({
+    headingFamily: footerHeadingStyle.fontFamily,
+    headingSize: footerHeadingStyle.fontSize,
+    headingLineHeight: footerHeadingStyle.lineHeight
+  }).toEqual({
+    headingFamily: weddingFooterFeatureTypography.headingFamily,
+    headingSize: weddingFooterFeatureTypography.headingSize,
+    headingLineHeight: weddingFooterFeatureTypography.headingLineHeight
+  });
   expect(footerHeadingStyle.textTransform).toBe('none');
+  const brandFooterParagraphTypography = await page.locator('.corporate-footer-feature .footer-feature-content > p:not(.eyebrow)').evaluate(element => {
+    const style = getComputedStyle(element);
+    return {
+      paragraphFamily: style.fontFamily,
+      paragraphSize: style.fontSize,
+      paragraphLineHeight: style.lineHeight
+    };
+  });
+  expect(brandFooterParagraphTypography).toEqual({
+    paragraphFamily: weddingFooterFeatureTypography.paragraphFamily,
+    paragraphSize: weddingFooterFeatureTypography.paragraphSize,
+    paragraphLineHeight: weddingFooterFeatureTypography.paragraphLineHeight
+  });
   await expect(page.locator('.site-footer .corporate-footer-feature .footer-film-video'))
     .toHaveAttribute('data-src', 'assets/nbrands-footer-background.mp4');
   await expect(page.locator('.site-footer .corporate-footer-main')).toContainText('Production for brands and businesses');
@@ -105,13 +191,15 @@ test('wedding homepage stays focused and the experience switch opens NBrands', a
   await expect(page.locator('#brand-work')).toBeVisible();
   const caseStudyMedia = page.locator('#brand-work .case-study-video-media');
   const caseStudyVideo = caseStudyMedia.locator('video');
+  await expect(caseStudyVideo).toHaveAttribute('data-src', 'assets/nbrands-case-study-cphtij.mp4');
+  expect(await caseStudyVideo.getAttribute('src')).toBeNull();
+  await caseStudyMedia.scrollIntoViewIfNeeded();
   await expect(caseStudyVideo).toHaveAttribute('src', 'assets/nbrands-case-study-cphtij.mp4');
   await expect(caseStudyVideo).toHaveAttribute('data-viewport-autoplay', '');
   await expect(caseStudyVideo).toHaveAttribute('muted', '');
   await expect(caseStudyVideo).toHaveAttribute('loop', '');
   await expect(caseStudyVideo).toHaveAttribute('playsinline', '');
   await expect.poll(() => caseStudyVideo.evaluate(video => video.readyState)).toBeGreaterThanOrEqual(2);
-  await caseStudyMedia.scrollIntoViewIfNeeded();
   await expect.poll(() => caseStudyVideo.evaluate(video => video.paused)).toBe(false);
   expect(await caseStudyVideo.evaluate(video => [video.videoWidth, video.videoHeight])).toEqual([1080, 1920]);
   expect(await caseStudyVideo.evaluate(video => getComputedStyle(video).objectFit)).toBe('contain');
@@ -183,6 +271,36 @@ test('wedding homepage stays focused and the experience switch opens NBrands', a
   await expect(page.locator('#home')).toBeVisible();
 });
 
+test('legacy saved menu labels are replaced across the site routes', async ({ page }) => {
+  await mockAdminApi(page, {
+    version: 1,
+    entries: {
+      '#main-nav/div:0/a:0': { type: 'text', value: 'Weddings &amp; Events' },
+      '#main-nav/div:0/a:1': { type: 'text', value: 'Our work' }
+    }
+  }, false);
+
+  const homeRoutes = ['home', 'weddings', 'work', 'process', 'about', 'estimate'];
+  for (const route of homeRoutes) {
+    await page.goto(`/#/${route}`);
+    await expect(page.locator(`#${route}`)).toBeVisible();
+    const menu = page.locator('#main-nav [data-nav-experience="home"]');
+    await expect(menu).toContainText('Wedding Services');
+    await expect(menu).toContainText('Wedding Stories');
+    await expect(menu).not.toContainText('Our work');
+  }
+
+  const corporateRoutes = ['corporate', 'services', 'approach', 'brand-work', 'production-quote', 'request'];
+  for (const route of corporateRoutes) {
+    await page.goto(`/#/${route}`);
+    await expect(page.locator(`#${route}`)).toBeVisible();
+    const menu = page.locator('#main-nav [data-nav-experience="corporate"]');
+    await expect(menu).toContainText('Services');
+    await expect(menu).toContainText('Our Process');
+    await expect(menu).toContainText('Brand Portfolio');
+  }
+});
+
 test('Corporate scroll effects reveal by section and honor reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/#/corporate');
@@ -203,8 +321,13 @@ test('Corporate scroll effects reveal by section and honor reduced motion', asyn
   const finalVideo = corporate.locator('.corp-final-video');
   await expect(finalVideo).toHaveAttribute('data-r2-background-slot', 'corporate-studio-background');
   await expect(finalVideo).toHaveAttribute('data-corp-ambient', '');
+  expect(await finalVideo.getAttribute('src')).toBeNull();
   await corporate.locator('.corp-final-content').scrollIntoViewIfNeeded();
   await expect(corporate.locator('.corp-final-content')).toHaveClass(/is-visible/);
+  await expect(finalVideo).toHaveAttribute(
+    'src',
+    'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/89721c74-832d-4fef-804a-4be8761574f7.mp4'
+  );
   await expect.poll(() => finalVideo.evaluate(video => video.style.getPropertyValue('--corp-final-parallax')))
     .not.toBe('');
 
@@ -273,7 +396,7 @@ test('weddings page uses the supplied portrait photos instead of concept artwork
   await expect(page.locator('#weddings .detail-note')).toHaveCount(0);
 });
 
-test('NBrands Services selector advances through its four formats', async ({ page }) => {
+test('EVR Brand Studio Services selector advances through its four formats', async ({ page }) => {
   await page.setViewportSize({ width: 1470, height: 900 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/#/services');
@@ -534,6 +657,7 @@ test('homepage groups the portrait, wedding, lyrical, family, and half-saree R2 
     Number.parseFloat(getComputedStyle(card).transform.split(',')[5]) || 0
   );
   expect(mobileStaggerOffset).toBe(0);
+  await page.setViewportSize({ width: 701, height: 900 });
   const weddingSequence = page.locator('#home [data-film-sequence="wedding"]');
   await weddingSequence.scrollIntoViewIfNeeded();
   await expect(weddingSequence).toHaveClass(/is-pinned/);
@@ -703,6 +827,10 @@ test('process stages use real EVR wedding images and the actual project workflow
   await page.goto('/#/home');
 
   const process = page.locator('#home #process-story');
+  await expect(process.locator('.phone-top [data-brand-logo]')).toHaveAttribute(
+    'src',
+    '/assets/evr-productions-logo-light.png'
+  );
   const steps = process.locator('[data-process-step]');
   const updates = [
     'Share your brief',
@@ -757,6 +885,14 @@ test('process stages use real EVR wedding images and the actual project workflow
     }
     await steps.nth(4).click();
     await expect(process.locator('[data-phone-screen="4"]')).toBeVisible();
+    if (viewport.width <= 700) {
+      const phoneBounds = await process.locator('.phone-shell').evaluate(phone => ({
+        height: Number.parseFloat(getComputedStyle(phone).height),
+        bottom: phone.getBoundingClientRect().bottom
+      }));
+      expect(phoneBounds.height).toBeGreaterThanOrEqual(380);
+      expect(phoneBounds.bottom).toBeLessThanOrEqual(viewport.height);
+    }
     const noticeClearance = await process.evaluate(root => {
       const phone = root.querySelector('.phone-shell').getBoundingClientRect();
       const notice = root.querySelector('.phone-notice').getBoundingClientRect();
@@ -1033,56 +1169,38 @@ test('pinned wedding sequence starts each R2 film as it enters the scroll transi
   await expectClipToStart('couple 01.mp4', .95);
 });
 
-test('wedding side titles leave room for the video on mobile', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test('wedding story cards stay static and visible while scrolling on mobile', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/#/home');
+  for (const width of [390, 700]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/#/home');
+    const sequence = page.locator('#home [data-film-sequence="wedding"]');
+    await expect(sequence).not.toHaveClass(/is-pinned/);
+    await expect(sequence.locator('.section-heading > p')).toBeHidden();
+    const panels = sequence.locator('[data-film-panel]');
+    await expect(panels).toHaveCount(4);
+    const initialLayout = await panels.evaluateAll(elements => elements.map(panel => {
+      const style = getComputedStyle(panel);
+      return {
+        position: style.position,
+        opacity: Number(style.opacity),
+        visibility: style.visibility,
+        transform: style.transform
+      };
+    }));
+    expect(initialLayout.every(panel =>
+      panel.position === 'relative' && panel.opacity === 1
+      && panel.visibility === 'visible' && panel.transform === 'none'
+    )).toBe(true);
 
-  const sequence = page.locator('#home [data-film-sequence="wedding"]');
-  await sequence.evaluate(section => {
-    const stage = section.querySelector('.film-sequence-stage');
-    const track = section.querySelector('.film-sequence-track');
-    const top = parseFloat(getComputedStyle(stage).top) || 0;
-    const start = track.getBoundingClientRect().top + window.scrollY - top;
-    const travel = track.offsetHeight - stage.offsetHeight;
-    window.scrollTo(0, start + travel * .4);
-  });
-  await expect(sequence).toHaveAttribute('data-progress', /0\.4/);
-
-  const layout = await sequence.evaluate(section => {
-    const video = section.querySelector('[data-film-panel][data-active="true"] .preview-media').getBoundingClientRect();
-    const left = section.querySelector('.wedding-side-title-left').getBoundingClientRect();
-    const right = section.querySelector('.wedding-side-title-right').getBoundingClientRect();
-    return {
-      videoLeft: video.left,
-      videoRight: video.right,
-      leftTitleRight: left.right,
-      rightTitleLeft: right.left,
-      viewportWidth: window.innerWidth,
-      leftTitleOpacity: Number.parseFloat(getComputedStyle(section.querySelector('.wedding-side-title-left')).opacity),
-      rightTitleOpacity: Number.parseFloat(getComputedStyle(section.querySelector('.wedding-side-title-right')).opacity),
-      videoCenter: video.top + video.height / 2,
-      leftTitleCenter: left.top + left.height / 2,
-      rightTitleCenter: right.top + right.height / 2,
-      panelCenter: (video.top + section.querySelector('[data-film-panel][data-active="true"] .film-panel-caption').getBoundingClientRect().bottom) / 2,
-      headerBottom: document.querySelector('header').getBoundingClientRect().bottom,
-      viewportHeight: window.innerHeight
-    };
-  });
-  expect(layout.videoLeft).toBeGreaterThanOrEqual(layout.leftTitleRight);
-  expect(layout.videoRight).toBeLessThanOrEqual(layout.rightTitleLeft);
-  expect(layout.videoRight).toBeLessThanOrEqual(layout.viewportWidth);
-  expect(Math.abs(layout.videoCenter - layout.leftTitleCenter)).toBeLessThanOrEqual(10);
-  expect(Math.abs(layout.videoCenter - layout.rightTitleCenter)).toBeLessThanOrEqual(10);
-  expect(Math.abs(layout.panelCenter - (layout.headerBottom + layout.viewportHeight) / 2)).toBeLessThan(80);
-  expect(layout.leftTitleOpacity).toBeGreaterThan(0);
-  expect(layout.rightTitleOpacity).toBeGreaterThan(0);
-  await expect(sequence.locator('.wedding-side-title-left')).toHaveCSS('font-size', '11px');
-  await expect(sequence.locator('.wedding-side-title-right')).toHaveCSS('font-size', '11px');
-  const panelOpacities = await sequence.locator('[data-film-panel]').evaluateAll(panels =>
-    panels.map(panel => Number(getComputedStyle(panel).opacity))
-  );
-  expect(panelOpacities.filter(opacity => opacity > .02)).toHaveLength(1);
+    await sequence.scrollIntoViewIfNeeded();
+    await page.evaluate(() => scrollBy(0, 400));
+    await expect(sequence).not.toHaveAttribute('data-sequence-index', /.+/);
+    const visiblePanels = await panels.evaluateAll(elements =>
+      elements.filter(panel => getComputedStyle(panel).visibility === 'visible').length
+    );
+    expect(visiblePanels).toBe(4);
+  }
 });
 
 test('wedding side titles are enlarged on desktop', async ({ page }) => {
@@ -1098,12 +1216,20 @@ test('wedding side titles are enlarged on desktop', async ({ page }) => {
   expect(fontSize).toBeGreaterThanOrEqual(23);
 });
 
-test('all playable NBrands videos use Cloudflare R2', async ({ page }) => {
+test('all playable EVR Brand Studio videos use Cloudflare R2', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   const externalVideoRequests = [];
+  const backgroundRequests = [];
   page.on('request', request => {
     if (/youtube/i.test(request.url())) externalVideoRequests.push(request.url());
+    if (request.url().includes('89721c74-832d-4fef-804a-4be8761574f7.mp4')) {
+      backgroundRequests.push(request.url());
+    }
   });
+  await page.goto('/#/home');
+  expect(await page.locator('#corporate .corp-hero-bg video').getAttribute('src')).toBeNull();
+  expect(await page.locator('#corporate .corp-final-video').getAttribute('src')).toBeNull();
+  expect(backgroundRequests).toHaveLength(0);
   await page.goto('/#/corporate');
 
   await expect(page.locator('#corporate iframe')).toHaveCount(0);
@@ -1147,6 +1273,7 @@ test('all playable NBrands videos use Cloudflare R2', async ({ page }) => {
     'src',
     'https://pub-aefcf27121ff450faf8570e9de489735.r2.dev/evr-videos/89721c74-832d-4fef-804a-4be8761574f7.mp4'
   );
+  await expect.poll(() => backgroundRequests.length).toBeGreaterThan(0);
   await expect(page.locator('#corporate .corp-hero-bg')).toHaveCSS('opacity', '0.22');
   await expect(heroBackground).toHaveCSS('object-fit', 'cover');
   await expect(heroBackground).toHaveAttribute('poster', 'assets/video-posters/r2/nbrands-empty-studio.jpg');
@@ -1192,7 +1319,7 @@ test('all playable NBrands videos use Cloudflare R2', async ({ page }) => {
   })).toBe(true);
 });
 
-test('NBrands cards use matching supplied artwork and production stills', async ({ page }) => {
+test('EVR Brand Studio cards use matching supplied artwork and production stills', async ({ page }) => {
   await page.goto('/#/corporate');
 
   const serviceArt = page.locator('#corp-services .corp-service-art');
@@ -1229,7 +1356,10 @@ test('NBrands cards use matching supplied artwork and production stills', async 
     'src',
     'assets/four-part-content-creation-wheel.webp'
   );
-  await expect(serviceWheel.locator('.service-wheel-brand')).toHaveText('EVRPRODUCTIONS');
+  await expect(serviceWheel.locator('.service-wheel-brand [data-brand-logo]')).toHaveAttribute(
+    'src',
+    '/assets/evr-productions-logo-light.png'
+  );
   await expect.poll(() => serviceWheelRotor.locator('img').evaluate(image =>
     image.complete && image.naturalWidth > 0
   )).toBe(true);
@@ -1302,7 +1432,7 @@ test('NBrands cards use matching supplied artwork and production stills', async 
   );
 });
 
-test('NBrands work page presents the full video library with muted autoplay and speaker controls', async ({ page }) => {
+test('EVR Brand Studio work page presents the full video library with muted autoplay and speaker controls', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = function() {
       this.dataset.playRequested = 'true';
@@ -1342,7 +1472,7 @@ test('NBrands work page presents the full video library with muted autoplay and 
   await expect(gallery.locator('article:visible')).toHaveCount(2);
 });
 
-test('NBrands approach page uses a muted doctor-led video in the shoot chapter', async ({ page }) => {
+test('EVR Brand Studio approach page uses a muted doctor-led video in the shoot chapter', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = function() {
       this.dataset.playRequested = 'true';
@@ -1367,7 +1497,7 @@ test('NBrands approach page uses a muted doctor-led video in the shoot chapter',
   expect(await video.evaluate(element => element.muted)).toBe(false);
 });
 
-test('NBrands Services page uses the animated healthcare reel in the marketing format panel', async ({ page }) => {
+test('EVR Brand Studio Services page uses the animated healthcare reel in the marketing format panel', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = function() {
       this.dataset.playRequested = 'true';
@@ -1392,7 +1522,7 @@ test('NBrands Services page uses the animated healthcare reel in the marketing f
   expect(await video.evaluate(element => element.muted)).toBe(false);
 });
 
-test('NBrands artwork keeps its production palette without duplicating poster copy', async ({ page }) => {
+test('EVR Brand Studio artwork keeps its production palette without duplicating poster copy', async ({ page }) => {
   await page.goto('/#/corporate');
   const palette = await page.locator('#corporate').evaluate(corporate => {
     const styles = selector => getComputedStyle(corporate.querySelector(selector));
@@ -1417,7 +1547,7 @@ test('NBrands artwork keeps its production palette without duplicating poster co
   expect(palette.designedArtHasNoOverlaidCopy).toBe(true);
 });
 
-test('shared About and Contact pages use NBrands colors without changing their content', async ({ page }) => {
+test('shared About and Contact pages use Brand Studio colors without changing their content', async ({ page }) => {
   await page.goto('/#/about');
   const about = page.locator('#about');
   await expect(about).toBeVisible();
@@ -1466,7 +1596,7 @@ test('shared About and Contact pages use NBrands colors without changing their c
   expect(await request.innerText()).toBe(sharedRequestContent);
 });
 
-test('NBrands page hero headings share the editorial serif style', async ({ page }) => {
+test('EVR Brand Studio page hero headings share the editorial serif style', async ({ page }) => {
   await page.goto('/#/corporate');
   const heroHeadings = [
     ['#/corporate', '#corporate .corp-hero h1'],
@@ -1493,7 +1623,22 @@ test('NBrands page hero headings share the editorial serif style', async ({ page
   }
 });
 
-test('NBrands footer plays the supplied local background video', async ({ page }) => {
+test('EVR Brand Studio naming is consistent across public pages and quote controls', async ({ page }) => {
+  await page.goto('/#/corporate');
+  await expect(page.locator('.corp-hero .corp-kicker')).toContainText('EVR / BRAND STUDIO');
+  await expect(page.locator('.corp-media-caption')).toContainText('EVR / BRAND STUDIO');
+  await expect(page.locator('.corporate-footer-feature .eyebrow')).toContainText('EVR BRAND STUDIO');
+  await expect(page.locator('.corporate-footer-main .brand-logo-context')).toHaveText('EVR BRAND STUDIO');
+
+  await page.goto('/#/brand-work');
+  await expect(page.locator('#brand-work .inner-title .eyebrow')).toHaveText('EVR / BRAND STUDIO WORK');
+  await expect(page.locator('#brand-work')).not.toContainText(/NBrands/i);
+
+  await page.goto('/#/production-quote');
+  await expect(page.locator('#quote-type option[value="corporate"]')).toHaveText('EVR Brand Studio production');
+});
+
+test('EVR Brand Studio footer plays the supplied local background video', async ({ page }) => {
   await page.goto('/#/corporate');
   const feature = page.locator('.corporate-footer-feature');
   const video = feature.locator('.footer-film-video');
@@ -1506,17 +1651,32 @@ test('NBrands footer plays the supplied local background video', async ({ page }
   expect(await video.evaluate(element => element.duration)).toBeGreaterThan(7);
 });
 
-test('About page has a clean text-only hero and displays the founder portrait below', async ({ page }) => {
+test('About page pairs its hero copy with the shared scroll-animated logo', async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto('/#/about');
     const about = page.locator('#about');
     await expect(about).toBeVisible();
     const hero = about.locator('.about-text-hero');
-    await expect(hero.locator('video, .inner-hero-media, img, svg')).toHaveCount(0);
+    const logo = hero.locator('.about-hero-mark');
+    await expect(hero.locator('video, .inner-hero-media')).toHaveCount(0);
+    await expect(logo.locator('[data-brand-logo="light"]'))
+      .toHaveAttribute('src', '/assets/evr-productions-logo-light.png');
     await expect(hero.locator('h1')).toContainText('Every frame');
     await expect(hero.locator('.about-hero-signoff')).toHaveText('PEOPLE · MOMENTS · STORIES');
-    expect(await hero.evaluate(element => getComputedStyle(element).textAlign)).toBe('center');
+    expect(await logo.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    if (viewport.width > 700) {
+      expect(await hero.evaluate(element => getComputedStyle(element).textAlign)).toBe('left');
+      const initialProgress = await logo.evaluate(element =>
+        Number.parseFloat(getComputedStyle(element).getPropertyValue('--about-logo-opacity'))
+      );
+      await page.evaluate(() => scrollBy(0, 100));
+      await expect.poll(() => logo.evaluate(element =>
+        Number.parseFloat(getComputedStyle(element).getPropertyValue('--about-logo-opacity'))
+      )).toBeGreaterThan(initialProgress);
+    } else {
+      expect(await hero.evaluate(element => getComputedStyle(element).textAlign)).toBe('center');
+    }
     const photos = await about.locator('.about-founder-portrait img').evaluateAll(images =>
       images.map(image => ({
         source: image.getAttribute('src'),
@@ -1526,5 +1686,7 @@ test('About page has a clean text-only hero and displays the founder portrait be
     expect(photos.map(photo => photo.source)).toEqual(['assets/venkat-reddy-photographer.jpg']);
     expect(photos.every(photo => photo.loaded)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect.poll(() => logo.getAttribute('style')).toBeNull();
   }
 });

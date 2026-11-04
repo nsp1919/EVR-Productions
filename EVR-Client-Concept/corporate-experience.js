@@ -23,6 +23,7 @@
   let current = -1;
   let scrollRevealObserver;
   const revealIndexes = new Map();
+  let servicePinning = false;
   scrollRevealTargets.forEach(target => {
     const siblings = target.parentElement;
     const index = revealIndexes.get(siblings) || 0;
@@ -71,8 +72,8 @@
 
   function bounds() {
     return {
-      start: services.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(stage).top),
-      travel: services.offsetHeight - stage.offsetHeight,
+      start: services.getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(stage).top) || 0),
+      travel: Math.max(1, services.offsetHeight - stage.offsetHeight),
     };
   }
 
@@ -126,7 +127,10 @@
   }
 
   function configure() {
-    const canPin = !preference.matches && innerHeight >= (innerWidth <= 700 ? 740 : 700);
+    const pinThreshold = innerWidth <= 700 ? 740 : 700;
+    const releaseThreshold = Math.max(0, pinThreshold - 100);
+    const canPin = !preference.matches && innerHeight >= (servicePinning ? releaseThreshold : pinThreshold);
+    servicePinning = canPin;
     services.classList.toggle('is-pinned', canPin);
     current = -1;
     if (!canPin) {
