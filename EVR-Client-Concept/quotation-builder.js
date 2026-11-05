@@ -374,14 +374,16 @@
   const label = node('span');
   floating.append(icon, label);
   document.querySelector('.site-footer').after(floating);
-  function syncFloating() {
-    const corporate = document.body.classList.contains('corporate-view');
+  function syncFloating(event) {
+    const corporate = event?.detail?.experience
+      ? event.detail.experience === 'corporate'
+      : document.body.classList.contains('corporate-view');
     floating.href = corporate ? '#/production-quote' : '#/estimate';
     label.textContent = corporate ? 'Brand quote' : 'Wedding quote';
     floating.setAttribute('aria-label', corporate ? 'Build a brand production quotation' : 'Build a wedding quotation');
-    const activeRoute = document.querySelector('.route:not([hidden])');
+    const activeRoute = event?.detail?.route || document.querySelector('.route:not([hidden])')?.id;
     floating.hidden = !activeRoute || footerVisible ||
-      ['estimate', 'production-quote', 'request', 'studio'].includes(activeRoute.id);
+      ['estimate', 'production-quote', 'request', 'studio'].includes(activeRoute);
     document.body.classList.toggle('has-quote-float', !floating.hidden);
   }
   if ('IntersectionObserver' in window) {
@@ -400,6 +402,6 @@
       target.scrollIntoView({ block: 'start', behavior: 'instant' });
     })), { once: true });
   });
-  window.addEventListener('hashchange', syncFloating);
+  window.addEventListener('evr:routechange', syncFloating);
   syncFloating();
 })();

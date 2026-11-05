@@ -8,10 +8,10 @@ const fixture = path.resolve(__dirname, '..', 'assets', 'nbrands-case-study-cpht
 
 test('video testimonials stay hidden until enabled and can be added, replaced, and removed in admin', async ({ page }) => {
   const api = await mockAdminApi(page);
-  await page.goto('/#/home');
+  await page.goto('/#/admin');
+  await expect(page.locator('#admin-status')).toContainText('Shared website content is ready');
   await expect(page.locator('#video-testimonials')).toBeHidden();
 
-  await page.goto('/#/admin');
   await page.locator('.admin-testimonials summary').click();
   await expect(page.locator('#admin-testimonial-list')).toContainText('No video testimonials yet');
   await page.locator('#admin-testimonial-client').fill('Asha & Ravi');

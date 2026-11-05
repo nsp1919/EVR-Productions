@@ -143,21 +143,69 @@ test('switching experiences animates the page and honors reduced motion', async 
   expect(await page.evaluate(() => window.experienceTransitionCalls)).toBe(2);
 });
 
-test('mobile brand quote button fully covers the WhatsApp button beneath it', async ({ page }) => {
+test('mobile quote covers WhatsApp and reveals it at the footer on both experiences', async ({ page }) => {
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/#/corporate');
     const quote = page.locator('#floating-quote');
     const whatsapp = page.locator('.whatsapp-float');
-    await expect(quote).toBeVisible();
-    await expect(whatsapp).toBeVisible();
-    const quoteBounds = await quote.boundingBox();
-    const whatsappBounds = await whatsapp.boundingBox();
-    expect(quoteBounds.x).toBeLessThanOrEqual(whatsappBounds.x);
-    expect(quoteBounds.x + quoteBounds.width).toBeGreaterThanOrEqual(whatsappBounds.x + whatsappBounds.width);
-    expect(quoteBounds.y).toBeLessThanOrEqual(whatsappBounds.y);
-    expect(quoteBounds.y + quoteBounds.height).toBeGreaterThanOrEqual(whatsappBounds.y + whatsappBounds.height);
+    async function expectQuoteCoversWhatsapp(label, href) {
+      await expect(quote).toBeVisible();
+      await expect(quote).toContainText(label);
+      await expect(quote).toHaveAttribute('href', href);
+      await expect(whatsapp).toBeVisible();
+      const quoteBounds = await quote.boundingBox();
+      const whatsappBounds = await whatsapp.boundingBox();
+      expect(quoteBounds.x).toBeLessThanOrEqual(whatsappBounds.x);
+      expect(quoteBounds.x + quoteBounds.width).toBeGreaterThanOrEqual(whatsappBounds.x + whatsappBounds.width);
+      expect(quoteBounds.y).toBeLessThanOrEqual(whatsappBounds.y);
+      expect(quoteBounds.y + quoteBounds.height).toBeGreaterThanOrEqual(whatsappBounds.y + whatsappBounds.height);
+      const stackingOrder = await page.evaluate(() => ({
+        quote: Number.parseInt(getComputedStyle(document.querySelector('#floating-quote')).zIndex, 10),
+        whatsapp: Number.parseInt(getComputedStyle(document.querySelector('.whatsapp-float')).zIndex, 10)
+      }));
+      expect(stackingOrder.quote).toBeGreaterThan(stackingOrder.whatsapp);
+    }
+    async function expectWhatsappRevealedByFooter() {
+      await page.locator('.site-footer').scrollIntoViewIfNeeded();
+      await expect(quote).toBeHidden();
+      await expect(whatsapp).toBeVisible();
+    }
+
+    await expectQuoteCoversWhatsapp('Brand quote', '#/production-quote');
+    await expectWhatsappRevealedByFooter();
+    await page.goto('/#/home');
+    await expectQuoteCoversWhatsapp('Wedding quote', '#/estimate');
+    await expectWhatsappRevealedByFooter();
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
+  }
+});
+
+test('desktop quote covers WhatsApp and reveals it at the footer on both experiences', async ({ page }) => {
+  for (const width of [1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const experience of [
+      { route: 'corporate', label: 'Brand quote', href: '#/production-quote' },
+      { route: 'home', label: 'Wedding quote', href: '#/estimate' }
+    ]) {
+      await page.goto(`/#/${experience.route}`);
+      const quote = page.locator('#floating-quote');
+      const whatsapp = page.locator('.whatsapp-float');
+      await expect(quote).toBeVisible();
+      await expect(quote).toContainText(experience.label);
+      await expect(quote).toHaveAttribute('href', experience.href);
+      await expect(whatsapp).toBeVisible();
+      const quoteBounds = await quote.boundingBox();
+      const whatsappBounds = await whatsapp.boundingBox();
+      expect(quoteBounds.x).toBeLessThanOrEqual(whatsappBounds.x);
+      expect(quoteBounds.x + quoteBounds.width).toBeGreaterThanOrEqual(whatsappBounds.x + whatsappBounds.width);
+      expect(quoteBounds.y).toBeLessThanOrEqual(whatsappBounds.y);
+      expect(quoteBounds.y + quoteBounds.height).toBeGreaterThanOrEqual(whatsappBounds.y + whatsappBounds.height);
+
+      await page.locator('.site-footer').scrollIntoViewIfNeeded();
+      await expect(quote).toBeHidden();
+      await expect(whatsapp).toBeVisible();
+    }
   }
 });
 

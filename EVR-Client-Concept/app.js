@@ -175,6 +175,12 @@ function route() {
     syncPinnedHeaderOffset();
     window.scrollTo(0, 0);
   });
+  window.dispatchEvent(new CustomEvent('evr:routechange', {
+    detail: {
+      route: isAdmin && !canPreviewAdminPage ? null : activeRoute,
+      experience: activeExperience
+    }
+  }));
 }
 function handleRouteChange() {
   const requested = location.hash.replace(/^#\/?/, '') || 'home';
