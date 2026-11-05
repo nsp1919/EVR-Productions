@@ -415,7 +415,8 @@
         && activePlayer !== player);
   }
   function canPlay(player) {
-    return canAutoplay(player)
+    return !player.failed
+      && canAutoplay(player)
       && !document.hidden
       && !reducedMotion.matches
       && (!player.route || !player.route.hidden)
@@ -423,6 +424,13 @@
       && activePlayer !== player;
   }
   function syncAutoplay(player) {
+    if (player.failed) {
+      player.video.hidden = true;
+      player.image.hidden = false;
+      player.play.hidden = true;
+      player.audio.hidden = true;
+      return;
+    }
     if (canPlay(player)) {
       if (!player.video.getAttribute('src')) player.video.src = player.container.dataset.r2VideoUrl;
       if (player.video.paused) setPlayerMuted(player, true);
@@ -432,6 +440,7 @@
       player.container.classList.add('is-autoplaying');
       player.audio.hidden = false;
       player.video.play().catch(() => {
+        if (player.failed) return;
         player.container.classList.remove('is-autoplaying');
         player.image.hidden = false;
         player.video.controls = false;
@@ -474,6 +483,7 @@
   function closeMedia() {
     mediaRequest += 1;
     players.forEach(player => {
+      if (player.failed) return;
       player.video.pause();
       player.video.controls = false;
       setPlayerMuted(player, true);
@@ -545,7 +555,8 @@
       error,
       sequencePanel: container.closest('[data-film-panel]'),
       route: container.closest('.route'),
-      visible: false
+      visible: false,
+      failed: false
     };
     players.push(player);
     setPlayerMuted(player, true);
@@ -554,11 +565,29 @@
       error.textContent = message;
       error.hidden = false;
     };
-    video.addEventListener('error', () => {
-      if (activePlayer === player) reportError('The Cloudflare R2 video could not load. Check the connection and public bucket access, then close and retry.');
+    const showCoverOnly = () => {
+      player.failed = true;
+      video.pause();
+      video.controls = false;
+      video.hidden = true;
+      if (image) image.hidden = false;
+      play.hidden = true;
+      close.hidden = true;
+      audio.hidden = true;
+      error.hidden = true;
+      container.classList.remove('is-autoplaying', 'is-playing', 'is-unmuted');
+      if (activePlayer === player) activePlayer = undefined;
+    };
+    video.addEventListener('error', showCoverOnly);
+    video.addEventListener('loadeddata', () => {
+      if (!player.failed) return;
+      player.failed = false;
+      delete video.dataset.coverFallbackApplied;
+      syncAutoplay(player);
     });
     play.disabled = false;
     play.addEventListener('click', async () => {
+      if (player.failed) return;
       closeMedia();
       const request = mediaRequest;
       activePlayer = player;
@@ -580,9 +609,11 @@
       } catch (failure) {
         if (request !== mediaRequest) return;
         setPlayerMuted(player, true);
-        reportError(failure.name === 'NotAllowedError'
-          ? 'Playback was blocked. Use the video play control to start the video.'
-          : 'This video could not play. Check that the selected media is publicly accessible.');
+        if (failure.name === 'NotAllowedError') {
+          reportError('Playback was blocked. Use the video play control to start the video.');
+        } else {
+          showCoverOnly();
+        }
       }
     });
     audio.addEventListener('click', () => togglePlayerMuted(player));

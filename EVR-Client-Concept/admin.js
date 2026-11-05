@@ -39,6 +39,7 @@
   const brandWorkCategoriesKey = '#brand-work-gallery-categories-v1';
   const sharedBrandLogoKey = '#brand-logo-v2';
   const legacyBrandLogoKey = '#brand-logo-v1';
+  const videoTestimonialsKey = '#video-testimonials-v1';
   const defaultBrandLogos = {
     light: '/assets/evr-productions-logo-light.png',
     dark: '/assets/evr-productions-logo-dark.png'
@@ -68,6 +69,8 @@
   let managedBrandWorkItems = [];
   let hiddenBrandWorkCardIds = new Set();
   let customBrandWorkCategories = [];
+  let videoTestimonials = { version: 1, enabled: false, items: [] };
+  let videoTestimonialsChanged = false;
   let activeWorkContext = 'work';
   let activePositionImage = null;
   let mediaRevertState = {};
@@ -139,6 +142,7 @@
   }
 
   function setVideoSource(video, source) {
+    delete video.dataset.coverFallbackApplied;
     const previousPlayer = hlsPlayers.get(video);
     if (previousPlayer) {
       previousPlayer.destroy();
@@ -320,6 +324,19 @@
       current = parent;
     }
     return path.join('/');
+  }
+
+  function videoCoverKey(video) {
+    return `${elementKey(video)}::cover`;
+  }
+
+  function applyVideoCover(video, source) {
+    video.poster = source;
+    const cover = video.closest('.preview-media')?.querySelector(':scope > img');
+    if (cover && source) {
+      cover.src = source;
+      cover.hidden = false;
+    }
   }
 
   function phoneGalleryPositionKey(image) {
@@ -776,7 +793,9 @@
     for (const [key, media] of Object.entries(state)) {
       const validValue = media?.type === 'image'
         ? safeImageSource(media.value)
-        : media?.type === 'video' && (/^https?:\/\//i.test(media.value) || /^[\w-]{1,80}$/.test(media.value));
+        : media?.type === 'video-cover'
+          ? media.value === '' || safeImageSource(media.value)
+          : media?.type === 'video' && (/^https?:\/\//i.test(media.value) || /^[\w-]{1,80}$/.test(media.value));
       if (!key || key.length > 500 || !validValue) {
         throw new Error('The saved media revert state contains an invalid source.');
       }
@@ -792,6 +811,201 @@
       return false;
     }
   }
+
+  function decodeVideoTestimonials(value) {
+    let data;
+    try {
+      data = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The saved video testimonials are invalid: ${error.message}`);
+    }
+    if (!data || data.version !== 1 || typeof data.enabled !== 'boolean' ||
+        !Array.isArray(data.items) || data.items.length > 10) {
+      throw new Error('The saved video testimonials have an unsupported format.');
+    }
+    const ids = new Set();
+    const items = data.items.map(item => {
+      if (!item || typeof item !== 'object' || Array.isArray(item) ||
+          typeof item.id !== 'string' || !/^[a-f0-9-]{36}$/i.test(item.id) || ids.has(item.id) ||
+          typeof item.clientName !== 'string' || !item.clientName.trim() || item.clientName.length > 100 ||
+          typeof item.caption !== 'string' || item.caption.length > 240 ||
+          !isSecureMediaUrl(item.videoUrl)) {
+        throw new Error('A saved video testimonial is incomplete or invalid.');
+      }
+      ids.add(item.id);
+      return {
+        id: item.id,
+        clientName: item.clientName.trim(),
+        caption: item.caption.trim(),
+        videoUrl: item.videoUrl
+      };
+    });
+    return { version: 1, enabled: data.enabled, items };
+  }
+
+  function renderVideoTestimonials() {
+    const section = document.getElementById('video-testimonials');
+    const grid = document.getElementById('video-testimonial-grid');
+    if (!section || !grid) return;
+    grid.replaceChildren();
+    for (const item of videoTestimonials.items) {
+      const card = document.createElement('article');
+      card.className = 'video-testimonial-card';
+      const video = document.createElement('video');
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = 'none';
+      video.src = item.videoUrl;
+      video.setAttribute('aria-label', `Client testimonial video: ${item.clientName}`);
+      const client = document.createElement('h3');
+      client.textContent = item.clientName;
+      card.append(video, client);
+      if (item.caption) {
+        const caption = document.createElement('p');
+        caption.textContent = item.caption;
+        card.append(caption);
+      }
+      grid.append(card);
+    }
+    section.hidden = !videoTestimonials.enabled || videoTestimonials.items.length === 0;
+  }
+
+  function renderAdminVideoTestimonials() {
+    const enabled = document.getElementById('admin-testimonials-enabled');
+    const list = document.getElementById('admin-testimonial-list');
+    if (!enabled || !list) return;
+    enabled.checked = videoTestimonials.enabled;
+    list.replaceChildren();
+    if (!videoTestimonials.items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'admin-testimonial-empty';
+      empty.textContent = 'No video testimonials yet. Add one whenever you are ready.';
+      list.append(empty);
+      return;
+    }
+
+    for (const item of videoTestimonials.items) {
+      const row = document.createElement('div');
+      row.className = 'admin-testimonial-item';
+      const details = document.createElement('div');
+      const client = document.createElement('strong');
+      client.textContent = item.clientName;
+      details.append(client);
+      if (item.caption) {
+        const caption = document.createElement('small');
+        caption.textContent = item.caption;
+        details.append(caption);
+      }
+      const replace = document.createElement('button');
+      replace.type = 'button';
+      replace.className = 'admin-tool';
+      replace.textContent = 'Replace video';
+      const picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = 'video/*';
+      picker.hidden = true;
+      replace.addEventListener('click', () => picker.click());
+      picker.addEventListener('change', async () => {
+        const file = picker.files && picker.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('video/') || file.size > 1024 * 1024 * 1024) {
+          setStatus('Choose a supported video file up to 1 GB.', true);
+          picker.value = '';
+          return;
+        }
+        try {
+          await validateVideoContainer(file);
+          setStatus(`Preparing secure Cloudflare R2 upload for ${file.name}…`);
+          const uploaded = await uploadR2Video(file, (loaded, total) => {
+            const percent = total ? Math.floor(loaded / total * 100) : 0;
+            setStatus(`Uploading testimonial to Cloudflare R2: ${percent}% (${(loaded / (1024 * 1024)).toFixed(0)} / ${(total / (1024 * 1024)).toFixed(0)} MB).`);
+          });
+          if (!isSecureMediaUrl(uploaded.playbackUrl)) {
+            throw new Error('The video uploader did not return a secure playback URL.');
+          }
+          const currentItem = videoTestimonials.items.find(candidate => candidate.id === item.id);
+          if (!currentItem) throw new Error('This testimonial was removed before its replacement finished uploading.');
+          currentItem.videoUrl = uploaded.playbackUrl;
+          videoTestimonialsChanged = true;
+          renderVideoTestimonials();
+          renderAdminVideoTestimonials();
+          setStatus('Testimonial video replaced. Choose Save changes to publish it.');
+        } catch (error) {
+          setStatus(`Could not replace the testimonial video: ${error.message}`, true);
+        } finally {
+          picker.value = '';
+        }
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'admin-tool';
+      remove.textContent = 'Delete video';
+      remove.addEventListener('click', () => {
+        if (!window.confirm(`Remove the testimonial video for ${item.clientName} from the website?`)) return;
+        videoTestimonials.items = videoTestimonials.items.filter(candidate => candidate.id !== item.id);
+        videoTestimonialsChanged = true;
+        renderVideoTestimonials();
+        renderAdminVideoTestimonials();
+        setStatus('Testimonial video removed. Choose Save changes to publish the update.');
+      });
+      row.append(details, replace, remove, picker);
+      list.append(row);
+    }
+  }
+
+  document.getElementById('admin-testimonials-enabled').addEventListener('change', event => {
+    videoTestimonials.enabled = event.currentTarget.checked;
+    videoTestimonialsChanged = true;
+    renderVideoTestimonials();
+    setStatus(videoTestimonials.enabled
+      ? 'Video testimonial section enabled. Choose Save changes to publish it.'
+      : 'Video testimonial section hidden. Choose Save changes to publish it.');
+  });
+
+  document.getElementById('admin-testimonial-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const clientInput = document.getElementById('admin-testimonial-client');
+    const captionInput = document.getElementById('admin-testimonial-caption');
+    const videoInput = document.getElementById('admin-testimonial-video');
+    const file = videoInput.files && videoInput.files[0];
+    if (!file || !clientInput.value.trim()) return;
+    if (videoTestimonials.items.length >= 10) {
+      setStatus('You can add up to 10 video testimonials.', true);
+      return;
+    }
+    if (!file.type.startsWith('video/') || file.size > 1024 * 1024 * 1024) {
+      setStatus('Choose a supported video file up to 1 GB.', true);
+      videoInput.value = '';
+      return;
+    }
+    try {
+      await validateVideoContainer(file);
+      setStatus(`Preparing secure Cloudflare R2 upload for ${file.name}…`);
+      const uploaded = await uploadR2Video(file, (loaded, total) => {
+        const percent = total ? Math.floor(loaded / total * 100) : 0;
+        setStatus(`Uploading testimonial to Cloudflare R2: ${percent}% (${(loaded / (1024 * 1024)).toFixed(0)} / ${(total / (1024 * 1024)).toFixed(0)} MB).`);
+      });
+      if (!isSecureMediaUrl(uploaded.playbackUrl)) {
+        throw new Error('The video uploader did not return a secure playback URL.');
+      }
+      videoTestimonials.items.push({
+        id: crypto.randomUUID(),
+        clientName: clientInput.value.trim(),
+        caption: captionInput.value.trim(),
+        videoUrl: uploaded.playbackUrl
+      });
+      videoTestimonialsChanged = true;
+      form.reset();
+      renderVideoTestimonials();
+      renderAdminVideoTestimonials();
+      setStatus('Testimonial video uploaded. Choose Save changes to publish it.');
+    } catch (error) {
+      setStatus(`Could not add the testimonial video: ${error.message}`, true);
+    } finally {
+      videoInput.value = '';
+    }
+  });
 
   function categoryLabel(category, context = 'work') {
     const definition = availableWorkCategories(context).find(item => item.slug === category);
@@ -857,11 +1071,14 @@
     actions.className = 'admin-card-actions';
     actions.setAttribute('aria-label', `Manage ${item.title}`);
 
+    const coverLabel = item.videoUrl
+      ? item.imageUrl ? 'Replace cover' : 'Add cover'
+      : item.imageUrl ? 'Replace photo' : 'Add photo';
     const replaceImage = createMediaIconButton(
-      item.imageUrl ? 'Replace photo' : 'Add photo',
+      coverLabel,
       'image',
       () => imagePicker.click(),
-      `Replace photo · JPG/PNG/WebP/GIF · max 30 MB · 1600px recommended · optimized to WebP`
+      `Replace ${item.videoUrl ? 'video cover' : 'photo'} · JPG/PNG/WebP/GIF · max 30 MB · 1600px recommended · optimized to WebP`
     );
     const imagePicker = document.createElement('input');
     imagePicker.type = 'file';
@@ -871,7 +1088,7 @@
       const file = imagePicker.files && imagePicker.files[0];
       if (!file) return;
       try {
-        setStatus(`Preparing a new cover for ${item.title}…`);
+        setStatus(`Preparing a new ${item.videoUrl ? 'cover' : 'photo'} for ${item.title}…`);
         const imageUrl = await uploadPhotoFile(file);
         const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem) throw new Error('This story was removed before its cover upload finished.');
@@ -879,16 +1096,16 @@
         currentItem.imageUrl = imageUrl;
         markManagedGalleryChanged(context);
         renderManagedWorkItems(context);
-        setStatus('Cover replaced. Choose Save changes to publish it to the shared website.');
+        setStatus(`${item.videoUrl ? 'Video cover' : 'Photo'} replaced. Choose Save changes to publish it to the shared website.`);
       } catch (error) {
-        setStatus(`Could not replace the story cover: ${error.message}`, true);
+        setStatus(`Could not replace the story media: ${error.message}`, true);
       } finally {
         imagePicker.value = '';
       }
     });
 
     if (item.imageRevertUrl) {
-      actions.append(createMediaIconButton('Revert photo', 'undo', () => {
+      actions.append(createMediaIconButton(item.videoUrl ? 'Revert cover' : 'Revert photo', 'undo', () => {
         const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem?.imageRevertUrl) return;
         currentItem.imageUrl = currentItem.imageRevertUrl;
@@ -896,8 +1113,8 @@
         markManagedGalleryChanged(context);
         renderManagedWorkItems(context);
         renderMediaControls();
-        setStatus('Previous photo restored. Choose Save changes to publish the update.');
-      }, 'Restore the previous photo'));
+        setStatus(`Previous ${item.videoUrl ? 'cover' : 'photo'} restored. Choose Save changes to publish the update.`);
+      }, `Restore the previous ${item.videoUrl ? 'cover' : 'photo'}`));
     }
 
     const replaceVideo = createMediaIconButton(
@@ -1051,14 +1268,18 @@
     const selectedType = workForm.querySelector('input[name="admin-work-media-type"]:checked')?.value;
     const imageUpload = document.getElementById('admin-work-image-upload');
     const videoUpload = document.getElementById('admin-work-video-upload');
+    const coverUpload = document.getElementById('admin-work-cover-upload');
     const imageInput = document.getElementById('admin-work-image');
     const videoInput = document.getElementById('admin-work-video');
+    const coverInput = document.getElementById('admin-work-cover');
     imageUpload.hidden = selectedType !== 'image';
     videoUpload.hidden = selectedType !== 'video';
+    coverUpload.hidden = selectedType !== 'video';
     imageInput.required = selectedType === 'image';
     videoInput.required = selectedType === 'video';
     if (selectedType !== 'image') imageInput.value = '';
     if (selectedType !== 'video') videoInput.value = '';
+    if (selectedType !== 'video') coverInput.value = '';
   }
 
   function validateEntries(entries) {
@@ -1133,8 +1354,14 @@
         }
         checked[key] = { type: 'text', value: JSON.stringify(parseBrandLogoSet(entry.value)) };
       }
+      else if (key === videoTestimonialsKey) {
+        if (entry.type !== 'text') throw new Error('The saved video testimonials have an unsupported format.');
+        videoTestimonials = decodeVideoTestimonials(entry.value);
+        checked[key] = { type: 'text', value: JSON.stringify(videoTestimonials) };
+      }
       else if (entry.type === 'text') checked[key] = { type: 'text', value: safeMarkup(entry.value) };
       else if (entry.type === 'image' && safeImageSource(entry.value)) checked[key] = { type: 'image', value: entry.value };
+      else if (entry.type === 'video-cover' && safeImageSource(entry.value)) checked[key] = { type: 'video-cover', value: entry.value };
       else if (entry.type === 'video' && (/^https?:\/\//i.test(entry.value) || /^[\w-]{1,80}$/.test(entry.value))) checked[key] = { type: 'video', value: entry.value };
       else if (entry.type === 'background' && CSS.supports('color', entry.value)) checked[key] = { type: 'background', value: entry.value };
       else throw new Error('An edit entry contains an unsupported value.');
@@ -1149,6 +1376,13 @@
   function applyEdits() {
     renderManagedWorkItems();
     renderManagedWorkItems('brand-work');
+    if (!videoTestimonialsChanged) {
+      videoTestimonials = edits[videoTestimonialsKey]
+        ? decodeVideoTestimonials(edits[videoTestimonialsKey].value)
+        : { version: 1, enabled: false, items: [] };
+    }
+    renderVideoTestimonials();
+    renderAdminVideoTestimonials();
     const legacyLogo = edits[legacyBrandLogoKey]?.value;
     const logoSet = edits[sharedBrandLogoKey]
       ? parseBrandLogoSet(edits[sharedBrandLogoKey].value)
@@ -1170,6 +1404,10 @@
       }
       else if (edit.type === 'background') element.style.backgroundColor = edit.value;
     }
+    document.querySelectorAll('video').forEach(video => {
+      const cover = edits[videoCoverKey(video)];
+      if (cover?.type === 'video-cover') applyVideoCover(video, cover.value);
+    });
     const legacyWeddingMenuLabels = new Map([
       ['Weddings & Events', 'Wedding Services'],
       ['Our work', 'Wedding Stories']
@@ -1392,6 +1630,22 @@
           },
           'Replace video · MP4 (H.264) recommended · MOV/WebM/MKV/AVI · match card shape · max 1 GB'
         ));
+        if (video) {
+          panel.append(createMediaIconButton(
+            'Replace cover',
+            'image',
+            () => selectVideoCover(video),
+            `Replace video cover · ${recommendedImageSize(root)} · JPG/PNG/WebP/GIF · max 30 MB · optimized to WebP`
+          ));
+          if (mediaRevertState[videoCoverKey(video)]) {
+            panel.append(createMediaIconButton(
+              'Revert cover',
+              'undo',
+              () => revokeMediaReplacement(video, 'video-cover'),
+              'Restore the previous video cover'
+            ));
+          }
+        }
         if (video && mediaRevertState[elementKey(video)]) {
           panel.append(createMediaIconButton(
             'Revert video',
@@ -1480,8 +1734,13 @@
     videoPicker.click();
   }
 
-  function revokeMediaReplacement(element) {
-    const key = elementKey(element);
+  function selectVideoCover(video) {
+    selectElement(video);
+    photoPicker.click();
+  }
+
+  function revokeMediaReplacement(element, type = element instanceof HTMLVideoElement ? 'video' : 'image') {
+    const key = type === 'video-cover' ? videoCoverKey(element) : elementKey(element);
     const previous = mediaRevertState[key];
     if (!previous) return;
     edits[key] = previous;
@@ -1495,6 +1754,9 @@
       element.dataset.adminVideoAsset = previous.value;
       setVideoSource(element, videoUrls.get(previous.value) || previous.value);
       markUploadedVideo(element);
+    } else if (previous.type === 'video-cover' && element instanceof HTMLVideoElement) {
+      applyVideoCover(element, previous.value);
+      delete element.dataset.adminVideoCoverEdited;
     }
     renderMediaControls();
     setStatus('Previous media restored. Choose Save changes to publish the update.');
@@ -1660,6 +1922,7 @@
     const mediaType = workForm.querySelector('input[name="admin-work-media-type"]:checked')?.value;
     const imageFile = mediaType === 'image' ? document.getElementById('admin-work-image').files[0] : null;
     const videoFile = mediaType === 'video' ? document.getElementById('admin-work-video').files[0] : null;
+    const coverFile = mediaType === 'video' ? document.getElementById('admin-work-cover').files[0] : null;
     if (!title || !description || (!imageFile && !videoFile)) return;
     if (!availableWorkCategories(context).some(item => item.slug === category)) {
       dialogStatus.textContent = 'Choose a valid story category.';
@@ -1695,6 +1958,10 @@
           throw new Error('The video uploader did not return a secure playback URL.');
         }
         videoUrl = uploaded.playbackUrl;
+        if (coverFile) {
+          dialogStatus.textContent = 'Preparing the optional video cover…';
+          imageUrl = await uploadPhotoFile(coverFile);
+        }
       }
 
       const id = typeof crypto.randomUUID === 'function'
@@ -1720,17 +1987,28 @@
 
   photoPicker.addEventListener('change', async () => {
     const file = photoPicker.files && photoPicker.files[0];
-    if (!file || !selectedElement || !(selectedElement instanceof HTMLImageElement)) return;
+    if (!file || !selectedElement ||
+        (!(selectedElement instanceof HTMLImageElement) && !(selectedElement instanceof HTMLVideoElement))) return;
     try {
-      const key = elementKey(selectedElement);
-      const previousSource = mediaSource(selectedElement, 'image');
+      const isVideoCover = selectedElement instanceof HTMLVideoElement;
+      const key = isVideoCover ? videoCoverKey(selectedElement) : elementKey(selectedElement);
+      const previousSource = isVideoCover
+        ? selectedElement.poster || selectedElement.closest('.preview-media')?.querySelector(':scope > img')?.src || ''
+        : mediaSource(selectedElement, 'image');
       const uploadedSource = await uploadPhotoFile(file);
-      if (!safeImageSource(previousSource)) throw new Error('The previous photo could not be restored safely.');
-      mediaRevertState[key] = { type: 'image', value: previousSource };
-      selectedElement.src = uploadedSource;
-      selectedElement.dataset.adminImageEdited = 'true';
+      if (previousSource && !safeImageSource(previousSource)) {
+        throw new Error(`The previous ${isVideoCover ? 'video cover' : 'photo'} could not be restored safely.`);
+      }
+      mediaRevertState[key] = { type: isVideoCover ? 'video-cover' : 'image', value: previousSource };
+      if (isVideoCover) {
+        applyVideoCover(selectedElement, uploadedSource);
+        selectedElement.dataset.adminVideoCoverEdited = 'true';
+      } else {
+        selectedElement.src = uploadedSource;
+        selectedElement.dataset.adminImageEdited = 'true';
+      }
       renderMediaControls();
-      setStatus('Photo uploaded. Choose Save changes to publish it to the shared website.');
+      setStatus(`${isVideoCover ? 'Video cover' : 'Photo'} uploaded. Choose Save changes to publish it to the shared website.`);
     } catch (error) {
       setStatus(`Could not process this photo: ${error.message}`, true);
     } finally {
@@ -1812,6 +2090,11 @@
         next[elementKey(element)] = { type: 'image', value: element.src };
       }
     });
+    document.querySelectorAll('[data-admin-video-cover-edited="true"]').forEach(video => {
+      if (video instanceof HTMLVideoElement && safeImageSource(video.poster)) {
+        next[videoCoverKey(video)] = { type: 'video-cover', value: video.poster };
+      }
+    });
     document.querySelectorAll('#home [data-phone-screen="4"] .phone-gallery img[data-admin-position-edited="true"]').forEach(image => {
       const position = currentPhoneGalleryPosition(image);
       const key = phoneGalleryPositionKey(image);
@@ -1830,6 +2113,9 @@
         next[mediaRevertKey] = { type: 'text', value: JSON.stringify(mediaRevertState) };
       } else {
         delete next[mediaRevertKey];
+      }
+      if (videoTestimonialsChanged) {
+        next[videoTestimonialsKey] = { type: 'text', value: JSON.stringify(videoTestimonials) };
       }
       for (const context of managedGalleryChanges) {
         if (context === 'brand-work') {
@@ -1861,6 +2147,7 @@
         : new Set();
       managedGalleryChanged = false;
       managedGalleryChanges.clear();
+      videoTestimonialsChanged = false;
       pendingVideos.clear();
       document.querySelectorAll('[data-admin-text-edited="true"]').forEach(element => {
         element.innerHTML = safeMarkup(element.innerHTML);
@@ -1887,7 +2174,12 @@
         }
         delete element.dataset.adminVideoEdited;
       });
+      document.querySelectorAll('[data-admin-video-cover-edited="true"]').forEach(element => {
+        delete element.dataset.adminVideoCoverEdited;
+      });
       clearSelection();
+      renderVideoTestimonials();
+      renderAdminVideoTestimonials();
       setStatus('Changes saved to the shared website.');
     } catch (error) {
       setStatus(`Could not save changes: ${error.message}`, true);
@@ -1946,9 +2238,9 @@
       }
       const entries = { ...imported.entries };
       for (const [key, entry] of Object.entries(entries)) {
-        if (entry?.type === 'image' && /^data:image\//i.test(entry.value)) {
+        if (['image', 'video-cover'].includes(entry?.type) && /^data:image\//i.test(entry.value)) {
           const blob = await fetch(entry.value).then(response => response.blob());
-          entries[key] = { type: 'image', value: await uploadMedia(blob, blob.type) };
+          entries[key] = { type: entry.type, value: await uploadMedia(blob, blob.type) };
         } else if (entry?.type === 'video' && /^data:video\//i.test(entry.value)) {
           throw new Error('Video files are kept in Cloudflare R2, not inside content backups. Upload the video in the editor, then import a backup containing its R2 playback link.');
         } else if (entry?.type === 'video' && /^[\w-]{1,80}$/.test(entry.value)) {
@@ -2036,9 +2328,9 @@
       }
       const migrated = { ...saved.entries };
       for (const [key, entry] of Object.entries(migrated)) {
-        if (entry?.type === 'image' && /^data:image\//i.test(entry.value)) {
+        if (['image', 'video-cover'].includes(entry?.type) && /^data:image\//i.test(entry.value)) {
           const blob = await fetch(entry.value).then(response => response.blob());
-          migrated[key] = { type: 'image', value: await uploadMedia(blob, blob.type) };
+          migrated[key] = { type: entry.type, value: await uploadMedia(blob, blob.type) };
         } else if (entry?.type === 'video' && !/^https:\/\//i.test(entry.value)) {
           throw new Error(`Legacy browser video "${entry.value}" must be uploaded again with the Cloudflare R2 video uploader before migration.`);
         }

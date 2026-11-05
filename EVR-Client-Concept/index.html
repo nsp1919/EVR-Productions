@@ -103,6 +103,18 @@ html.admin-route-pending > body > header {
    <input id="admin-logo-file" type="file" accept="image/png" hidden>
    <span>Choose one transparent PNG; matching light- and dark-background versions are generated automatically.</span>
   </div>
+  <details class="admin-testimonials">
+   <summary class="admin-testimonials-heading"><p class="eyebrow">HOME PAGE / CLIENT STORIES</p><h2 id="admin-testimonials-title">Video testimonials</h2><p>Add client videos whenever you have them. The public section stays hidden until at least one video is added and you choose to show it.</p></summary>
+   <label class="admin-testimonials-toggle"><input id="admin-testimonials-enabled" type="checkbox"><span>Show video testimonials on the website</span></label>
+   <form id="admin-testimonial-form" class="admin-testimonial-form">
+    <label for="admin-testimonial-client">Client name<input id="admin-testimonial-client" maxlength="100" placeholder="e.g. Asha &amp; Ravi" required></label>
+    <label for="admin-testimonial-caption">Short note <span>Optional</span><input id="admin-testimonial-caption" maxlength="240" placeholder="A few words about their celebration"></label>
+    <label class="admin-work-upload">Testimonial video <span>MP4 recommended · max 1 GB</span><input id="admin-testimonial-video" type="file" accept="video/*" required></label>
+    <button class="admin-tool" type="submit">Upload testimonial video</button>
+   </form>
+   <div id="admin-testimonial-list" class="admin-testimonial-list" aria-live="polite"></div>
+   <p class="admin-note">Video uploads are stored in Cloudflare R2. Select Save changes to publish added, replaced, removed or visibility changes.</p>
+  </details>
   <dialog class="admin-work-dialog" id="admin-work-dialog" aria-labelledby="admin-work-dialog-title">
    <form class="admin-work-controls" id="admin-work-controls">
     <header class="admin-work-dialog-header">
@@ -116,6 +128,7 @@ html.admin-route-pending > body > header {
     </fieldset>
     <label class="admin-work-upload" id="admin-work-image-upload" hidden>Cover image <span>JPG, PNG, WebP or GIF · max 30 MB</span><input id="admin-work-image" type="file" accept="image/*"></label>
     <label class="admin-work-upload" id="admin-work-video-upload" hidden>Video file <span>MP4 recommended · max 1 GB</span><input id="admin-work-video" type="file" accept="video/*"></label>
+    <label class="admin-work-upload" id="admin-work-cover-upload" hidden>Cover image (optional) <span>Shown before playback and if the video cannot load · JPG/PNG/WebP/GIF · max 30 MB</span><input id="admin-work-cover" type="file" accept="image/*"></label>
     <div class="admin-work-category-row">
      <label for="admin-work-category">Category<select id="admin-work-category"></select></label>
      <div class="admin-category-add">
@@ -286,7 +299,11 @@ html.admin-route-pending > body > header {
   <article><span>WEDDING EXPERIENCE</span><blockquote>“We are really happy that we trusted EVR PRODUCTIONS to capture our wedding. We are really happy with the output. Venkat is friendly and treated us like friends, not just clients.”</blockquote><cite>Jagan &amp; Jyothi</cite><video class="voice-video" controls playsinline preload="metadata" hidden aria-label="Client testimonial video: Jagan and Jyothi"></video></article>
   <article><span>WEDDING EXPERIENCE</span><blockquote>“Best quality in budget. We are really happy to be associated with EVR PRODUCTIONS.”</blockquote><cite>Akash &amp; Dipa</cite><video class="voice-video" controls playsinline preload="metadata" hidden aria-label="Client testimonial video: Akash and Dipa"></video></article>
  </div></section>
- <section class="date-enquiry experience-section" aria-labelledby="date-heading"><div><p class="eyebrow">START WITH YOUR CELEBRATION DATE</p><h2 id="date-heading">A date in mind?<br><em>Let's shape the plan.</em></h2><p>Choose your occasion and preferred date to start a project enquiry.</p><p class="concept-note">EVR will confirm date availability after receiving your enquiry.</p></div><form id="date-enquiry-form" class="date-card"><label>What are you planning?<select id="date-service"><option value="Wedding">Wedding photography or films</option><option value="Pre-wedding">Pre-wedding</option><option value="Maternity / family">Maternity / family</option><option value="Birthday / celebration">Birthday / event / celebration</option></select></label><label>Preferred shoot date<input id="shoot-date" type="date" required></label><button class="button gold" type="submit">Continue to project enquiry ↗</button><p id="date-enquiry-status" role="status"></p><noscript><p>To enquire, email <a href="mailto:evrproductionss@gmail.com">EVR Productions</a> or message <a href="https://wa.me/919951718375">EVR on WhatsApp</a>.</p></noscript></form></section>
+  <section id="video-testimonials" class="video-testimonials experience-section" aria-labelledby="video-testimonials-title" hidden>
+   <p class="eyebrow">REAL EVR CLIENTS</p><h2 id="video-testimonials-title">In their own words.<br><em>On camera.</em></h2>
+   <div class="video-testimonial-grid" id="video-testimonial-grid"></div>
+  </section>
+  <section class="date-enquiry experience-section" aria-labelledby="date-heading"><div><p class="eyebrow">START WITH YOUR CELEBRATION DATE</p><h2 id="date-heading">A date in mind?<br><em>Let's shape the plan.</em></h2><p>Choose your occasion and preferred date to start a project enquiry.</p><p class="concept-note">EVR will confirm date availability after receiving your enquiry.</p></div><form id="date-enquiry-form" class="date-card"><label>What are you planning?<select id="date-service"><option value="Wedding">Wedding photography or films</option><option value="Pre-wedding">Pre-wedding</option><option value="Maternity / family">Maternity / family</option><option value="Birthday / celebration">Birthday / event / celebration</option></select></label><label>Preferred shoot date<input id="shoot-date" type="date" required></label><button class="button gold" type="submit">Continue to project enquiry ↗</button><p id="date-enquiry-status" role="status"></p><noscript><p>To enquire, email <a href="mailto:evrproductionss@gmail.com">EVR Productions</a> or message <a href="https://wa.me/919951718375">EVR on WhatsApp</a>.</p></noscript></form></section>
  <section class="home-faq experience-section" aria-labelledby="home-faq-heading"><div><p class="eyebrow">BEFORE WE BEGIN</p><h2 id="home-faq-heading">A few useful<br><em>answers.</em></h2></div><div class="faq"><details><summary>Do you travel outside Hyderabad?</summary><p>Yes. EVR is based in Hyderabad and is available for projects across India. Travel and accommodation requirements depend on the project.</p></details><details><summary>Can we book photography and videography together?</summary><p>Yes. You can discuss photography, films or combined coverage for your wedding or celebration.</p></details><details><summary>Can wedding coverage be customised?</summary><p>Yes. Discuss your events, coverage requirements and deliverables with EVR to shape a suitable scope.</p></details><details><summary>Can you cover family events and birthdays?</summary><p>Yes. Share the occasion, date and moments you want covered, and EVR can discuss a suitable scope.</p></details><details><summary>How early should we enquire?</summary><p>Wedding availability depends on the date and season, so earlier enquiries are recommended. A date enquiry is not a booking confirmation.</p></details></div></section>
  <div class="estimate-invite"><div><p class="eyebrow">A CLEARER START</p><h2>Shape the shoot.<br>Start the conversation.</h2><p>Build a wedding estimate from the current rate card.<br>EVR confirms the final scope and price.</p></div><div><a class="button gold" href="#/estimate">Build a wedding estimate ↗</a><a class="text-link" href="#/request">Prefer a conversation? Share your brief ↗</a></div></div>
 </section>
@@ -601,15 +618,15 @@ html.admin-route-pending > body > header {
  </article>
 </dialog>
 <script src="brand-logo.js?v=transparent-logo-pair-1"></script>
-<script src="app.js?v=detailed-quote-flow-only-1"></script>
+<script src="app.js?v=video-cover-fallback-1"></script>
 <script src="hero-motion.js?v=real-photo-collage"></script>
 <script src="r2-video-library.js?v=lazy-media-load-1"></script>
-<script src="homepage-experience.js?v=phone-notice-outside-all-screens-3"></script>
+<script src="homepage-experience.js?v=video-cover-fallback-1"></script>
 <script src="corporate-experience.js?v=campaign-cards-grid-1"></script>
 <script src="detail-pages.js?v=about-logo-scroll-1"></script>
-<script src="quotation-builder.js?v=public-wedding-total-only-1"></script>
-<script src="quote-maker.js?v=evr-brand-studio-name-1"></script>
+<script src="quotation-builder.js?v=public-album-45-1"></script>
+<script src="quote-maker.js?v=evr-album-45-1"></script>
 <script src="admin-media-client.js?v=r2-unified-storage-1"></script>
-<script src="admin.js?v=evr-brand-studio-name-1"></script>
+<script src="admin.js?v=admin-video-cover-1"></script>
 </body>
 </html>

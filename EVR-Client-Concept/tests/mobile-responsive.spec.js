@@ -57,7 +57,13 @@ test('mobile navigation opens and exposes each experience menu', async ({ page }
     const experienceSwitch = page.locator('.experience-switch');
     const logoBounds = await page.locator('header > .brand-logo-link').boundingBox();
     const switchBounds = await experienceSwitch.boundingBox();
+    const corporateLabel = experienceSwitch.locator('[data-experience="corporate"] > span');
+    const corporateButtonBounds = await experienceSwitch.locator('[data-experience="corporate"]').boundingBox();
+    const corporateLabelBounds = await corporateLabel.boundingBox();
     const menuBounds = await menuButton.boundingBox();
+    expect(Math.abs((corporateLabelBounds.x + corporateLabelBounds.width / 2) - (corporateButtonBounds.x + corporateButtonBounds.width / 2))).toBeLessThan(1);
+    expect(Math.abs((corporateLabelBounds.y + corporateLabelBounds.height / 2) - (corporateButtonBounds.y + corporateButtonBounds.height / 2))).toBeLessThan(1);
+    await expect(corporateLabel).toHaveCSS('font-family', /Georgia/);
     if (route === 'corporate') {
       const indicator = await experienceSwitch.evaluate(element => {
         const style = getComputedStyle(element, '::before');
@@ -92,6 +98,67 @@ test('mobile navigation opens and exposes each experience menu', async ({ page }
   const narrowLogoBounds = await page.locator('header > .brand-logo-link').boundingBox();
   expect(Math.abs((narrowMenuBounds.y + narrowMenuBounds.height / 2) - (narrowLogoBounds.y + narrowLogoBounds.height / 2))).toBeLessThan(8);
   await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
+});
+
+test('wedding and brand navigation bars keep the same height and vertical position', async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const headerMeasurements = [];
+    for (const route of ['home', 'corporate']) {
+      await page.goto(`/#/${route}`);
+      const bounds = await page.locator('body > header').boundingBox();
+      headerMeasurements.push(bounds);
+    }
+    expect(Math.abs(headerMeasurements[0].height - headerMeasurements[1].height)).toBeLessThan(1);
+    expect(Math.abs(headerMeasurements[0].y - headerMeasurements[1].y)).toBeLessThan(1);
+  }
+});
+
+test('switching experiences animates the page and honors reduced motion', async ({ page }) => {
+  await page.goto('/#/home');
+  await page.evaluate(() => {
+    window.experienceTransitionCalls = 0;
+    document.startViewTransition = callback => {
+      window.experienceTransitionCalls += 1;
+      callback();
+      return { finished: Promise.resolve() };
+    };
+  });
+  const switchToCorporate = page.locator('.experience-switch [data-experience="corporate"]');
+  await switchToCorporate.click();
+  await expect(page.locator('#corporate')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.experienceTransitionCalls)).toBe(1);
+
+  await page.locator('.experience-switch [data-experience="home"]').click();
+  await expect(page.locator('#home')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.experienceTransitionCalls)).toBe(2);
+  const pillTransition = await page.locator('.experience-switch').evaluate(element =>
+    getComputedStyle(element, '::before').transitionProperty
+  );
+  expect(pillTransition).toContain('left');
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('.experience-switch [data-experience="corporate"]').click();
+  await expect(page.locator('#corporate')).toBeVisible();
+  expect(await page.evaluate(() => window.experienceTransitionCalls)).toBe(2);
+});
+
+test('mobile brand quote button fully covers the WhatsApp button beneath it', async ({ page }) => {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/#/corporate');
+    const quote = page.locator('#floating-quote');
+    const whatsapp = page.locator('.whatsapp-float');
+    await expect(quote).toBeVisible();
+    await expect(whatsapp).toBeVisible();
+    const quoteBounds = await quote.boundingBox();
+    const whatsappBounds = await whatsapp.boundingBox();
+    expect(quoteBounds.x).toBeLessThanOrEqual(whatsappBounds.x);
+    expect(quoteBounds.x + quoteBounds.width).toBeGreaterThanOrEqual(whatsappBounds.x + whatsappBounds.width);
+    expect(quoteBounds.y).toBeLessThanOrEqual(whatsappBounds.y);
+    expect(quoteBounds.y + quoteBounds.height).toBeGreaterThanOrEqual(whatsappBounds.y + whatsappBounds.height);
+    await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
+  }
 });
 
 test('mobile pinned sections animate below the sticky header', async ({ page }) => {

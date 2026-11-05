@@ -135,6 +135,14 @@
 .voice-grid blockquote { margin: 22px 0; color: #33483d; font: normal 22px/1.45 Georgia, serif; }
 .voice-grid cite { color: #697466; font-size: 11px; font-style: normal; }
 .voice-grid .voice-video { display: block; width: 100%; max-height: 320px; aspect-ratio: 16 / 9; margin-top: 18px; border-radius: 12px; background: #18251f; object-fit: contain; }
+.video-testimonials { padding: clamp(34px, 6vw, 72px); border-radius: 24px; background: #f1eee6; }
+.video-testimonials h2 { margin: 0 0 28px; color: #273a31; font-size: clamp(32px, 5vw, 54px); }
+.video-testimonials h2 em { color: #995944; }
+.video-testimonial-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.video-testimonial-card { min-width: 0; padding: 14px; border: 1px solid #ded9ce; border-radius: 18px; background: #fffdf9; }
+.video-testimonial-card video { display: block; width: 100%; max-height: 480px; aspect-ratio: 9 / 16; border-radius: 12px; background: #18251f; object-fit: contain; }
+.video-testimonial-card h3 { margin: 16px 4px 6px; color: #273a31; font: 500 21px/1.2 Georgia, serif; }
+.video-testimonial-card p { margin: 0 4px 6px; color: #59645b; font-size: 13px; line-height: 1.55; }
 .home-faq { display: grid; grid-template-columns: .8fr 1.2fr; gap: 10%; }
 .home-faq .faq { margin: 0; width: 100%; }
 .site-footer { display: block; padding: 0; border: 0; background: #10251f; color: #f7f2e8; }
@@ -307,6 +315,9 @@
   .voice-grid { grid-template-columns: 1fr; gap: 16px; }
   .voice-grid > article { padding: 22px; }
   .voice-grid blockquote { font-size: 20px; }
+  .video-testimonials { padding: 26px 20px; }
+  .video-testimonial-grid { grid-template-columns: 1fr; gap: 16px; }
+  .video-testimonial-card video { width: min(100%, 360px); max-height: 520px; margin-inline: auto; }
   .about-proof .founder-teaser-facts { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .about-proof .founder-teaser-facts article { min-height: 100px; padding: 14px; }
   .about-page .about-story-layout { grid-template-columns: 1fr; gap: 30px; }

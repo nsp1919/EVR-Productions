@@ -775,6 +775,20 @@ test('homepage autoplay failure restores a visible manual play fallback', async 
   await expect(preview.locator('.preview-audio-toggle')).toBeHidden();
 });
 
+test('failed homepage video playback leaves only its cover image visible', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/#/home');
+  const preview = page.locator('#home [data-demo-media]').first();
+  const video = preview.locator('video');
+  await video.evaluate(element => element.dispatchEvent(new Event('error')));
+
+  await expect(preview.locator('img')).toBeVisible();
+  await expect(video).toBeHidden();
+  await expect(preview.locator('.preview-play')).toBeHidden();
+  await expect(preview.locator('.preview-audio-toggle')).toBeHidden();
+  await expect(preview.locator('.media-error')).toBeHidden();
+});
+
 test('all visible work portfolio videos autoplay muted', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = function() {

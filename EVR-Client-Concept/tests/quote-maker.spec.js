@@ -39,6 +39,7 @@ test('quotation studio requires sign-in and creates a priced EVR PDF preview', a
 
   await page.locator('.quote-settings summary').click();
   await page.locator('[data-rate-key="wedding:crew:traditional-photo"]').fill('12500');
+  await page.locator('[data-rate-key="wedding:output:album-45"]').fill('22500');
   await page.locator('#quote-reviewed').check();
   await page.locator('#quote-save-settings').click();
 
@@ -46,15 +47,17 @@ test('quotation studio requires sign-in and creates a priced EVR PDF preview', a
   await page.locator('#quote-project').fill('Wedding coverage');
   await page.locator('#quote-event-choices label').filter({ hasText: 'Engagement' }).locator('input').check();
   await page.getByLabel('Engagement, day 1, Traditional photographer / day quantity').fill('2');
+  await page.locator('[data-output-key="wedding:output:album-45"]').fill('1');
 
-  await expect(page.locator('#quote-subtotal')).toHaveText('INR 25,000.00');
+  await expect(page.locator('#quote-subtotal')).toHaveText('INR 47,500.00');
   await expect(page.locator('#quote-preview')).toBeEnabled();
   await page.locator('#quote-preview').click();
 
   await expect(page.locator('#quote-print-dialog')).toBeVisible();
   await expect(page.locator('#print-client')).toHaveText('Asha Rao');
   await expect(page.locator('#print-project')).toHaveText('Wedding coverage');
-  await expect(page.locator('#print-rows')).toContainText('INR 25,000.00');
+  await expect(page.locator('#print-rows')).toContainText('Album 45');
+  await expect(page.locator('#print-rows')).toContainText('INR 22,500.00');
   await expect(page.locator('#print-terms')).toContainText('EVR Productions');
 });
 
@@ -77,6 +80,7 @@ test('standalone EVR quotation file saves approved local rates and previews a qu
 
   await page.locator('.settings summary').click();
   await page.locator('[data-rate-key="wedding:crew:traditional-photo"]').fill('12500');
+  await page.locator('[data-rate-key="wedding:output:album-45"]').fill('22500');
   await page.locator('#reviewed').check();
   await page.locator('#save-settings').click();
 
@@ -84,8 +88,9 @@ test('standalone EVR quotation file saves approved local rates and previews a qu
   await page.locator('#project').fill('Wedding coverage');
   await page.locator('.choice').filter({ hasText: 'Engagement' }).locator('input').check();
   await page.getByLabel('Traditional photographer / day, day 1, quantity').fill('2');
+  await page.getByLabel('Album 45 quantity').fill('1');
 
-  await expect(page.locator('#total')).toHaveText('INR 25,000.00');
+  await expect(page.locator('#total')).toHaveText('INR 47,500.00');
   await expect(page.locator('#preview')).toBeEnabled();
   await page.locator('#save-draft').click();
   await page.locator('#client').fill('');
@@ -95,7 +100,8 @@ test('standalone EVR quotation file saves approved local rates and previews a qu
 
   await expect(page.locator('#print-dialog')).toBeVisible();
   await expect(page.locator('#print-client')).toHaveText('Asha Rao');
-  await expect(page.locator('#print-rows')).toContainText('INR 25,000.00');
+  await expect(page.locator('#print-rows')).toContainText('Album 45');
+  await expect(page.locator('#print-rows')).toContainText('INR 22,500.00');
   await expect(page.locator('#print-terms')).toContainText('EVR Productions');
 });
 
@@ -107,23 +113,25 @@ test('public wedding estimator shows only the overall price in its estimate and 
   await builder.locator('.builder-choices label').filter({ hasText: 'Engagement' }).locator('input').check();
   await builder.locator('[data-item="photographer"]').first().fill('2');
   await builder.locator('.builder-quantities label').filter({ hasText: 'Album 25' }).locator('input').fill('1');
+  await builder.locator('.builder-quantities label').filter({ hasText: 'Album 45' }).locator('input').fill('1');
 
   await expect.poll(() => builder.locator('.builder-total').evaluate(element => element.value))
-    .toBe('Estimated total: INR 28,500.00');
+    .toBe('Estimated total: INR 51,000.00');
   await expect(builder.locator('.builder-quantities small')).toHaveCount(0);
   await expect(builder.locator('.builder-event').nth(0)).not.toContainText('INR');
   await expect(builder.locator('.builder-summary dl')).not.toContainText('INR');
   await builder.getByRole('button', { name: 'Preview / print estimate' }).click();
   await expect(page.locator('#quote-print-dialog')).toBeVisible();
   await expect(page.locator('#print-reference')).toHaveText('EVR-WEDDING-ESTIMATE');
-  await expect(page.locator('#print-rows tr')).toHaveCount(2);
+  await expect(page.locator('#print-rows tr')).toHaveCount(3);
   await expect(page.locator('#print-rows tr').first()).toContainText('Engagement');
+  await expect(page.locator('#print-rows')).toContainText('Album 45');
   await expect(page.locator('#print-rows')).not.toContainText('INR');
   await expect(page.locator('[data-quote-price-column]')).toHaveCount(2);
   for (const column of await page.locator('[data-quote-price-column]').all()) {
     await expect(column).toBeHidden();
   }
-  await expect(page.locator('#print-totals')).toContainText('INR 28,500.00');
+  await expect(page.locator('#print-totals')).toContainText('INR 51,000.00');
   await expect(page.locator('#print-notes')).toContainText('not a confirmed booking');
   const logo = await page.locator('#quote-print-document .quote-print-brand img').evaluate(image => ({
     loaded: image.complete && image.naturalWidth > 0,
@@ -140,9 +148,10 @@ test('public wedding estimator shows only the overall price in its estimate and 
 
   await page.locator('#quote-print-close').click();
   await builder.getByRole('button', { name: 'Discuss this estimate' }).click();
-  await expect(page.locator('[name="brief"]')).toHaveValue(/Estimated total: INR 28,500\.00/);
+  await expect(page.locator('[name="brief"]')).toHaveValue(/Estimated total: INR 51,000\.00/);
   await expect(page.locator('[name="brief"]')).not.toHaveValue(/INR 8,000\.00/);
   await expect(page.locator('[name="brief"]')).not.toHaveValue(/INR 12,500\.00/);
+  await expect(page.locator('[name="brief"]')).not.toHaveValue(/INR 22,500\.00/);
 });
 
 test('public production estimator keeps pricing call-based', async ({ page }) => {

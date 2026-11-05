@@ -4,7 +4,7 @@ const path = require('path');
 const { mockAdminApi } = require('./admin-api-mock');
 const { clickContextualMediaAction, clickFirstContextualMediaAction } = require('./admin-media-helpers');
 
-const fixture = path.resolve(__dirname, '..', 'assets', 'demo-wedding.mp4');
+const fixture = path.resolve(__dirname, '..', 'assets', 'nbrands-case-study-cphtij.mp4');
 
 test('valid MP4 survives save, export, reset, import, and reload', async ({ page }) => {
   const api = await mockAdminApi(page);
@@ -326,6 +326,37 @@ test('admin can replace a Work portfolio card video from its contextual control'
   expect(Object.keys(api.getContent().entries)).not.toContain('#media-revert-state-v1');
 });
 
+test('admin can set and revert a cover for an existing video', async ({ page }) => {
+  const api = await mockAdminApi(page);
+  const photo = path.resolve(__dirname, '..', 'assets', 'process-cards', 'process-card-01-your-moments.png');
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('work');
+
+  const card = page.locator('#work .story-library article').first();
+  const media = card.locator('.preview-media');
+  await clickContextualMediaAction(page, '#work .story-library article:first-child .preview-media', 'Replace cover');
+  await page.locator('#admin-photo-file').setInputFiles(photo);
+  await expect(page.locator('#admin-status')).toContainText('Video cover uploaded');
+  await expect(media.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
+  await expect(media.locator('video')).toHaveJSProperty('poster', 'https://blob.test/media-1.webp');
+
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  const coverEntry = Object.entries(api.getContent().entries)
+    .find(([, entry]) => entry.type === 'video-cover');
+  expect(coverEntry?.[1].value).toBe('https://blob.test/media-1.webp');
+  expect(api.getContent().entries['#media-revert-state-v1'].value).toContain(coverEntry[0]);
+
+  await page.reload();
+  await page.locator('#admin-preview-page').selectOption('work');
+  const reloadedCard = page.locator('#work .story-library article').first();
+  await reloadedCard.scrollIntoViewIfNeeded();
+  await expect(reloadedCard.locator('.preview-media img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
+  await expect(reloadedCard.locator('.preview-media video')).toHaveJSProperty('poster', 'https://blob.test/media-1.webp');
+  await clickContextualMediaAction(page, '#work .story-library article:first-child .preview-media', 'Revert cover');
+  await expect(reloadedCard.locator('.preview-media img')).not.toHaveAttribute('src', 'https://blob.test/media-1.webp');
+});
+
 test('admin can add and publish a new celebration story with an image', async ({ page }) => {
   const api = await mockAdminApi(page);
   const photo = path.resolve(__dirname, '..', 'assets', 'process-cards', 'process-card-01-your-moments.png');
@@ -549,7 +580,8 @@ test('admin can add a video to a photo-only Work story later', async ({ page }) 
   await photoStory.getByRole('button', { name: 'Add video' }).click();
   await photoStory.locator('input[type="file"][accept="video/*"]').setInputFiles(fixture);
   await expect(page.locator('#admin-status')).toContainText('Video attached');
-  await expect(page.locator('#work .admin-managed-work-item video')).toBeVisible();
+  await expect(photoStory.locator('img')).toBeVisible();
+  await expect(photoStory.locator('video')).toBeHidden();
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
   const galleryEntry = api.getContent().entries['#work-gallery-items-v1'];
@@ -595,6 +627,40 @@ test('admin can add and publish a video-only Work story', async ({ page }) => {
   await expect(reloadedVideoStory.locator('video')).toHaveAttribute('src', 'https://media.example.com/evr-videos/test-video.mp4');
 });
 
+test('admin can optionally upload a cover with a new video story', async ({ page }) => {
+  const api = await mockAdminApi(page);
+  const photo = path.resolve(__dirname, '..', 'assets', 'process-cards', 'process-card-01-your-moments.png');
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('work');
+  await page.locator('#work .admin-add-work-card').click();
+  await page.locator('#admin-work-title').fill('A video with a cover');
+  await page.locator('#admin-work-category').selectOption('celebration');
+  await page.locator('#admin-work-description').fill('A video story with an optional cover image.');
+  await page.locator('input[name="admin-work-media-type"][value="video"]').check();
+  await expect(page.locator('#admin-work-cover-upload')).toBeVisible();
+  expect(await page.locator('#admin-work-cover').evaluate(input => input.required)).toBe(false);
+  await page.locator('#admin-work-video').setInputFiles(fixture);
+  await page.locator('#admin-work-cover').setInputFiles(photo);
+  await page.locator('#admin-work-controls button[type="submit"]').click();
+
+  const story = page.locator('#work .admin-managed-work-item').filter({ hasText: 'A video with a cover' });
+  await expect(story.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
+  await expect(story.locator('video')).toHaveJSProperty('poster', 'https://blob.test/media-1.webp');
+  await story.locator('video').evaluate(video => video.dispatchEvent(new Event('error')));
+  await expect(story.locator('img')).toBeVisible();
+  await expect(story.locator('video')).toBeHidden();
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  const savedStories = JSON.parse(Buffer.from(
+    api.getContent().entries['#work-gallery-items-v1'].value,
+    'base64'
+  ).toString('utf8'));
+  expect(savedStories.find(item => item.title === 'A video with a cover')).toMatchObject({
+    imageUrl: 'https://blob.test/media-1.webp',
+    videoUrl: 'https://media.example.com/evr-videos/test-video.mp4'
+  });
+});
+
 test('admin can replace a managed story cover, replace or remove its video, and delete the story', async ({ page }) => {
   const story = {
     id: 'managed-story-1',
@@ -620,11 +686,11 @@ test('admin can replace a managed story cover, replace or remove its video, and 
 
   const card = page.locator('#work .admin-managed-work-item[data-admin-managed-work-item="managed-story-1"]');
   await expect(card).toContainText('A family celebration');
-  await card.getByRole('button', { name: 'Replace photo' }).click();
-  await expect(card.getByRole('button', { name: 'Replace photo' })).toHaveText('');
+  await card.getByRole('button', { name: 'Replace cover' }).click();
+  await expect(card.getByRole('button', { name: 'Replace cover' })).toHaveText('');
   await card.locator('input[type="file"][accept="image/*"]').setInputFiles(photo);
   await expect(card.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
-  await expect(card.getByRole('button', { name: 'Revert photo' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Revert cover' })).toBeVisible();
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
 
@@ -638,9 +704,9 @@ test('admin can replace a managed story cover, replace or remove its video, and 
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('work');
   await expect(card.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
-  await card.getByRole('button', { name: 'Revert photo' }).click();
+  await card.getByRole('button', { name: 'Revert cover' }).click();
   await expect(card.locator('img')).toHaveAttribute('src', 'https://blob.test/original-cover.webp');
-  await expect(card.getByRole('button', { name: 'Revert photo' })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'Revert cover' })).toHaveCount(0);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
   savedGallery = JSON.parse(Buffer.from(

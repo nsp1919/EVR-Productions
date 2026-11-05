@@ -87,6 +87,29 @@ new MutationObserver(records => {
   records.forEach(record => record.addedNodes.forEach(enableVideoReplay));
 }).observe(document.documentElement, { childList: true, subtree: true });
 
+document.addEventListener('error', event => {
+  const video = event.target;
+  if (!(video instanceof HTMLVideoElement) || video.dataset.coverFallbackApplied) return;
+  video.dataset.coverFallbackApplied = 'true';
+  video.pause();
+  video.controls = false;
+  const media = video.closest('.preview-media');
+  const cover = media?.querySelector(':scope > img');
+  if (cover) {
+    cover.hidden = false;
+    video.hidden = true;
+    media.classList.remove('is-autoplaying', 'is-playing', 'is-unmuted');
+    media.querySelector('.preview-play')?.setAttribute('hidden', '');
+    media.querySelector('.preview-close')?.setAttribute('hidden', '');
+    media.querySelector('.preview-audio-toggle')?.setAttribute('hidden', '');
+    media.querySelector('.media-error')?.setAttribute('hidden', '');
+  } else if (video.poster) {
+    video.removeAttribute('src');
+    video.load();
+    video.hidden = false;
+  }
+}, true);
+
 function route() {
   const requested = location.hash.replace(/^#\/?/, '') || 'home';
   const target = document.querySelectorAll('.route');
@@ -153,7 +176,19 @@ function route() {
     window.scrollTo(0, 0);
   });
 }
-window.addEventListener('hashchange', route);
+function handleRouteChange() {
+  const requested = location.hash.replace(/^#\/?/, '') || 'home';
+  const switchesToCorporate = requested === 'corporate' && activeExperience !== 'corporate';
+  const switchesToHome = ['home', 'weddings'].includes(requested) && activeExperience === 'corporate';
+  if ((switchesToCorporate || switchesToHome) &&
+      !matchMedia('(prefers-reduced-motion: reduce)').matches &&
+      typeof document.startViewTransition === 'function') {
+    document.startViewTransition(route);
+    return;
+  }
+  route();
+}
+window.addEventListener('hashchange', handleRouteChange);
 window.addEventListener('load', () => requestAnimationFrame(() => window.scrollTo(0, 0)));
 const celebrationVideo = document.querySelector('#celebration-film video');
 const caseStudyVideo = document.querySelector('#brand-work .detail-split video');

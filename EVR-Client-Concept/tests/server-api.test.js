@@ -318,13 +318,18 @@ test('state-changing admin APIs require a same-origin Origin header', async () =
 test('shared content validation rejects unsupported edit values', () => {
   assert.deepEqual(validateContent({ version: 1, entries: {
     heading: { type: 'text', value: '<em>Welcome</em>' },
-    background: { type: 'background', value: '#123456' }
+    background: { type: 'background', value: '#123456' },
+    videoCover: { type: 'video-cover', value: 'https://media.example.com/cover.webp' }
   } }), { version: 1, entries: {
     heading: { type: 'text', value: '<em>Welcome</em>' },
-    background: { type: 'background', value: '#123456' }
+    background: { type: 'background', value: '#123456' },
+    videoCover: { type: 'video-cover', value: 'https://media.example.com/cover.webp' }
   } });
   assert.throws(() => validateContent({ version: 1, entries: {
     image: { type: 'image', value: 'javascript:alert(1)' }
+  } }), /unsupported value/);
+  assert.throws(() => validateContent({ version: 1, entries: {
+    videoCover: { type: 'video-cover', value: 'javascript:alert(1)' }
   } }), /unsupported value/);
 });
 

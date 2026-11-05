@@ -79,3 +79,29 @@ test('shared content reads report corrupt JSON instead of treating it as empty',
   objects.set('evr/site-content-v1.json', '{invalid');
   await assert.rejects(readContent(), SyntaxError);
 });
+
+test('shared content validates video testimonial metadata and secure playback URLs', async () => {
+  const testimonials = {
+    version: 1,
+    enabled: true,
+    items: [{
+      id: '12345678-1234-4234-8234-123456789abc',
+      clientName: 'Asha & Ravi',
+      caption: 'A wonderful celebration',
+      videoUrl: 'https://media.example.com/evr-videos/testimonial.mp4'
+    }]
+  };
+  const content = {
+    version: 1,
+    entries: { '#video-testimonials-v1': { type: 'text', value: JSON.stringify(testimonials) } }
+  };
+
+  assert.deepEqual(await writeContent(content), content);
+  assert.deepEqual(await readContent(), content);
+
+  const invalid = structuredClone(content);
+  const data = JSON.parse(invalid.entries['#video-testimonials-v1'].value);
+  data.items[0].videoUrl = 'http://media.example.com/testimonial.mp4';
+  invalid.entries['#video-testimonials-v1'].value = JSON.stringify(data);
+  assert.throws(() => require('../server/content-store').validateContent(invalid), /HTTPS/);
+});

@@ -3968,8 +3968,119 @@ WebPRiffParser dominikhlbg@gmail.com
  */
 
 </script>
+<script>
+if (location.pathname.replace(/\/+$/, '') === '/quote-maker') {
+  document.documentElement.classList.add('hosted-quote-maker', 'quote-auth-locked');
+}
+</script>
+<style>
+.quote-auth-gate { display: none; }
+html.hosted-quote-maker.quote-auth-locked .quote-auth-gate {
+  display: grid;
+  min-height: 100svh;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  background: #f7f3eb;
+  color: #252525;
+  font: 16px/1.5 "Segoe UI", Arial, sans-serif;
+}
+html.hosted-quote-maker.quote-auth-locked .quote-auth-gate > * { width: min(100%, 440px); }
+html.hosted-quote-maker.quote-auth-locked .quote-auth-gate h1 { margin: 0; font: 36px/1.1 Georgia, serif; }
+html.hosted-quote-maker.quote-auth-locked .quote-auth-gate label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+html.hosted-quote-maker.quote-auth-locked .quote-auth-gate input,
+html.hosted-quote-maker.quote-auth-locked .quote-auth-gate button { min-height: 44px; padding: 10px 12px; }
+html.hosted-quote-maker.quote-auth-locked body > :not(.quote-auth-gate) { display: none !important; }
+</style>
 </head>
 <body>
+<section class="quote-auth-gate" aria-labelledby="quote-auth-title">
+  <h1 id="quote-auth-title">EVR Quote Maker</h1>
+  <p>Sign in with your authorized admin email to create client quotations and proposal links.</p>
+  <form id="quote-auth-form">
+    <label>Email address<input id="quote-auth-email" type="email" maxlength="160" autocomplete="email" required></label>
+    <label id="quote-auth-code-label" hidden>Eight-digit sign-in code<input id="quote-auth-code" type="text" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="one-time-code"></label>
+    <button id="quote-auth-submit" type="submit">Send sign-in code</button>
+    <button id="quote-auth-resend" type="button" hidden>Send another code</button>
+  </form>
+  <p id="quote-auth-status" role="status" aria-live="polite">Checking admin access…</p>
+</section>
+<script>
+if (document.documentElement.classList.contains('hosted-quote-maker')) {
+  document.body.setAttribute('data-quote-service', 'enabled');
+  (async () => {
+    const form = document.getElementById('quote-auth-form');
+    const email = document.getElementById('quote-auth-email');
+    const code = document.getElementById('quote-auth-code');
+    const codeLabel = document.getElementById('quote-auth-code-label');
+    const resend = document.getElementById('quote-auth-resend');
+    const status = document.getElementById('quote-auth-status');
+    const submit = document.getElementById('quote-auth-submit');
+    async function request(options = {}) {
+      const response = await fetch('/api/auth', {
+        ...options,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', ...options.headers }
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Sign-in failed (${response.status}).`);
+      return result;
+    }
+    function unlock() {
+      document.documentElement.classList.remove('quote-auth-locked');
+    }
+    async function sendCode() {
+      if (!email.reportValidity()) return;
+      status.textContent = 'Requesting a sign-in code…';
+      try {
+        const result = await request({
+          method: 'POST',
+          body: JSON.stringify({ action: 'request-code', email: email.value.trim() })
+        });
+        codeLabel.hidden = false;
+        resend.hidden = false;
+        code.required = true;
+        status.textContent = result.message;
+        code.focus();
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    }
+    document.getElementById('quote-auth-resend').addEventListener('click', sendCode);
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (codeLabel.hidden) return sendCode();
+      if (!form.reportValidity()) return;
+      status.textContent = 'Verifying your sign-in code…';
+      try {
+        await request({
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'verify-code',
+            email: email.value.trim(),
+            code: code.value.trim()
+          })
+        });
+        unlock();
+        status.textContent = 'Signed in. Your quote form is ready.';
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    });
+    try {
+      const result = await request();
+      if (result.authenticated) unlock();
+      else status.textContent = result.configured
+        ? 'Enter your authorized admin email address to receive a sign-in code.'
+        : result.error || 'Admin sign-in is not configured.';
+    } catch (error) {
+      status.textContent = `Could not connect to admin sign-in: ${error.message}`;
+    }
+  })();
+}
+</script>
 
 <header class="hdr">
   <div class="hdr-inner">
@@ -4093,6 +4204,9 @@ WebPRiffParser dominikhlbg@gmail.com
               <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);cursor:pointer;margin-left:8px;">
                 <input type="checkbox" class="chk" id="del_alb30" onchange="toggleAlbum()" style="width:18px;height:18px;"> 30
               </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);cursor:pointer;margin-left:8px;">
+                <input type="checkbox" class="chk" id="del_alb45" onchange="toggleAlbum()" style="width:18px;height:18px;"> 45
+              </label>
             </div>
           </div>
           <div class="album-opts" id="albumOpts">
@@ -4121,6 +4235,20 @@ WebPRiffParser dominikhlbg@gmail.com
                   <button class="qbtn" id="del_a30_d" disabled onclick="adjDel('a30',-1)">&#8722;</button>
                   <div class="qval" id="del_a30_v">0</div>
                   <button class="qbtn" id="del_a30_i" onclick="adjDel('a30',1)">+</button>
+                </div>
+              </div>
+              <!-- 45 row -->
+              <div class="album-opt-row" id="albRow45" style="display:none;">
+                <div class="album-opt-info">
+                  <div class="album-opt-name">Album 45</div>
+                  <div class="album-opt-price" style="display:none">&#8377;22,500 each</div>
+                </div>
+                <div class="del-ctrl">
+                  <div class="qty">
+                    <button class="qbtn" id="del_a45_d" disabled onclick="adjDel('a45',-1)">&#8722;</button>
+                    <div class="qval" id="del_a45_v">0</div>
+                    <button class="qbtn" id="del_a45_i" onclick="adjDel('a45',1)">+</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4237,11 +4365,11 @@ WebPRiffParser dominikhlbg@gmail.com
         <label class="flbl" for="quoteLink">Shareable link</label>
         <input id="quoteLink" class="finp" type="url" readonly>
         <div class="share-actions"><button class="mcls" type="button" onclick="copyQuoteLink()">Copy link</button><a id="openQuoteLink" target="_blank" rel="noopener noreferrer">Open client website</a></div>
-        <p>This link opens the main photography website with its existing scroll animations. View your quotation at the bottom opens this exact saved PDF.</p>
+        <p>This client page shows the saved quotation and links to your website’s wedding stories, process, and studio information. The PDF preview remains available to download or print below.</p>
         <label class="flbl" for="proposalQuoteLink">Personalized proposal website</label>
         <input id="proposalQuoteLink" class="finp" type="url" readonly>
         <div class="share-actions"><button class="mcls" type="button" onclick="copyProposalLink()">Copy proposal link</button><a id="openProposalLink" target="_blank" rel="noopener noreferrer">Open personalized proposal</a></div>
-        <p>The personalized proposal uses your studio proposal design and includes this client’s events, deliverables, total and terms. Anyone with either link can view its quotation; share them only with the intended recipients. Earlier quotations stay unchanged when you generate a new quote.</p>
+        <p>The personalized proposal includes this client’s events, deliverables, total and terms, alongside selected EVR website sections. Anyone with the link can view the quotation; share it only with the intended recipients. Earlier quotations stay unchanged when you generate a new quote.</p>
       </div>
     </div>
     <div class="mbody" id="mBody"></div>
@@ -4332,6 +4460,10 @@ WebPRiffParser dominikhlbg@gmail.com
         <div class="admin-row">
           <label>Album 30 Sheets</label>
           <input type="number" id="price_a30" min="0" step="1" required value="15000" onchange="updateDelPrice('a30', this.value)">
+        </div>
+        <div class="admin-row">
+          <label>Album 45 Sheets</label>
+          <input type="number" id="price_a45" min="0" step="1" required value="22500" onchange="updateDelPrice('a45', this.value)">
         </div>
       </div>
 
@@ -4675,8 +4807,8 @@ function calcEv(id) {
 }
 
 // ── DELIVERABLES ──────────────────────────────────────────────────────
-var DEL_MAX = { inv:6, tsr:6, a25:6, a30:6 };
-var DEL_PRICE = { inv:1000, tsr:5000, a25:12500, a30:15000, wf:20000, ftv:10000, hdd:10000, raw:0 };
+var DEL_MAX = { inv:6, tsr:6, a25:6, a30:6, a45:6 };
+var DEL_PRICE = { inv:1000, tsr:5000, a25:12500, a30:15000, a45:22500, wf:20000, ftv:10000, hdd:10000, raw:0 };
 
 // Pre-Wedding Shoot prices
 var PW_PRICE = { 1: 60000, 2: 80000, 3: 100000 };
@@ -4696,12 +4828,15 @@ function adjDel(key, delta) {
 function toggleAlbum() {
   var a25 = document.getElementById("del_alb25").checked;
   var a30 = document.getElementById("del_alb30").checked;
+  var a45 = document.getElementById("del_alb45").checked;
   var opts = document.getElementById("albumOpts");
   var row25 = document.getElementById("albRow25");
   var row30 = document.getElementById("albRow30");
-  opts.classList.toggle("open", a25 || a30);
+  var row45 = document.getElementById("albRow45");
+  opts.classList.toggle("open", a25 || a30 || a45);
   row25.style.display = a25 ? "" : "none";
   row30.style.display = a30 ? "" : "none";
+  row45.style.display = a45 ? "" : "none";
   // Reset qty if unchecked
   if (!a25) {
     var v=document.getElementById("del_a25_v"); if(v) v.textContent="0";
@@ -4712,6 +4847,11 @@ function toggleAlbum() {
     var v=document.getElementById("del_a30_v"); if(v) v.textContent="0";
     var d=document.getElementById("del_a30_d"); if(d) d.disabled=true;
     var i=document.getElementById("del_a30_i"); if(i) i.disabled=false;
+  }
+  if (!a45) {
+    var v=document.getElementById("del_a45_v"); if(v) v.textContent="0";
+    var d=document.getElementById("del_a45_d"); if(d) d.disabled=true;
+    var i=document.getElementById("del_a45_i"); if(i) i.disabled=false;
   }
   recalc();
 }
@@ -4742,6 +4882,10 @@ function getDelSummary() {
   if (document.getElementById("del_alb30").checked) {
     var a30 = parseInt(document.getElementById("del_a30_v").textContent)||0;
     if (a30 > 0) lines.push({ name:"Album 30 sheets (x"+a30+")", qty:a30, price:a30*DEL_PRICE.a30, hasPrice:false });
+  }
+  if (document.getElementById("del_alb45").checked) {
+    var a45 = parseInt(document.getElementById("del_a45_v").textContent)||0;
+    if (a45 > 0) lines.push({ name:"Album 45 sheets (x"+a45+")", qty:a45, price:a45*DEL_PRICE.a45, hasPrice:false });
   }
   // HDD
   if (document.getElementById("del_hdd").checked)
@@ -4796,15 +4940,6 @@ function recalc() {
 var currentQuotePDF = null;
 var pdfInProgress = false;
 
-function pdfBase64(blob) {
-  return new Promise(function(resolve, reject) {
-    var reader = new FileReader();
-    reader.onload = function() { resolve(reader.result.split(",")[1]); };
-    reader.onerror = function() { reject(new Error("The generated PDF could not be read. Please try again.")); };
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function generateQuotation() {
   var button = document.getElementById("generateQuote");
   if (button.disabled || pdfInProgress) return;
@@ -4816,24 +4951,24 @@ async function generateQuotation() {
   document.getElementById("openProposalLink").removeAttribute("href");
   var snapshot = openModal();
   if (!snapshot) return;
-  snapshot.websiteSections = ["home", "intro", "featured", "wedding-story", "work", "creative-preview", "memory-table", "film-strip", "editing-room", "day-to-night", "handwritten-note", "about", "photographer", "experience", "quote", "process", "faq", "contact"];
+  snapshot.version = 1;
+  snapshot.websiteSections = ["home", "weddings", "work", "process", "about", "request"];
   if (document.body.getAttribute("data-quote-service") !== "enabled") {
-    status.textContent = "PDF preview is ready. This offline file cannot save a website link. Open the hosted Quote Maker at /quote-maker and enter its passcode to generate a shareable link.";
+    status.textContent = "PDF preview is ready. This offline file cannot save a website link. Open the hosted Quote Maker at /quote-maker and sign in to generate shareable links.";
     return;
   }
   button.disabled = true;
   button.textContent = "Preparing PDF...";
-  status.textContent = "Preparing your quotation PDF. The shareable link will appear after the PDF is saved...";
+  status.textContent = "Preparing your quotation PDF and secure client links...";
   try {
     currentQuotePDF = await createQuotationPDF();
-    if (currentQuotePDF.size > 16 * 1024 * 1024) throw new Error("The generated PDF exceeds 16 MB. Reduce the quotation length and try again.");
-    var encodedPDF = await pdfBase64(currentQuotePDF);
     button.textContent = "Saving quotation...";
-    status.textContent = "Saving your PDF and creating its website link...";
+    status.textContent = "Saving the quotation snapshot and creating client links...";
     var response = await fetch("/api/quote-maker/quotes", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, snapshot, { pdf: encodedPDF }))
+      body: JSON.stringify({ action: "create", quote: snapshot })
     });
     var result = await response.json();
     if (!response.ok) throw new Error(result.error || "The quotation could not be saved.");
@@ -4846,7 +4981,7 @@ async function generateQuotation() {
     document.getElementById("proposalQuoteLink").value = proposalLink.href;
     document.getElementById("openProposalLink").href = proposalLink.href;
     document.getElementById("quoteLinkResult").hidden = false;
-    status.textContent = "Quotation saved. Both your main website link and personalized proposal link are ready." +
+    status.textContent = "Quotation saved. Your client page and personalized proposal links are ready. Download or print the PDF from this preview." +
       (["localhost", "127.0.0.1", "[::1]"].includes(link.hostname) ? " These are local preview links; clients on other devices need your publicly hosted website." : "");
   } catch (error) {
     console.error("Quotation link creation failed:", error);
@@ -5039,6 +5174,7 @@ function openModal() {
   document.getElementById("mBody").innerHTML = html;
   showDialog("modal");
   return {
+    version:1,
     client:client, groom:groom, bride:bride, date:qdate,
     events:eventsData, deliverables:delLines, total:grand,
     totalOverridden:quotationTotalOverride !== null,
@@ -5377,6 +5513,7 @@ function openAdminPanel() {
   document.getElementById('price_ftv').value = DEL_PRICE.ftv;
   document.getElementById('price_a25').value = DEL_PRICE.a25;
   document.getElementById('price_a30').value = DEL_PRICE.a30;
+  document.getElementById('price_a45').value = DEL_PRICE.a45;
   
   document.getElementById('price_pw1').value = PW_PRICE[1];
   document.getElementById('price_pw2').value = PW_PRICE[2];
@@ -5481,12 +5618,16 @@ function loadQuoteSettings() {
         typeof data.terms !== "string" || !data.terms.trim() || data.terms.length > 4000 ||
         typeof data.reviewed !== "boolean" ||
         RQ.some(function(r) { return data.rates.filter(function(saved) { return saved && saved.id === r.id && validPrice(saved.price); }).length !== 1; }) ||
-        Object.keys(DEL_PRICE).some(function(key) { return !validPrice(data.deliverables[key]); }) ||
+        Object.keys(DEL_PRICE).some(function(key) {
+          return !(key === "a45" && data.deliverables[key] === undefined) && !validPrice(data.deliverables[key]);
+        }) ||
         [1,2,3].some(function(day) { return !validPrice(data.prewedding[day]); })) {
       throw new Error("Saved quotation settings are invalid.");
     }
     RQ.forEach(function(r) { r.price = data.rates.find(function(saved) { return saved.id === r.id; }).price; });
-    Object.keys(DEL_PRICE).forEach(function(key) { DEL_PRICE[key] = data.deliverables[key]; });
+    Object.keys(DEL_PRICE).forEach(function(key) {
+      if (data.deliverables[key] !== undefined) DEL_PRICE[key] = data.deliverables[key];
+    });
     [1,2,3].forEach(function(day) { PW_PRICE[day] = data.prewedding[day]; });
     QUOTE_SETTINGS.terms = data.terms;
     QUOTE_SETTINGS.reviewed = data.reviewed;

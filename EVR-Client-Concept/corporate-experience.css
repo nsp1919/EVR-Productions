@@ -257,7 +257,7 @@
 .corp-final .button { margin-top: 30px; }
 .corp-final > p:last-child { font-size: 10px; color: var(--corp-muted); margin: 20px 0 0; }
 #corporate .preview-play:hover > span { background: #245ddd; }
-.corporate-view header { position: sticky; top: 0; z-index: 100; margin: 0; padding-inline: 4%; transition: background-color .25s ease, box-shadow .25s ease, backdrop-filter .25s ease; }
+.corporate-view header { position: sticky; top: 12px; z-index: 100; margin: 18px 4% 0; padding-inline: 4%; transition: background-color .25s ease, box-shadow .25s ease, backdrop-filter .25s ease; }
 .corporate-view header.is-scrolled { background: #f8fafcf0; box-shadow: 0 8px 28px #14233a12; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 .corp-hero { isolation: isolate; overflow: hidden; }
 .corp-hero::before { z-index: -2; }
@@ -342,7 +342,7 @@
 }
 @media (max-width: 700px) {
   #corporate { --corp-top: var(--mobile-pinned-top, 145px); --corp-stage: calc(100svh - var(--corp-top) - 12px); }
-  .corporate-view header { padding-inline: 3%; }
+  .corporate-view header { top: 8px; margin-top: 12px; padding-inline: 3%; }
   .corp-hero-bg { opacity: .13; }
   .corp-funnel { padding-block: 75px 40px; }
   .corp-funnel-frame { gap: 20px; }

@@ -18,6 +18,7 @@
         ['invite', 'Digital invitation'], ['teaser', 'Teaser edit'],
         ['film', 'Wedding film edit'], ['fullvideo', 'Full traditional video edit'],
         ['album25', 'Album 25 (specification to confirm)'], ['album30', 'Album 30 (specification to confirm)'],
+        ['album45', 'Album 45 (specification to confirm)'],
         ['drive', '1 TB storage drive']
       ]
     },
@@ -55,6 +56,7 @@
       fullvideo: 10000,
       album25: 12500,
       album30: 15000,
+      album45: 22500,
       drive: 10000
     }
   };

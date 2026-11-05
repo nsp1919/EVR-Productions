@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#191817">
+  <meta name="description" content="View your personal EVR Productions quotation and explore our wedding photography and films.">
+  <title>Your EVR quotation</title>
+  <link rel="stylesheet" href="/proposal.css">
+  <script src="/proposal.js" defer></script>
+</head>
+<body>
+  <header class="proposal-header">
+    <a class="brand" href="/#/home" aria-label="EVR Productions home">
+      <img src="/assets/evr-productions-logo-light.png" alt="EVR Productions" data-proposal-logo>
+    </a>
+    <span class="private-label">A PERSONAL EVR PROPOSAL</span>
+  </header>
+  <main class="proposal-shell">
+    <section class="loading-card" id="proposal-state" aria-live="polite">
+      <p class="eyebrow">EVR PRODUCTIONS / QUOTATION</p>
+      <h1>Preparing your proposal<span>.</span></h1>
+      <p>Loading your quotation securely…</p>
+    </section>
+    <article id="proposal-content" hidden>
+      <section class="proposal-intro">
+        <p class="eyebrow" id="proposal-kicker">A PERSONAL EVR PROPOSAL</p>
+        <h1 id="proposal-title"></h1>
+        <p id="proposal-description"></p>
+        <div class="proposal-meta">
+          <span id="proposal-reference"></span>
+          <span id="proposal-date"></span>
+        </div>
+      </section>
+      <section class="quote-card" aria-labelledby="quote-heading">
+        <div class="quote-heading">
+          <div>
+            <p class="eyebrow">MADE FOR YOU</p>
+            <h2 id="quote-heading">Your quotation</h2>
+          </div>
+          <p class="quote-total" id="quote-total"></p>
+        </div>
+        <div class="quote-details">
+          <section id="events-section" hidden>
+            <h3>Coverage</h3>
+            <div id="quote-events" class="quote-list"></div>
+          </section>
+          <section id="deliverables-section" hidden>
+            <h3>Deliverables</h3>
+            <ul id="quote-deliverables"></ul>
+          </section>
+          <section id="terms-section" hidden>
+            <h3>Terms &amp; notes</h3>
+            <p id="quote-terms" class="terms-copy"></p>
+          </section>
+        </div>
+      </section>
+      <section class="website-card" aria-labelledby="website-heading">
+        <p class="eyebrow">GET TO KNOW OUR WORK</p>
+        <h2 id="website-heading">Explore EVR before you decide.</h2>
+        <p>Take a look at the stories, approach and people behind your proposal.</p>
+        <nav class="website-links" aria-label="Explore the EVR Productions website">
+          <a href="/#/home">Our homepage <span aria-hidden="true">↗</span></a>
+          <a href="/#/weddings">Wedding experience <span aria-hidden="true">↗</span></a>
+          <a href="/#/work">Wedding stories <span aria-hidden="true">↗</span></a>
+          <a href="/#/process">How we work <span aria-hidden="true">↗</span></a>
+          <a href="/#/about">Meet EVR <span aria-hidden="true">↗</span></a>
+          <a href="/#/request">Contact us <span aria-hidden="true">↗</span></a>
+        </nav>
+      </section>
+      <section class="response-card" id="response-card" aria-labelledby="response-heading">
+        <p class="eyebrow">WHEN YOU'RE READY</p>
+        <h2 id="response-heading">What would you like to do?</h2>
+        <p class="response-intro">Accept this quotation or let us know what you would like to discuss.</p>
+        <div class="response-actions" id="response-actions">
+          <button type="button" class="button button-primary" id="accept-button">Accept quotation</button>
+          <button type="button" class="button button-secondary" id="changes-button">Request changes</button>
+        </div>
+        <form id="response-form" hidden>
+          <label for="response-name">Your name</label>
+          <input id="response-name" name="name" autocomplete="name" maxlength="100" required>
+          <label class="accept-check" id="accept-check" hidden>
+            <input id="accept-confirmation" type="checkbox">
+            <span>I have reviewed and accept the quotation and its terms.</span>
+          </label>
+          <label for="response-message" id="message-label" hidden>What would you like us to change?</label>
+          <textarea id="response-message" name="message" rows="4" maxlength="2000" hidden></textarea>
+          <div class="form-actions">
+            <button type="submit" class="button button-primary" id="submit-response">Confirm acceptance</button>
+            <button type="button" class="text-button" id="cancel-response">Cancel</button>
+          </div>
+        </form>
+        <p class="response-status" id="response-status" role="status" aria-live="polite"></p>
+      </section>
+    </article>
+  </main>
+  <footer class="proposal-footer">
+    <a href="/#/home">EVR Productions</a>
+    <span>Stories that feel like you.</span>
+  </footer>
+</body>
+</html>

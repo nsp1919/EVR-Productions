@@ -68,6 +68,7 @@
 }
 @media (max-width: 700px) {
   .quote-float { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); padding: 10px 16px; min-height: 48px; font-size: 12px; }
+  .corporate-view .quote-float { min-width: min(190px, calc(100vw - 24px)); justify-content: center; }
   .quotation-builder { scroll-margin-top: 90px; margin: 40px auto; }
   .builder-card, .builder-summary, .rate-editor { padding: 16px; }
   .builder-event { padding: 12px; }

@@ -19,6 +19,7 @@
         ['traditional-film', 'Full traditional video edit'],
         ['album-25', 'Album 25'],
         ['album-30', 'Album 30'],
+        ['album-45', 'Album 45'],
         ['storage-drive', '1 TB storage drive']
       ]
     },
