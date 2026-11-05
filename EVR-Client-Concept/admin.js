@@ -2280,8 +2280,6 @@
   syncWorkControls();
   renderMediaControls();
   setMode('text');
-  // TODO: Re-enable authentication before production deployment
-  // showEditor(false);
   loadSharedContent();
   if (location.hash === '#/admin') checkAuthentication();
   else showEditor(false);
@@ -2346,12 +2344,6 @@
   });
 
   async function checkAuthentication() {
-    // TODO: Re-enable authentication before production deployment
-    showEditor(true);
-    await loadSharedContent();
-    return;
-
-    /* --- Original authentication logic (disabled for development) ---
     showEditor(false);
     try {
       const result = await apiRequest('/api/auth');
@@ -2367,7 +2359,6 @@
     } catch (error) {
       setLoginStatus(`Could not connect to the server: ${error.message}`, true);
     }
-    --- */
   }
 
   async function requestAdminCode() {
