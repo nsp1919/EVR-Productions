@@ -1,0 +1,27 @@
+# EVR Productions
+
+> EVR Productions is a Hyderabad-based photography and film production team serving weddings, family celebrations, events, and brands in Hyderabad and across India.
+
+EVR Productions was founded by photographer Venkat Reddy Eltem. The team creates wedding photography and films, pre-wedding stories, family and event coverage, brand films, marketing reels, and YouTube or podcast productions. Project scope, dates, deliverables, and pricing are discussed directly and confirmed per project.
+
+## Main website
+
+- [EVR Productions](https://www.evrproductions.in/): Official website and current public business information.
+- [About EVR Productions](https://www.evrproductions.in/#/about): Founder and company background.
+- [Weddings and celebrations](https://www.evrproductions.in/#/weddings): Wedding, pre-wedding, family, and event photography and film services.
+- [Selected wedding stories](https://www.evrproductions.in/#/work): Wedding and celebration portfolio.
+- [Brand production](https://www.evrproductions.in/#/corporate): Brand films, marketing reels, YouTube, and podcast production.
+- [Production services](https://www.evrproductions.in/#/services): Brand production services.
+- [Contact EVR Productions](https://www.evrproductions.in/#/request): Start a project enquiry.
+
+## Contact
+
+- Email: evrproductionss@gmail.com
+- Phone and WhatsApp: +91 99517 18375
+- Service area: Hyderabad, Telangana, India; available for projects across India.
+
+## Notes
+
+- The website is a single-page application. The `#/...` links above navigate to sections within the main website.
+- Treat the official website as the source of truth for current services and availability.
+- Do not infer fixed prices, confirmed dates, client relationships, results, or testimonials unless the website explicitly states them.

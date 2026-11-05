@@ -51,7 +51,7 @@ test('wedding homepage stays focused and the experience switch opens Brand Produ
   await expect(weddingSwitch).toHaveText('Weddings & Events');
   await expect(nbrandsSwitch).toHaveText('Brand Production');
   await expect(page.locator('#home')).toBeVisible();
-  await expect(page).toHaveTitle('Weddings & Events | EVR Productions');
+  await expect(page).toHaveTitle('EVR Productions | Wedding Photography & Films in Hyderabad');
   await expect(page.locator('#main-nav [data-nav-experience="home"]')).toContainText(
     /Wedding ServicesWedding StoriesOur ProcessAbout EVRContact/
   );
@@ -99,7 +99,7 @@ test('wedding homepage stays focused and the experience switch opens Brand Produ
   await nbrandsSwitch.click();
   await expect(page).toHaveURL(/#\/corporate$/);
   await expect(page.locator('#corporate')).toBeVisible();
-  await expect(page).toHaveTitle('Brand Production | EVR Productions');
+  await expect(page).toHaveTitle('Brand Video Production in Hyderabad | EVR Productions');
   await expect(page.locator('#main-nav [data-nav-experience="corporate"]')).toContainText(
     /ServicesOur ProcessBrand PortfolioAbout EVRContact/
   );

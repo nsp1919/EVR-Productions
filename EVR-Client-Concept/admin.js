@@ -1895,6 +1895,7 @@
           element.parentElement?.closest('[hidden]')) return;
       const root = mediaContainer(element);
       if (!root || root.closest('.admin-managed-work-item') ||
+          root.closest('.voice-grid article') ||
           !hasVisibleMediaContainer(root, preview)) return;
       if (type === 'images') {
         const image = element;

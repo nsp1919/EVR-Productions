@@ -219,6 +219,37 @@ test('admin email OTP is not sent to unauthorized addresses and requests are rat
   });
 });
 
+test('only evrproductionss@gmail.com can use an admin email code to sign in', async () => {
+  const previousAdminEmail = process.env.EVR_ADMIN_EMAIL;
+  process.env.EVR_ADMIN_EMAIL = 'evrproductionss@gmail.com';
+  try {
+    await withMockedAuthServices(async ({ emails }) => {
+      const requestResponse = createResponse();
+      await authHandler({
+        method: 'POST',
+        headers: { host: 'evr.example', origin: 'https://evr.example' },
+        body: { action: 'request-code', email: 'evrproductionss@gmail.com' }
+      }, requestResponse);
+      assert.equal(requestResponse.statusCode, 200);
+      assert.equal(emails.length, 1);
+      assert.deepEqual(emails[0].to, ['evrproductionss@gmail.com']);
+      const code = emails[0].text.match(/\b\d{8}\b/)[0];
+
+      const unauthorizedResponse = createResponse();
+      await authHandler({
+        method: 'POST',
+        headers: { host: 'evr.example', origin: 'https://evr.example' },
+        body: { action: 'verify-code', email: 'other@example.com', code }
+      }, unauthorizedResponse);
+      assert.equal(unauthorizedResponse.statusCode, 401);
+      assert.equal(unauthorizedResponse.headers['Set-Cookie'], undefined);
+    });
+  } finally {
+    if (previousAdminEmail === undefined) delete process.env.EVR_ADMIN_EMAIL;
+    else process.env.EVR_ADMIN_EMAIL = previousAdminEmail;
+  }
+});
+
 test('admin API rejects cross-origin sign-in code requests', async () => {
   const response = createResponse();
   await authHandler({

@@ -1,18 +1,18 @@
 const { test, expect } = require('@playwright/test');
 const { mockAdminApi } = require('./admin-api-mock');
-const { clickContextualMediaAction } = require('./admin-media-helpers');
 
 test('corrupt video MIME content is rejected', async ({ page }) => {
   await mockAdminApi(page);
   await page.goto('/#/admin');
-  await page.locator('#admin-preview-page').selectOption('home');
-  await clickContextualMediaAction(page, '#home .voice-grid article:first-child', 'Replace video');
-  await page.locator('#admin-video-file').setInputFiles({
+  await page.locator('.admin-testimonials summary').click();
+  await page.locator('#admin-testimonial-client').fill('Test client');
+  await page.locator('#admin-testimonial-video').setInputFiles({
     name: 'invalid.mp4',
     mimeType: 'video/mp4',
     buffer: Buffer.from('not playable video data')
   });
-  await expect(page.locator('#admin-status')).toContainText('Could not prepare this video', { timeout: 20000 });
+  await page.getByRole('button', { name: 'Upload testimonial video' }).click();
+  await expect(page.locator('#admin-status')).toContainText('Could not add the testimonial video', { timeout: 20000 });
 });
 
 test('malformed import is non-destructive', async ({ page }) => {

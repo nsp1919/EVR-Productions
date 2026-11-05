@@ -23,10 +23,13 @@ The site uses Vercel Functions for the editor and Cloudflare R2 for uploaded ima
    ```
 
    Add any custom production domain you use as another exact origin. Save the policy, wait briefly for it to apply, then retry the upload.
-2. Set up email codes with **Resend**. Verify a sender domain in Resend, create an API key, then add these Vercel environment variables:
-   - `EVR_ADMIN_EMAIL`: the single email address allowed to sign in.
-   - `RESEND_API_KEY`: the private Resend API key.
-   - `RESEND_FROM_EMAIL`: a sender address on the verified domain, such as `EVR Productions <admin@example.com>`.
+2. Set up admin sign-in email with **Resend**:
+   - In Resend, add and verify the sending domain `mail.evrproductions.in`. Add the exact DNS records Resend provides to GoDaddy; do not remove the existing Vercel website records. A dedicated sending subdomain helps keep website and mail DNS configuration separate.
+   - Create a Resend API key with permission to send from the verified domain.
+   - In the Vercel project's **Settings → Environment Variables**, set:
+     - `EVR_ADMIN_EMAIL` to `evrproductionss@gmail.com`. This is the only address allowed to request and verify a sign-in code.
+     - `RESEND_API_KEY` to the private Resend API key.
+     - `RESEND_FROM_EMAIL` to `EVR Productions <admin@mail.evrproductions.in>` (or another sender on the domain verified in Resend).
 3. Create an **Upstash Redis** database and add its REST URL and token to Vercel:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
@@ -42,7 +45,7 @@ The site uses Vercel Functions for the editor and Cloudflare R2 for uploaded ima
 
    Never add the access key or secret to browser code or commit them. Configure a lifecycle rule to remove incomplete multipart uploads after a few days.
 6. Apply the variables to Production (and Preview if needed), then redeploy.
-7. Open `/admin`, enter the authorized admin email, request the one-time code, then verify it to sign in. To replace media, use the contextual image or video action beside the media. Video uploads are limited to 1 GB; image uploads are limited to 30 MB.
+7. Redeploy after setting the production variables. Open `/admin`, enter `evrproductionss@gmail.com`, request the one-time code, then verify it to sign in. Other email addresses cannot receive or use a code to sign in. To replace media, use the contextual image or video action beside the media. Video uploads are limited to 1 GB; image uploads are limited to 30 MB.
 
 The browser uploads images and signed 64 MiB multipart video chunks directly to R2, so media bytes do not pass through Vercel. Only the authenticated admin can request upload URLs; R2 credentials stay server-side. Video uploads support files up to 1 GB and can resume in the same browser after an interruption. R2's public custom domain serves the original video (not adaptive HLS); use MP4/H.264 for the broadest browser support. Shared website content is stored in the R2 object `evr/site-content-v1.json`.
 

@@ -1,6 +1,56 @@
 'use strict';
 const byId = id => document.getElementById(id);
 let activeExperience = 'home';
+const routeMetadata = {
+  home: {
+    title: 'EVR Productions | Wedding Photography & Films in Hyderabad',
+    description: 'EVR Productions is a Hyderabad-based wedding photography and film team, also serving family celebrations and brand video projects across India.'
+  },
+  about: {
+    title: 'About EVR Productions | Hyderabad Photographer & Film Team',
+    description: 'Meet EVR Productions founder Venkat Reddy Eltem and learn about the Hyderabad-based photography and film team serving clients across India.'
+  },
+  weddings: {
+    title: 'Wedding Photography & Films in Hyderabad | EVR Productions',
+    description: 'Explore wedding photography, wedding films, pre-wedding stories, and family celebration coverage by EVR Productions in Hyderabad and across India.'
+  },
+  work: {
+    title: 'Wedding & Celebration Stories | EVR Productions',
+    description: 'Explore selected wedding, pre-wedding, and family celebration photography and films from EVR Productions.'
+  },
+  process: {
+    title: 'Our Wedding Photography Process | EVR Productions',
+    description: 'Learn how EVR Productions plans wedding photography and films, from the first enquiry through coverage and delivery.'
+  },
+  estimate: {
+    title: 'Wedding Photography Estimate | EVR Productions',
+    description: 'Start a wedding photography and film estimate with EVR Productions. Final scope, availability, and pricing are confirmed directly.'
+  },
+  corporate: {
+    title: 'Brand Video Production in Hyderabad | EVR Productions',
+    description: 'EVR Productions plans brand films, marketing reels, YouTube, and podcast production in Hyderabad and across India.'
+  },
+  services: {
+    title: 'Brand Film & Video Production Services | EVR Productions',
+    description: 'Explore EVR Productions services for brand films, marketing reels, YouTube videos, and podcast production.'
+  },
+  approach: {
+    title: 'Brand Production Process | EVR Productions',
+    description: 'See how EVR Productions shapes a brand video project from brief and shoot through editing and delivery.'
+  },
+  'brand-work': {
+    title: 'Brand Video Portfolio | EVR Productions',
+    description: 'Explore selected brand video and production work from EVR Productions.'
+  },
+  'production-quote': {
+    title: 'Brand Video Production Brief | EVR Productions',
+    description: 'Share your production requirements with EVR Productions to discuss scope, pricing, schedule, and deliverables.'
+  },
+  request: {
+    title: 'Contact EVR Productions | Hyderabad & India',
+    description: 'Contact EVR Productions about wedding photography, films, family events, or brand video production.'
+  }
+};
 const viewportAutoplayPreference = matchMedia('(prefers-reduced-motion: reduce)');
 let viewportAutoplayObserver;
 const siteHeader = document.querySelector('header');
@@ -151,11 +201,19 @@ function route() {
   });
   document.querySelector('.site-credit .footer-back-top').href = activeExperience === 'corporate' ? '#/corporate' : '#/home';
   if (typeof window.syncFooterVideos === 'function') window.syncFooterVideos();
-  document.title = activeRoute === 'admin'
+  const isPrivateRoute = isAdmin || activeRoute === 'studio';
+  const metadata = routeMetadata[activeRoute] || routeMetadata.home;
+  document.title = isAdmin
     ? 'EVR Studio | EVR Productions'
-    : activeRoute === 'studio'
-      ? 'Private Quotation Studio | EVR Productions'
-    : activeExperience === 'corporate' ? 'Brand Production | EVR Productions' : 'Weddings & Events | EVR Productions';
+    : activeRoute === 'studio' ? 'Private Quotation Studio | EVR Productions' : metadata.title;
+  document.querySelector('meta[name="description"]').content = metadata.description;
+  document.querySelector('meta[name="robots"]').content = isPrivateRoute
+    ? 'noindex,nofollow'
+    : 'index,follow,max-image-preview:large';
+  document.querySelector('meta[property="og:title"]').content = metadata.title;
+  document.querySelector('meta[property="og:description"]').content = metadata.description;
+  document.querySelector('meta[name="twitter:title"]').content = metadata.title;
+  document.querySelector('meta[name="twitter:description"]').content = metadata.description;
   document.querySelector('.experience-switch').dataset.active = activeExperience;
   document.querySelectorAll('[data-experience]').forEach(link => {
     if (link.dataset.experience === activeRoute) link.setAttribute('aria-current', 'page');

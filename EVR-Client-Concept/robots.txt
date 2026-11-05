@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /EVR-Productions-Quotation-Studio.html
+Disallow: /quote-maker.html
+Disallow: /proposal.html
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+User-agent: GPTBot
+Disallow: /
+
+Sitemap: https://www.evrproductions.in/sitemap.xml
