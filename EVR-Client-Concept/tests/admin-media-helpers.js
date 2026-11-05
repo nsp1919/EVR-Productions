@@ -18,8 +18,12 @@ async function clickContextualMediaAction(page, targetSelector, actionName) {
       }), actionName);
     if (panelIndex < 0) throw new Error(`Could not find contextual ${actionName} control for ${targetSelector}.`);
     try {
-      await page.locator('.admin-media-actions').nth(panelIndex)
-        .getByRole('button', { name: actionName }).click({ timeout: 1500 });
+      const panel = page.locator('.admin-media-actions').nth(panelIndex);
+      const menu = panel.locator('.admin-media-menu');
+      if (!await menu.evaluate(element => element.open)) {
+        await menu.locator('summary').click({ timeout: 1500 });
+      }
+      await panel.getByRole('button', { name: actionName }).click({ timeout: 1500 });
       return;
     } catch (error) {
       if (error.name !== 'TimeoutError' || attempt === 2) throw error;
@@ -38,8 +42,12 @@ async function clickFirstContextualMediaAction(page, actionName) {
     }, actionName);
     if (panelIndex < 0) throw new Error(`Could not find a contextual ${actionName} control.`);
     try {
-      await page.locator('.admin-media-actions').nth(panelIndex)
-        .getByRole('button', { name: actionName }).click({ timeout: 1500 });
+      const panel = page.locator('.admin-media-actions').nth(panelIndex);
+      const menu = panel.locator('.admin-media-menu');
+      if (!await menu.evaluate(element => element.open)) {
+        await menu.locator('summary').click({ timeout: 1500 });
+      }
+      await panel.getByRole('button', { name: actionName }).click({ timeout: 1500 });
       return;
     } catch (error) {
       if (error.name !== 'TimeoutError' || attempt === 2) throw error;

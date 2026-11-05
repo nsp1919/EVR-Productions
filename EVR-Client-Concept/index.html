@@ -30,7 +30,7 @@ html.admin-route-pending > body > header {
 <link rel="stylesheet" href="detail-pages.css?v=about-logo-scroll-1">
 <link rel="stylesheet" href="quotation-builder.css">
 <link rel="stylesheet" href="quote-maker.css">
-<link rel="stylesheet" href="admin.css?v=admin-photo-position-controls-1">
+<link rel="stylesheet" href="admin.css?v=admin-media-framing-1">
 <link rel="stylesheet" href="mobile-responsive.css">
 <link rel="stylesheet" href="brand-logo.css?v=quote-footer-logo-contrast-1">
 </head>
@@ -58,9 +58,9 @@ html.admin-route-pending > body > header {
   <div class="admin-login-visual">
    <div class="admin-login-visual-brand"><a class="brand-logo-link" href="#/home" aria-label="EVR Productions home"><span class="brand-logo-plate"><img class="brand-logo-image" data-brand-logo="dark" src="/assets/evr-productions-logo-dark.png" alt="EVR Productions"></span></a><span>HYDERABAD · INDIA</span></div>
    <div class="admin-login-photos" aria-label="Wedding and celebration photography">
-    <figure class="admin-login-photo admin-login-photo-one"><img src="assets/hero-wedding-red-portrait.jpg" alt="A bride in red and turquoise traditional wedding attire"><figcaption>THE PEOPLE</figcaption></figure>
-    <figure class="admin-login-photo admin-login-photo-two"><img src="assets/evr-celebration-hero.jpg" alt="A bride in gold at an outdoor celebration"><figcaption>THE CELEBRATION</figcaption></figure>
-    <figure class="admin-login-photo admin-login-photo-three"><img src="assets/hero-couple-evening.jpg" alt="A newlywed couple sharing a quiet moment"><figcaption>THE LITTLE MOMENTS</figcaption></figure>
+    <figure class="admin-login-photo admin-login-photo-one"><img src="assets/admin-login-photo-1.webp" alt="A bride in a red sari, smiling for a portrait"><figcaption>THE PEOPLE</figcaption></figure>
+    <figure class="admin-login-photo admin-login-photo-two"><img src="assets/admin-login-photo-2.webp" alt="A couple sharing a wedding portrait outdoors"><figcaption>THE LITTLE MOMENTS</figcaption></figure>
+    <figure class="admin-login-photo admin-login-photo-three"><img src="assets/admin-login-photo-3.webp" alt="An EVR photographer holding his camera"><figcaption>THE PHOTOGRAPHER</figcaption></figure>
    </div>
    <div class="admin-login-visual-copy"><p class="eyebrow">THE EVR PERSPECTIVE</p><h2>Every celebration<br>has a story <em>to keep.</em></h2><p>Real moments, remembered your way.</p></div>
    <span class="admin-login-visual-caption">PHOTOGRAPHY · FILMS · STORIES</span>
@@ -90,18 +90,22 @@ html.admin-route-pending > body > header {
  </section>
  <input id="admin-import-file" type="file" accept="application/json,.json" hidden>
  <div class="admin-controls">
-  <label for="admin-preview-page">Preview page<select id="admin-preview-page">
-   <option value="home">Home</option><option value="about">About EVR</option><option value="weddings">Weddings</option><option value="work">Selected work</option><option value="process">Our process</option><option value="estimate">Wedding estimate</option><option value="corporate">EVR Brand Studio</option><option value="services">Services</option><option value="approach">Our approach</option><option value="brand-work">EVR Brand Studio work</option><option value="production-quote">Production quote</option><option value="request">Share your brief</option><option value="studio">Quotation studio</option>
-  </select></label>
-  <div class="admin-tools" role="group" aria-label="Choose an editing tool">
-   <button type="button" class="admin-tool is-active" data-admin-mode="text" aria-pressed="true">Edit text</button>
-   <button type="button" class="admin-tool" data-admin-mode="background" aria-pressed="false">Change background</button>
+  <div class="admin-toolbar-row">
+   <label class="admin-preview-select" for="admin-preview-page">Preview page<select id="admin-preview-page">
+    <option value="home">Home</option><option value="about">About EVR</option><option value="weddings">Weddings</option><option value="work">Selected work</option><option value="process">Our process</option><option value="estimate">Wedding estimate</option><option value="corporate">EVR Brand Studio</option><option value="services">Services</option><option value="approach">Our approach</option><option value="brand-work">EVR Brand Studio work</option><option value="production-quote">Production quote</option><option value="request">Share your brief</option><option value="studio">Quotation studio</option>
+   </select></label>
+   <div class="admin-tools" role="group" aria-label="Choose an editing tool">
+    <span class="admin-control-label">Editing tools</span>
+    <div class="admin-tool-options">
+     <button type="button" class="admin-tool is-active" data-admin-mode="text" aria-pressed="true">Edit text</button>
+    </div>
+   </div>
   </div>
   <div class="admin-logo-tools" role="group" aria-label="Manage the shared EVR logo">
-   <button type="button" class="admin-tool" id="admin-logo-replace">Replace shared logo set</button>
-   <button type="button" class="admin-tool" id="admin-logo-default">Use default logo set</button>
+   <div class="admin-logo-copy"><span class="admin-control-label">Brand identity</span><strong>Shared EVR logo</strong><span>Upload one transparent PNG to create matching light and dark versions for the website.</span></div>
+   <div class="admin-logo-actions"><button type="button" class="admin-tool" id="admin-logo-replace">Replace logo set</button>
+   <button type="button" class="admin-tool" id="admin-logo-default">Restore defaults</button></div>
    <input id="admin-logo-file" type="file" accept="image/png" hidden>
-   <span>Choose one transparent PNG; matching light- and dark-background versions are generated automatically.</span>
   </div>
   <details class="admin-testimonials">
    <summary class="admin-testimonials-heading"><p class="eyebrow">HOME PAGE / CLIENT STORIES</p><h2 id="admin-testimonials-title">Video testimonials</h2><p>Add client videos whenever you have them. The public section stays hidden until at least one video is added and you choose to show it.</p></summary>
@@ -142,27 +146,38 @@ html.admin-route-pending > body > header {
     <p class="admin-work-dialog-status" id="admin-work-dialog-status" role="status" aria-live="polite"></p>
    </form>
   </dialog>
-  <label class="admin-color-label" for="admin-background-color">Selected background color<input id="admin-background-color" type="color" value="#243338"></label>
   <input id="admin-photo-file" type="file" accept="image/*" hidden>
   <input id="admin-video-file" type="file" accept="video/*" hidden>
-  <div class="admin-actions"><button type="button" class="button gold" id="admin-save">Save changes</button><button type="button" class="button secondary" id="admin-export">Export</button><button type="button" class="button secondary" id="admin-import">Import</button><button type="button" class="button secondary" id="admin-reset">Reset all</button></div>
-  <a class="admin-tool quote-studio-link" href="#/studio">Open the EVR quotation studio</a>
-  <p id="admin-status" class="admin-status" role="status" aria-live="polite">Connecting to shared content storage…</p>
-  <p class="admin-note">Website content, photos, and videos use Cloudflare R2.</p>
+  <div class="admin-publish-row">
+   <div class="admin-actions"><button type="button" class="button gold" id="admin-save">Save changes</button><button type="button" class="button secondary" id="admin-export">Export</button><button type="button" class="button secondary" id="admin-import">Import</button><button type="button" class="button secondary" id="admin-reset">Reset all</button></div>
+   <a class="admin-tool quote-studio-link" href="#/studio">Open quotation studio <span aria-hidden="true">↗</span></a>
+  </div>
+  <div class="admin-feedback">
+   <p id="admin-status" class="admin-status" role="status" aria-live="polite">Connecting to shared content storage…</p>
+   <p class="admin-note">Website content, photos, and videos use Cloudflare R2.</p>
+  </div>
   <button type="button" class="admin-tool" id="admin-migrate-local" hidden>Import edits saved in this browser</button>
  </div>
  <dialog class="admin-work-dialog admin-position-dialog" id="admin-position-dialog" aria-labelledby="admin-position-title">
   <div class="admin-work-controls">
    <header class="admin-work-dialog-header">
-    <div><p class="eyebrow">WEDDING PROCESS / PHONE GALLERY</p><h2 id="admin-position-title">Reposition this photo.</h2><p class="admin-note">Use the arrows to adjust the crop inside its frame. Each move shifts it by 10%.</p></div>
-    <button class="admin-work-dialog-close" id="admin-position-close" type="button" aria-label="Close photo positioning">×</button>
+    <div><p class="eyebrow">MEDIA FRAMING / IMAGE &amp; VIDEO</p><h2 id="admin-position-title">Adjust this media framing.</h2><p class="admin-note">Move the image within its frame or zoom in and out. Changes are saved with the website content.</p></div>
+    <button class="admin-work-dialog-close" id="admin-position-close" type="button" aria-label="Close media framing">×</button>
    </header>
-   <img id="admin-position-preview" alt="Preview of the selected wedding photo">
-   <div class="admin-position-controls" role="group" aria-label="Move the photo within its frame">
-    <span></span><button type="button" data-position-direction="up" aria-label="Move photo up">↑</button><span></span>
-    <button type="button" data-position-direction="left" aria-label="Move photo left">←</button><button type="button" id="admin-position-center">Center</button><button type="button" data-position-direction="right" aria-label="Move photo right">→</button>
-    <span></span><button type="button" data-position-direction="down" aria-label="Move photo down">↓</button><span></span>
+   <div class="admin-position-preview-frame">
+    <img id="admin-position-preview" alt="Preview of selected media framing">
+    <video id="admin-position-video-preview" muted playsinline controls preload="metadata" hidden></video>
    </div>
+   <div class="admin-position-controls" role="group" aria-label="Move media within its frame">
+    <span></span><button type="button" data-position-direction="up" aria-label="Move media up">↑</button><span></span>
+    <button type="button" data-position-direction="left" aria-label="Move media left">←</button><button type="button" id="admin-position-center">Center</button><button type="button" data-position-direction="right" aria-label="Move media right">→</button>
+    <span></span><button type="button" data-position-direction="down" aria-label="Move media down">↓</button><span></span>
+   </div>
+   <label class="admin-position-zoom" for="admin-position-zoom-slider">
+    <span>Zoom</span>
+    <input id="admin-position-zoom-slider" type="range" min="50" max="200" step="10" value="100" aria-label="Zoom media">
+    <output id="admin-position-zoom-level" for="admin-position-zoom-slider" aria-live="polite">100%</output>
+   </label>
    <button class="admin-work-cancel" id="admin-position-done" type="button">Done</button>
   </div>
  </dialog>
@@ -627,6 +642,6 @@ html.admin-route-pending > body > header {
 <script src="quotation-builder.js?v=public-album-45-1"></script>
 <script src="quote-maker.js?v=evr-album-45-1"></script>
 <script src="admin-media-client.js?v=r2-unified-storage-1"></script>
-<script src="admin.js?v=admin-video-cover-1"></script>
+<script src="admin.js?v=admin-media-framing-1"></script>
 </body>
 </html>

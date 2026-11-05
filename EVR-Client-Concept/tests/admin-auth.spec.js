@@ -8,6 +8,13 @@ test('admin route opens a photography sign-in and only reveals editing after ema
   await expect(page.locator('#admin-login-screen')).toBeVisible();
   await expect(page.locator('#admin-login')).toBeVisible();
   await expect(page.locator('.admin-login-photo img')).toHaveCount(3);
+  await expect(page.locator('.admin-login-photo-one img')).toHaveAttribute('src', 'assets/admin-login-photo-1.webp');
+  await expect(page.locator('.admin-login-photo-two img')).toHaveAttribute('src', 'assets/admin-login-photo-2.webp');
+  await expect(page.locator('.admin-login-photo-three img')).toHaveAttribute('src', 'assets/admin-login-photo-3.webp');
+  await expect(page.locator('.admin-login-photo-three figcaption')).toHaveText('THE PHOTOGRAPHER');
+  await expect.poll(() => page.locator('.admin-login-photo img').evaluateAll(images =>
+    images.every(image => image.complete && image.naturalWidth > 0)
+  )).toBe(true);
   await expect(page.locator('footer.site-footer')).toBeHidden();
   await expect(page.locator('.site-credit')).toBeHidden();
   await expect(page.locator('body')).toHaveClass(/admin-locked/);

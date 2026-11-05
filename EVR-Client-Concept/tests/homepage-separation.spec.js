@@ -832,7 +832,7 @@ test('selected work admin preview exposes four contextual portfolio video contro
   await expect(page.locator('.admin-controls')).toBeVisible();
   await page.locator('#admin-preview-page').selectOption('work');
 
-  const videoActions = page.locator('.admin-media-actions .admin-icon-button[aria-label="Replace video"]');
+  const videoActions = page.locator('.admin-media-actions .admin-media-menu-action[aria-label="Replace video"]');
   await expect(videoActions).toHaveCount(4);
 });
 

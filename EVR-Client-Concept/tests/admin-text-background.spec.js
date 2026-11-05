@@ -1,29 +1,38 @@
 const { test, expect } = require('@playwright/test');
 const { mockAdminApi } = require('./admin-api-mock');
 
-test('text and background edits persist and reload', async ({ page }) => {
+test('text edits persist while website background styling stays fixed', async ({ page }) => {
   const api = await mockAdminApi(page);
   await page.goto('/#/admin');
   await page.locator('#admin-preview-page').selectOption('home');
+  await expect(page.locator('[data-admin-mode="background"]')).toHaveCount(0);
+  await expect(page.locator('#admin-background-color')).toHaveCount(0);
+  const defaultBackground = await page.locator('#home').evaluate(element =>
+    getComputedStyle(element).backgroundColor
+  );
+  api.setContent({
+    version: 1,
+    entries: { '#home': { type: 'background', value: '#123456' } }
+  });
+  await page.reload();
+  await page.locator('#admin-preview-page').selectOption('home');
+
   await page.locator('[data-admin-mode="text"]').click();
   await page.locator('#home h1 em').click();
   await expect(page.locator('#home h1 em')).toHaveAttribute('contenteditable', 'true');
   await page.locator('#home h1 em').fill('Runtime verified stories');
-  await page.locator('[data-admin-mode="background"]').click();
-  const backgroundTarget = page.locator('#home > div > div > div > div').first();
-  await backgroundTarget.click({ position: { x: 100, y: 100 } });
-  await page.locator('#admin-background-color').fill('#123456');
+  await expect(page.locator('#home')).toHaveCSS('background-color', defaultBackground);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  expect(api.getContent().entries).not.toHaveProperty('#home');
 
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('home');
   await expect(page.locator('#home h1 em')).toHaveText('Runtime verified stories');
-  await expect(page.locator('#home > div > div > div > div').first()).toHaveCSS('background-color', 'rgb(18, 52, 86)');
-
+  await expect(page.locator('#home')).toHaveCSS('background-color', defaultBackground);
 });
 
-test('website credits cannot be edited or have their background changed in admin mode', async ({ page }) => {
+test('website credits cannot be edited in admin mode', async ({ page }) => {
   const api = await mockAdminApi(page);
   await page.goto('/#/admin');
   await page.locator('#admin-preview-page').selectOption('home');
@@ -35,9 +44,6 @@ test('website credits cannot be edited or have their background changed in admin
   await expect(brand).not.toHaveAttribute('contenteditable', 'true');
   await expect(page.locator('#admin-status')).toContainText('Website credits are fixed');
 
-  await page.locator('[data-admin-mode="background"]').click();
-  await credit.locator('.site-credit-label').click();
-  await expect(credit).not.toHaveAttribute('data-admin-background-edited', 'true');
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
   expect(api.getContent().entries).toEqual({});

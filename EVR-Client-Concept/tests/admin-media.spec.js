@@ -6,6 +6,21 @@ const { clickContextualMediaAction, clickFirstContextualMediaAction } = require(
 
 const fixture = path.resolve(__dirname, '..', 'assets', 'nbrands-case-study-cphtij.mp4');
 
+async function mediaAction(container, name) {
+  const menu = container.locator('.admin-media-menu').first();
+  if (await menu.count() && !await menu.evaluate(element => element.open)) {
+    await menu.locator('summary').click();
+    await expect(menu).toHaveJSProperty('open', true);
+  }
+  return container.getByRole('button', { name });
+}
+
+async function zoomIn(positionDialog) {
+  const slider = positionDialog.getByRole('slider', { name: 'Zoom media' });
+  await slider.focus();
+  await slider.press('ArrowRight');
+}
+
 test('valid MP4 survives save, export, reset, import, and reload', async ({ page }) => {
   const api = await mockAdminApi(page);
   await page.route('https://media.example.com/**', route => route.fulfill({
@@ -36,9 +51,13 @@ test('valid MP4 survives save, export, reset, import, and reload', async ({ page
   const importLoad = page.waitForEvent('load');
   await page.locator('#admin-import-file').setInputFiles(exportPath);
   await importLoad;
-  await expect.poll(() => Object.values(api.getContent().entries)).toHaveLength(1);
-  expect(Object.values(api.getContent().entries)[0].type).toBe('video');
-  expect(Object.values(api.getContent().entries)[0].value).toContain('/evr-videos/test-video.mp4');
+  await expect.poll(() => Object.values(api.getContent().entries).filter(entry => entry.type === 'video'))
+    .toHaveLength(1);
+  const importedEntries = Object.values(api.getContent().entries);
+  expect(importedEntries.find(entry => entry.type === 'video').value)
+    .toContain('/evr-videos/test-video.mp4');
+  expect(importedEntries.some(entry => entry.type === 'text' && entry.value.includes('/evr-videos/')))
+    .toBe(true);
 });
 
 test('browser uploader sends signed multipart chunks directly to Cloudflare R2', async ({ page }) => {
@@ -278,23 +297,27 @@ test('one transparent PNG replacement updates and persists every shared EVR logo
 
 test('admin can replace a Work portfolio card video from its contextual control', async ({ page }) => {
   const api = await mockAdminApi(page);
+  await page.route('https://media.example.com/**', route => route.fulfill({
+    body: fs.readFileSync(fixture),
+    headers: { 'access-control-allow-origin': '*', 'content-type': 'video/mp4' }
+  }));
   await page.goto('/#/admin');
   await expect(page.locator('.admin-controls')).toBeVisible();
   await page.locator('#admin-preview-page').selectOption('work');
   const firstPortfolioCard = page.locator('#work .story-library article').first();
   await firstPortfolioCard.scrollIntoViewIfNeeded();
   const portfolioMediaActions = page.locator('.admin-media-actions').filter({
-    has: page.getByRole('button', { name: 'Delete story' })
+    has: page.locator('.admin-media-menu-action[aria-label="Delete story"]')
   });
   const firstCardActions = portfolioMediaActions.first();
-  await expect(firstCardActions.getByRole('button', { name: 'Replace video' })).toBeVisible();
+  await expect(await mediaAction(firstCardActions, 'Replace video')).toBeVisible();
   await expect(portfolioMediaActions.first().getByRole('button', { name: 'Replace photo' })).toHaveCount(0);
   const previousVideoUrl = await firstPortfolioCard.locator('.preview-media').getAttribute('data-r2-video-url');
 
-  await firstCardActions.getByRole('button', { name: 'Replace video' }).click();
+  await (await mediaAction(firstCardActions, 'Replace video')).click();
   await page.locator('#admin-video-file').setInputFiles(fixture);
   await expect(page.locator('#admin-status')).toContainText('Video uploaded to Cloudflare R2');
-  await expect(firstCardActions.getByRole('button', { name: 'Revert video' })).toBeVisible();
+  await expect(await mediaAction(firstCardActions, 'Revert video')).toBeVisible();
   const portfolioVideo = page.locator('#work .story-library article').first().locator('video');
   await expect(portfolioVideo).toBeVisible();
   expect(await portfolioVideo.evaluate(video => video.controls)).toBe(false);
@@ -304,7 +327,7 @@ test('admin can replace a Work portfolio card video from its contextual control'
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
   await firstPortfolioCard.scrollIntoViewIfNeeded();
-  await expect(firstCardActions.getByRole('button', { name: 'Revert video' })).toBeVisible();
+  await expect(await mediaAction(firstCardActions, 'Revert video')).toBeVisible();
 
   const savedEntries = Object.values(api.getContent().entries);
   expect(savedEntries.some(entry => entry.type === 'video' && entry.value === 'https://media.example.com/evr-videos/test-video.mp4')).toBe(true);
@@ -315,10 +338,10 @@ test('admin can replace a Work portfolio card video from its contextual control'
   const reloadedCard = page.locator('#work .story-library article').first();
   await reloadedCard.scrollIntoViewIfNeeded();
   const reloadedActions = page.locator('.admin-media-actions').filter({
-    has: page.getByRole('button', { name: 'Delete story' })
+    has: page.locator('.admin-media-menu-action[aria-label="Delete story"]')
   }).first();
-  await expect(reloadedActions.getByRole('button', { name: 'Revert video' })).toBeVisible();
-  await reloadedActions.getByRole('button', { name: 'Revert video' }).click();
+  await expect(await mediaAction(reloadedActions, 'Revert video')).toBeVisible();
+  await (await mediaAction(reloadedActions, 'Revert video')).click();
   await expect(reloadedCard.locator('video')).toHaveAttribute('src', previousVideoUrl);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
@@ -393,17 +416,27 @@ test('admin can add and publish a new celebration story with an image', async ({
   await expect(addedCard).toContainText('A new family celebration');
   await expect(addedCard.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
   await expect(addedCard.locator('video')).toBeHidden();
-  await expect(addedCard.getByRole('button', { name: 'Replace photo' })).toBeVisible();
-  await expect(addedCard.getByRole('button', { name: 'Add video' })).toBeVisible();
-  await expect(addedCard.getByRole('button', { name: 'Delete story' })).toBeVisible();
+  await expect(addedCard.locator('.admin-card-actions .admin-icon-button')).toHaveCount(1);
+  await expect(addedCard.locator('.admin-card-actions .admin-media-menu-action:visible')).toHaveCount(0);
+  await expect(await mediaAction(addedCard, 'Replace photo')).toBeVisible();
+  await expect(await mediaAction(addedCard, 'Add video')).toBeVisible();
+  await expect(await mediaAction(addedCard, 'Delete story')).toBeVisible();
 
-  await addedCard.getByRole('button', { name: 'Replace photo' }).click();
+  await (await mediaAction(addedCard, 'Replace photo')).click();
   await addedCard.locator('input[type="file"][accept="image/*"]').setInputFiles(photo);
   await expect(addedCard.locator('img')).toHaveAttribute('src', 'https://blob.test/media-2.webp');
-  await addedCard.getByRole('button', { name: 'Add video' }).click();
+  await (await mediaAction(addedCard, 'Add video')).click();
   await addedCard.locator('input[type="file"][accept="video/*"]').setInputFiles(fixture);
   await expect(page.locator('#admin-status')).toContainText('Video attached');
-  await expect(addedCard.getByRole('button', { name: 'Replace video' })).toBeVisible();
+  await expect(await mediaAction(addedCard, 'Replace video')).toBeVisible();
+  await (await mediaAction(addedCard, 'Reposition cover')).click();
+  const positionDialog = page.locator('#admin-position-dialog');
+  await positionDialog.getByRole('button', { name: 'Move photo left' }).click();
+  await zoomIn(positionDialog);
+  await positionDialog.getByRole('button', { name: 'Done' }).click();
+  await (await mediaAction(addedCard, 'Reposition video')).click();
+  await zoomIn(positionDialog);
+  await positionDialog.getByRole('button', { name: 'Done' }).click();
 
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
@@ -416,17 +449,22 @@ test('admin can add and publish a new celebration story with an image', async ({
     category: 'celebration',
     description: 'A personal story with family and friends.',
     imageUrl: 'https://blob.test/media-2.webp',
-    videoUrl: 'https://media.example.com/evr-videos/test-video.mp4'
+    videoUrl: 'https://media.example.com/evr-videos/test-video.mp4',
+    imagePosition: { x: 60, y: 50, zoom: 110 },
+    videoPosition: { x: 50, y: 50, zoom: 110 }
   });
 
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('work');
   const reloadedCard = page.locator('#work .story-library .admin-managed-work-item');
   await expect(reloadedCard).toContainText('A new family celebration');
-  await expect(reloadedCard.getByRole('button', { name: 'Replace photo' })).toBeVisible();
-  await expect(reloadedCard.getByRole('button', { name: 'Replace video' })).toBeVisible();
+  await expect(await mediaAction(reloadedCard, 'Replace cover')).toBeVisible();
+  await expect(await mediaAction(reloadedCard, 'Replace video')).toBeVisible();
+  await expect(reloadedCard.locator('img')).toHaveCSS('object-position', '60% 50%');
+  await expect(reloadedCard.locator('img')).toHaveCSS('scale', '1.1');
+  await expect(reloadedCard.locator('video')).toHaveCSS('scale', '1.1');
   page.once('dialog', dialog => dialog.accept());
-  await reloadedCard.getByRole('button', { name: 'Delete story' }).click();
+  await (await mediaAction(reloadedCard, 'Delete story')).click();
   await expect(reloadedCard).toHaveCount(0);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
@@ -515,7 +553,7 @@ test('admin can manage EVR Brand Studio work, add categories, and delete gallery
   const imageCard = page.locator('#brand-work .admin-managed-work-item[data-category="campaigns"]');
   await expect(imageCard).toContainText('A new brand campaign');
   await expect(page.locator('#brand-work [data-filter="campaigns"]')).toBeVisible();
-  await expect(imageCard.getByRole('button', { name: 'Delete story' })).toBeVisible();
+  await expect(await mediaAction(imageCard, 'Delete story')).toBeVisible();
 
   await page.locator('#brand-work .admin-add-work-card').click();
   await page.locator('#admin-work-category').selectOption('healthcare');
@@ -556,7 +594,7 @@ test('admin can manage EVR Brand Studio work, add categories, and delete gallery
   const reloadedImage = page.locator('#brand-work .admin-managed-work-item[data-category="campaigns"]');
   await expect(reloadedImage).toContainText('A new brand campaign');
   page.once('dialog', dialog => dialog.accept());
-  await reloadedImage.getByRole('button', { name: 'Delete story' }).click();
+  await (await mediaAction(reloadedImage, 'Delete story')).click();
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
   expect(JSON.parse(Buffer.from(api.getContent().entries['#brand-work-gallery-items-v1'].value, 'base64').toString('utf8')))
@@ -577,7 +615,7 @@ test('admin can add a video to a photo-only Work story later', async ({ page }) 
   await page.locator('#admin-work-controls button[type="submit"]').click();
   await expect(page.locator('#admin-status')).toContainText('Story uploaded');
   const photoStory = page.locator('#work .admin-managed-work-item').filter({ hasText: 'A photo-first story' });
-  await photoStory.getByRole('button', { name: 'Add video' }).click();
+  await (await mediaAction(photoStory, 'Add video')).click();
   await photoStory.locator('input[type="file"][accept="video/*"]').setInputFiles(fixture);
   await expect(page.locator('#admin-status')).toContainText('Video attached');
   await expect(photoStory.locator('img')).toBeVisible();
@@ -686,11 +724,11 @@ test('admin can replace a managed story cover, replace or remove its video, and 
 
   const card = page.locator('#work .admin-managed-work-item[data-admin-managed-work-item="managed-story-1"]');
   await expect(card).toContainText('A family celebration');
-  await card.getByRole('button', { name: 'Replace cover' }).click();
-  await expect(card.getByRole('button', { name: 'Replace cover' })).toHaveText('');
+  await (await mediaAction(card, 'Replace cover')).click();
+  await expect(await mediaAction(card, 'Replace cover')).toHaveText('Replace cover');
   await card.locator('input[type="file"][accept="image/*"]').setInputFiles(photo);
   await expect(card.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
-  await expect(card.getByRole('button', { name: 'Revert cover' })).toBeVisible();
+  await expect(await mediaAction(card, 'Revert cover')).toBeVisible();
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
 
@@ -704,9 +742,9 @@ test('admin can replace a managed story cover, replace or remove its video, and 
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('work');
   await expect(card.locator('img')).toHaveAttribute('src', 'https://blob.test/media-1.webp');
-  await card.getByRole('button', { name: 'Revert cover' }).click();
+  await (await mediaAction(card, 'Revert cover')).click();
   await expect(card.locator('img')).toHaveAttribute('src', 'https://blob.test/original-cover.webp');
-  await expect(card.getByRole('button', { name: 'Revert cover' })).toHaveCount(0);
+  await expect(await mediaAction(card, 'Revert cover')).toHaveCount(0);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
   savedGallery = JSON.parse(Buffer.from(
@@ -716,26 +754,26 @@ test('admin can replace a managed story cover, replace or remove its video, and 
   expect(savedGallery[0].imageUrl).toBe('https://blob.test/original-cover.webp');
   expect(savedGallery[0].imageRevertUrl).toBeUndefined();
 
-  await card.getByRole('button', { name: 'Replace video' }).click();
+  await (await mediaAction(card, 'Replace video')).click();
   await card.locator('input[type="file"][accept="video/*"]').setInputFiles(fixture);
   await expect(card.locator('video')).toHaveAttribute('src', 'https://media.example.com/evr-videos/test-video.mp4');
-  await expect(card.getByRole('button', { name: 'Replace video' })).toHaveText('');
-  await expect(card.getByRole('button', { name: 'Revert video' })).toBeVisible();
+  await expect(await mediaAction(card, 'Replace video')).toHaveText('Replace video');
+  await expect(await mediaAction(card, 'Revert video')).toBeVisible();
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
 
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('work');
-  await expect(card.getByRole('button', { name: 'Revert video' })).toBeVisible();
-  await card.getByRole('button', { name: 'Revert video' }).click();
+  await expect(await mediaAction(card, 'Revert video')).toBeVisible();
+  await (await mediaAction(card, 'Revert video')).click();
   await expect(card.locator('video')).toHaveAttribute('src', 'https://media.example.com/evr-videos/original-video.mp4');
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
 
-  await expect(card.getByRole('button', { name: 'Remove video' })).toHaveText('');
-  await card.getByRole('button', { name: 'Remove video' }).click();
+  await expect(await mediaAction(card, 'Remove video')).toHaveText('Remove video');
+  await (await mediaAction(card, 'Remove video')).click();
   await expect(card.locator('video')).toBeHidden();
-  await expect(card.getByRole('button', { name: 'Remove video' })).toHaveCount(0);
+  await expect(await mediaAction(card, 'Remove video')).toHaveCount(0);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
 
@@ -749,8 +787,8 @@ test('admin can replace a managed story cover, replace or remove its video, and 
   expect(savedGallery[0].videoUrl).toBe('');
 
   page.once('dialog', dialog => dialog.accept());
-  await expect(card.getByRole('button', { name: 'Delete story' })).toHaveText('');
-  await card.getByRole('button', { name: 'Delete story' }).click();
+  await expect(await mediaAction(card, 'Delete story')).toHaveText('Delete story');
+  await (await mediaAction(card, 'Delete story')).click();
   await expect(card).toHaveCount(0);
   await page.locator('#admin-save').click();
   await expect(page.locator('#admin-status')).toContainText('Changes saved');
@@ -772,9 +810,9 @@ test('Work admin has contextual media guidance and an Add a story shortcut', asy
 
   const addStory = page.locator('#work .admin-add-work-card');
   await expect(addStory).toBeVisible();
-  const videoActions = page.locator('.admin-media-actions .admin-icon-button[aria-label="Replace video"]');
+  const videoActions = page.locator('.admin-media-actions .admin-media-menu-action[aria-label="Replace video"]');
   await expect(videoActions.first()).toHaveAttribute('title', /MP4.*max 1 GB/);
-  await expect(videoActions.first()).toHaveText('');
+  await expect(videoActions.first()).toHaveText('Replace video');
   expect(await videoActions.count()).toBeGreaterThan(0);
 
   await page.locator('#work [data-filter="celebration"]').click();
@@ -788,6 +826,84 @@ test('Work admin has contextual media guidance and an Add a story shortcut', asy
   expect(dialogBounds.x).toBeGreaterThanOrEqual(0);
   expect(dialogBounds.x + dialogBounds.width).toBeLessThanOrEqual(390);
   expect(dialogBounds.y).toBeGreaterThanOrEqual(0);
+});
+
+test('admin tools form a tidy responsive workspace', async ({ page }) => {
+  await mockAdminApi(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/#/admin');
+
+  const controls = page.locator('.admin-controls');
+  await expect(controls).toBeVisible();
+  await expect(page.locator('.admin-testimonials')).toBeVisible();
+  const desktopLayout = await page.evaluate(() => {
+    const bounds = selector => {
+      const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    return {
+      controls: bounds('.admin-controls'),
+      toolbar: bounds('.admin-toolbar-row'),
+      preview: bounds('.admin-preview-select'),
+      tools: bounds('.admin-tools'),
+      logos: bounds('.admin-logo-tools'),
+      testimonials: bounds('.admin-testimonials'),
+      publish: bounds('.admin-publish-row')
+    };
+  });
+  expect(desktopLayout.testimonials.width).toBeGreaterThan(desktopLayout.controls.width * 0.85);
+  expect(desktopLayout.logos.width).toBeGreaterThan(desktopLayout.controls.width * 0.85);
+  expect(Math.abs(
+    desktopLayout.preview.y + desktopLayout.preview.height -
+    desktopLayout.tools.y - desktopLayout.tools.height
+  )).toBeLessThanOrEqual(1);
+  expect(desktopLayout.toolbar.y).toBeLessThan(desktopLayout.logos.y);
+  expect(desktopLayout.logos.y).toBeLessThan(desktopLayout.testimonials.y);
+  expect(desktopLayout.testimonials.y).toBeLessThan(desktopLayout.publish.y);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileLayout = await page.evaluate(() => {
+    const bounds = selector => {
+      const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      controls: bounds('.admin-controls'),
+      preview: bounds('.admin-preview-select'),
+      tools: bounds('.admin-tools'),
+      logos: bounds('.admin-logo-tools'),
+      testimonials: bounds('.admin-testimonials')
+    };
+  });
+  expect(mobileLayout.viewportWidth).toBe(390);
+  for (const section of ['controls', 'logos', 'testimonials']) {
+    expect(mobileLayout[section].x).toBeGreaterThanOrEqual(0);
+    expect(mobileLayout[section].x + mobileLayout[section].width).toBeLessThanOrEqual(390);
+  }
+  expect(mobileLayout.tools.y).toBeGreaterThan(mobileLayout.preview.y);
+  expect(mobileLayout.testimonials.width).toBeGreaterThan(mobileLayout.controls.width * 0.8);
+});
+
+test('media actions are grouped under a keyboard-accessible settings menu', async ({ page }) => {
+  await mockAdminApi(page);
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('home');
+  await page.locator('#home .hero-art [data-card="2"]').scrollIntoViewIfNeeded();
+
+  const photoPanel = page.locator('.admin-media-actions:visible[data-media-root]').filter({
+    has: page.locator('.admin-media-menu-action[aria-label="Reposition photo"]')
+  }).first();
+  const settings = photoPanel.locator('summary[aria-label="Media settings"]');
+  const options = photoPanel.locator('.admin-media-menu-options');
+
+  await expect(settings).toBeVisible();
+  await expect(photoPanel.locator('.admin-media-menu-action:visible')).toHaveCount(0);
+  await settings.click();
+  await expect(photoPanel.getByRole('button', { name: 'Replace photo' })).toBeVisible();
+  await expect(photoPanel.getByRole('button', { name: 'Reposition photo' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(options).toBeHidden();
 });
 
 test('hidden homepage image slots do not show contextual replace-photo icons', async ({ page }) => {
@@ -813,19 +929,23 @@ test('admin can delete a built-in Work card and keep it hidden after reload', as
   await page.goto('/#/admin');
   await page.locator('#admin-preview-page').selectOption('work');
 
-  const card = page.locator('#work .story-library > article:not(.admin-managed-work-item)').first();
+  const card = page.locator('#work .story-library > article:not(.admin-managed-work-item):has(video)').first();
   await card.scrollIntoViewIfNeeded();
+  const media = card.locator('.preview-media');
   const slot = await card.locator('.preview-media').evaluate(media =>
     media.dataset.r2Slot ? `portfolio:${media.dataset.r2Slot}` : `portfolio:${media.dataset.portfolioSlot}`
   );
-  let actions = page.locator('.admin-media-actions:visible').filter({
-    has: page.getByRole('button', { name: 'Delete story' })
-  }).first();
-  await expect(actions.getByRole('button', { name: 'Replace video' })).toBeVisible();
+  const panelIndex = await media.evaluate(element =>
+    Array.from(document.querySelectorAll('.admin-media-actions'))
+      .findIndex(panel => panel._mediaRoot === element)
+  );
+  expect(panelIndex).toBeGreaterThanOrEqual(0);
+  const actions = page.locator('.admin-media-actions').nth(panelIndex);
+  await expect(await mediaAction(actions, 'Replace video')).toBeVisible();
   await expect(actions.getByRole('button', { name: 'Replace photo' })).toHaveCount(0);
-  await expect(actions.getByRole('button', { name: 'Delete story' })).toBeVisible();
+  await expect(await mediaAction(actions, 'Delete story')).toBeVisible();
   page.once('dialog', dialog => dialog.accept());
-  await actions.getByRole('button', { name: 'Delete story' }).click();
+  await (await mediaAction(actions, 'Delete story')).click();
   await expect(card).toBeHidden();
 
   await page.locator('#admin-save').click();
@@ -837,8 +957,88 @@ test('admin can delete a built-in Work card and keep it hidden after reload', as
   await expect(page.locator('#work .story-library > article').first()).toBeHidden();
 });
 
+test('admin can reposition and zoom a regular website image and keep its framing after reload', async ({ page }) => {
+  const api = await mockAdminApi(page);
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('home');
+  const card = page.locator('#home .hero-art [data-card="2"]');
+  await clickContextualMediaAction(page, '#home .hero-art [data-card="2"]', 'Reposition photo');
+
+  const positionDialog = page.locator('#admin-position-dialog');
+  const image = card.locator('img');
+  const zoomSlider = positionDialog.getByRole('slider', { name: 'Zoom media' });
+  await expect(zoomSlider).toHaveValue('100');
+  const frameBounds = await positionDialog.locator('.admin-position-preview-frame').boundingBox();
+  const moveBounds = await positionDialog.locator('.admin-position-controls').boundingBox();
+  const zoomBounds = await positionDialog.locator('.admin-position-zoom').boundingBox();
+  expect(frameBounds.y + frameBounds.height).toBeLessThanOrEqual(moveBounds.y);
+  expect(moveBounds.y + moveBounds.height).toBeLessThanOrEqual(zoomBounds.y);
+  await positionDialog.getByRole('button', { name: 'Move photo left' }).click();
+  await zoomIn(positionDialog);
+  await expect(zoomSlider).toHaveValue('110');
+  await expect(image).toHaveCSS('object-position', '58% 70%');
+  await expect(image).toHaveCSS('scale', '1.1');
+  await positionDialog.getByRole('button', { name: 'Done' }).click();
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+
+  const positionEntry = Object.entries(api.getContent().entries).find(([key]) =>
+    key.startsWith('#media-position-v1:')
+  );
+  expect(positionEntry).toBeTruthy();
+  expect(JSON.parse(positionEntry[1].value)).toEqual({ x: 58, y: 70, zoom: 110 });
+
+  await page.reload();
+  await page.locator('#admin-preview-page').selectOption('home');
+  const reloadedImage = page.locator('#home .hero-art [data-card="2"] img');
+  await expect(reloadedImage).toHaveCSS('object-position', '58% 70%');
+  await expect(reloadedImage).toHaveCSS('scale', '1.1');
+});
+
+test('admin can adjust and persist a video testimonial frame', async ({ page }) => {
+  const id = '12345678-1234-4234-8234-123456789abc';
+  const content = {
+    version: 1,
+    entries: {
+      '#video-testimonials-v1': {
+        type: 'text',
+        value: JSON.stringify({
+          version: 1,
+          enabled: true,
+          items: [{ id, clientName: 'EVR client', caption: 'A lovely day.', videoUrl: 'https://media.example.com/testimonial.mp4' }]
+        })
+      }
+    }
+  };
+  const api = await mockAdminApi(page, content);
+  await page.route('https://media.example.com/**', route => route.fulfill({
+    body: fs.readFileSync(fixture),
+    headers: { 'access-control-allow-origin': '*', 'content-type': 'video/mp4' }
+  }));
+  await page.goto('/#/admin');
+  await page.locator('#admin-preview-page').selectOption('home');
+  await page.locator('.admin-testimonials > summary').click();
+  await page.locator('#admin-testimonial-list').getByRole('button', { name: 'Adjust framing' }).click();
+
+  const positionDialog = page.locator('#admin-position-dialog');
+  await positionDialog.getByRole('button', { name: 'Move video left' }).click();
+  await zoomIn(positionDialog);
+  await positionDialog.getByRole('button', { name: 'Done' }).click();
+  await page.locator('#admin-save').click();
+  await expect(page.locator('#admin-status')).toContainText('Changes saved');
+  expect(JSON.parse(api.getContent().entries['#video-testimonials-v1'].value).items[0].position)
+    .toEqual({ x: 60, y: 50, zoom: 110 });
+
+  await page.reload();
+  await page.locator('#admin-preview-page').selectOption('home');
+  const video = page.locator(`#video-testimonial-grid .video-testimonial-card[data-admin-video-testimonial-id="${id}"] video`);
+  await expect(video).toHaveCSS('object-position', '60% 50%');
+  await expect(video).toHaveCSS('scale', '1.1');
+});
+
 test('admin can reposition each photo in the final phone mockup screen and keep the crop after reload', async ({ page }) => {
   const api = await mockAdminApi(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/#/admin');
   await page.locator('#admin-preview-page').selectOption('home');
@@ -849,7 +1049,7 @@ test('admin can reposition each photo in the final phone mockup screen and keep 
   const controls = page.locator('.admin-media-actions[data-gallery-image-controls="true"]');
   await expect(controls).toHaveCount(4);
   const firstImage = page.locator('#home [data-phone-screen="4"] .phone-gallery img').first();
-  await controls.first().getByRole('button', { name: 'Reposition photo' }).click();
+  await (await mediaAction(controls.first(), 'Reposition photo')).click();
   const positionDialog = page.locator('#admin-position-dialog');
   const positionPreview = positionDialog.locator('#admin-position-preview');
   await expect(positionDialog).toBeVisible();
@@ -864,7 +1064,9 @@ test('admin can reposition each photo in the final phone mockup screen and keep 
   await expect(firstImage).toHaveCSS('object-position', '50% 50%');
   await expect(positionPreview).toHaveCSS('object-position', '50% 50%');
   await positionDialog.getByRole('button', { name: 'Move photo right' }).click();
+  await zoomIn(positionDialog);
   await expect(firstImage).toHaveCSS('object-position', '40% 50%');
+  await expect(firstImage).toHaveCSS('scale', '1.1');
   await positionDialog.getByRole('button', { name: 'Done' }).click();
   await expect(positionPreview).not.toHaveAttribute('src');
 
@@ -875,6 +1077,12 @@ test('admin can reposition each photo in the final phone mockup screen and keep 
   );
   expect(positionEntry).toBeTruthy();
   expect(JSON.parse(positionEntry[1].value)).toEqual({ x: 40, y: 50 });
+  const genericPositionEntry = Object.entries(api.getContent().entries).find(([key]) =>
+    key.startsWith('#media-position-v1:') &&
+    JSON.parse(api.getContent().entries[key].value).zoom === 110
+  );
+  expect(genericPositionEntry).toBeTruthy();
+  expect(JSON.parse(genericPositionEntry[1].value)).toEqual({ x: 40, y: 50, zoom: 110 });
 
   await page.reload();
   await page.locator('#admin-preview-page').selectOption('home');
@@ -883,4 +1091,6 @@ test('admin can reposition each photo in the final phone mockup screen and keep 
   await expect(page.locator('#process-story')).toHaveAttribute('data-step', '4');
   await expect(page.locator('#home [data-phone-screen="4"] .phone-gallery img').first())
     .toHaveCSS('object-position', '40% 50%');
+  await expect(page.locator('#home [data-phone-screen="4"] .phone-gallery img').first())
+    .toHaveCSS('scale', '1.1');
 });

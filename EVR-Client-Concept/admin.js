@@ -7,8 +7,11 @@
   const workForm = document.getElementById('admin-work-controls');
   const workDialog = document.getElementById('admin-work-dialog');
   const positionDialog = document.getElementById('admin-position-dialog');
+  const positionPreviewFrame = positionDialog.querySelector('.admin-position-preview-frame');
   const positionPreview = document.getElementById('admin-position-preview');
-  const colorPicker = document.getElementById('admin-background-color');
+  const positionVideoPreview = document.getElementById('admin-position-video-preview');
+  const positionZoomSlider = document.getElementById('admin-position-zoom-slider');
+  const positionZoomLevel = document.getElementById('admin-position-zoom-level');
   const photoPicker = document.getElementById('admin-photo-file');
   const logoPicker = document.getElementById('admin-logo-file');
   const logoReplaceButton = document.getElementById('admin-logo-replace');
@@ -27,7 +30,6 @@
   const adminCodeEntry = document.getElementById('admin-code-entry');
   const controls = document.querySelector('.admin-controls');
   const textSelector = 'h1,h2,h3,h4,p,a,span,figcaption,summary,label,button,li,dt,dd,blockquote,cite,b,strong,em';
-  const backgroundSelector = 'section,article,a,figure,aside,header,footer,div';
   const allowedMarkup = new Set(['BR', 'EM', 'STRONG', 'B', 'I', 'SPAN', 'SMALL', 'SUB', 'SUP']);
   const assetDatabase = 'evr-site-content-assets';
   const assetStore = 'videos';
@@ -45,6 +47,7 @@
     dark: '/assets/evr-productions-logo-dark.png'
   };
   const phoneGalleryPositionPrefix = '#phone-gallery-image-position-v1:';
+  const mediaPositionPrefix = '#media-position-v1:';
   const mediaRevertKey = '#media-revert-state-v1';
   const defaultWorkCategories = [
     { slug: 'wedding', label: 'Wedding day' },
@@ -72,7 +75,7 @@
   let videoTestimonials = { version: 1, enabled: false, items: [] };
   let videoTestimonialsChanged = false;
   let activeWorkContext = 'work';
-  let activePositionImage = null;
+  let activePositionMedia = null;
   let mediaRevertState = {};
   let managedGalleryChanged = false;
   const managedGalleryChanges = new Set();
@@ -343,6 +346,137 @@
     return `${phoneGalleryPositionPrefix}${elementKey(image)}`;
   }
 
+  function mediaPositionKey(element) {
+    const managedCard = element.closest('.admin-managed-work-item');
+    if (managedCard) {
+      const item = workItemsFor(managedCard.closest('#brand-work') ? 'brand-work' : 'work')
+        .find(candidate => candidate.id === managedCard.dataset.adminManagedWorkItem);
+      if (item) return '';
+    }
+    return `${mediaPositionPrefix}${elementKey(element)}`;
+  }
+
+  function parseMediaPosition(value) {
+    let position;
+    try {
+      position = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`The saved media framing is invalid: ${error.message}`);
+    }
+    if (!position || typeof position !== 'object' || Array.isArray(position) ||
+        !Number.isInteger(position.x) || position.x < 0 || position.x > 100 ||
+        !Number.isInteger(position.y) || position.y < 0 || position.y > 100 ||
+        !Number.isInteger(position.zoom) || position.zoom < 50 || position.zoom > 200) {
+      throw new Error('Saved media framing must use whole-number percentages and zoom from 50 to 200.');
+    }
+    return { x: position.x, y: position.y, zoom: position.zoom };
+  }
+
+  function normalizeManagedPosition(position) {
+    if (position === undefined) return undefined;
+    return parseMediaPosition(JSON.stringify(position));
+  }
+
+  function managedPositionOwner(element) {
+    const card = element.closest('.admin-managed-work-item');
+    if (card) {
+      const context = card.closest('#brand-work') ? 'brand-work' : 'work';
+      return {
+        item: workItemsFor(context).find(candidate => candidate.id === card.dataset.adminManagedWorkItem),
+        property: element instanceof HTMLVideoElement ? 'videoPosition' : 'imagePosition',
+        context
+      };
+    }
+    const testimonialCard = element.closest('.video-testimonial-card');
+    if (testimonialCard) {
+      return {
+        item: videoTestimonials.items.find(candidate => candidate.id === testimonialCard.dataset.adminVideoTestimonialId),
+        property: 'position',
+        context: 'testimonials'
+      };
+    }
+    return null;
+  }
+
+  function managedPositionProperty(element) {
+    return managedPositionOwner(element)?.property || null;
+  }
+
+  function currentMediaPosition(element) {
+    const owner = managedPositionOwner(element);
+    if (owner?.item) {
+      if (element.dataset.adminPositionEdited === 'true') {
+        const [x, y] = element.dataset.adminObjectPosition.split(',').map(Number);
+        const zoom = Number(element.dataset.adminObjectZoom) || 100;
+        if (Number.isInteger(x) && Number.isInteger(y)) return { x, y, zoom };
+      }
+      const saved = owner.item[owner.property];
+      if (saved) return { x: saved.x, y: saved.y, zoom: saved.zoom };
+    }
+    if (element.dataset.adminObjectPosition && element.dataset.adminObjectZoom) {
+      const [x, y] = element.dataset.adminObjectPosition.split(',').map(Number);
+      const zoom = Number(element.dataset.adminObjectZoom) || 100;
+      if (Number.isInteger(x) && Number.isInteger(y)) return { x, y, zoom };
+    }
+    const key = mediaPositionKey(element);
+    const saved = key && edits[key];
+    if (saved?.type === 'text') return parseMediaPosition(saved.value);
+    const position = currentPhoneGalleryPosition(element);
+    const zoom = Number(element.dataset.adminObjectZoom) ||
+      Number.parseFloat(getComputedStyle(element).scale) * 100 || 100;
+    return { ...position, zoom: Math.min(200, Math.max(50, Math.round(zoom / 5) * 5)) };
+  }
+
+  function setMediaPosition(element, position) {
+    applyMediaPosition(element, position);
+    element.dataset.adminPositionEdited = 'true';
+    const owner = managedPositionOwner(element);
+    if (owner?.item) {
+      owner.item[owner.property] = { x: position.x, y: position.y, zoom: position.zoom };
+      if (owner.context === 'testimonials') {
+        videoTestimonialsChanged = true;
+      } else {
+        markManagedGalleryChanged(owner.context);
+      }
+    }
+    if (activePositionMedia === element) {
+      const preview = element instanceof HTMLVideoElement ? positionVideoPreview : positionPreview;
+      preview.style.objectPosition = element.style.objectPosition;
+      preview.style.scale = element.style.scale;
+      positionZoomSlider.value = String(position.zoom);
+      positionZoomLevel.textContent = `${position.zoom}%`;
+    }
+  }
+
+  function applyMediaPosition(element, position) {
+    element.style.objectPosition = `${position.x}% ${position.y}%`;
+    element.style.scale = String(position.zoom / 100);
+    element.dataset.adminObjectPosition = `${position.x},${position.y}`;
+    element.dataset.adminObjectZoom = String(position.zoom);
+  }
+
+  function resetMediaPosition(element) {
+    const key = mediaPositionKey(element);
+    if (key) delete edits[key];
+    if (element instanceof HTMLImageElement && element.matches('.phone-gallery img')) {
+      delete edits[phoneGalleryPositionKey(element)];
+    }
+    const owner = managedPositionOwner(element);
+    if (owner?.item) {
+      delete owner.item[owner.property];
+      if (owner.context === 'testimonials') {
+        videoTestimonialsChanged = true;
+      } else {
+        markManagedGalleryChanged(owner.context);
+      }
+    }
+    element.style.removeProperty('object-position');
+    element.style.removeProperty('scale');
+    delete element.dataset.adminObjectPosition;
+    delete element.dataset.adminObjectZoom;
+    delete element.dataset.adminPositionEdited;
+  }
+
   function parsePhoneGalleryPosition(value) {
     let position;
     try {
@@ -371,22 +505,73 @@
     };
   }
 
-  function setPhoneGalleryPosition(image, position) {
-    image.style.objectPosition = `${position.x}% ${position.y}%`;
-    image.dataset.adminObjectPosition = `${position.x},${position.y}`;
-    image.dataset.adminPositionEdited = 'true';
-    if (activePositionImage === image) positionPreview.style.objectPosition = image.style.objectPosition;
-  }
-
-  function movePhoneGalleryImage(image, direction) {
-    const position = currentPhoneGalleryPosition(image);
+  function moveMedia(element, direction) {
+    const position = currentMediaPosition(element);
     const step = 10;
     if (direction === 'left') position.x = Math.min(100, position.x + step);
     else if (direction === 'right') position.x = Math.max(0, position.x - step);
     else if (direction === 'up') position.y = Math.min(100, position.y + step);
     else if (direction === 'down') position.y = Math.max(0, position.y - step);
-    setPhoneGalleryPosition(image, position);
-    setStatus('Photo position adjusted. Choose Save changes to publish it to the shared website.');
+    setMediaPosition(element, position);
+    setStatus('Media framing adjusted. Choose Save changes to publish it to the shared website.');
+  }
+
+  function adjustMediaZoom(element, zoom) {
+    const position = currentMediaPosition(element);
+    position.zoom = Math.min(200, Math.max(50, Number(zoom) || 100));
+    setMediaPosition(element, position);
+    setStatus('Media zoom adjusted. Choose Save changes to publish it to the shared website.');
+  }
+
+  function openPositionEditor(element) {
+    activePositionMedia = element;
+    const position = currentMediaPosition(element);
+    const mediaLabel = element instanceof HTMLVideoElement ? 'video' : 'photo';
+    positionDialog.querySelectorAll('[data-position-direction]').forEach(button => {
+      button.setAttribute('aria-label', `Move ${mediaLabel} ${button.dataset.positionDirection}`);
+    });
+    const source = element instanceof HTMLImageElement ? element.currentSrc || element.src : element.poster || '';
+    const videoSource = element instanceof HTMLVideoElement
+      ? element.currentSrc || element.getAttribute('src') ||
+        element.closest('.preview-media')?.dataset.r2VideoUrl || ''
+      : '';
+    const useVideoPreview = Boolean(videoSource);
+    const frame = mediaContainer(element).getBoundingClientRect();
+    const aspectRatio = frame.width > 0 && frame.height > 0
+      ? frame.width / frame.height
+      : element.closest('.video-testimonial-card') ? 9 / 16 : 1.45;
+    const maxPreviewWidth = Math.min(360, window.innerWidth - 64);
+    const maxPreviewHeight = Math.min(360, window.innerHeight * 0.42);
+    const previewWidth = Math.min(maxPreviewWidth, maxPreviewHeight * aspectRatio);
+    positionPreviewFrame.style.width = `${previewWidth}px`;
+    positionPreviewFrame.style.height = `${previewWidth / aspectRatio}px`;
+    positionPreview.hidden = useVideoPreview || !source;
+    positionVideoPreview.hidden = !useVideoPreview;
+    positionPreview.style.objectPosition = `${position.x}% ${position.y}%`;
+    positionPreview.style.scale = String(position.zoom / 100);
+    positionVideoPreview.style.objectPosition = `${position.x}% ${position.y}%`;
+    positionVideoPreview.style.scale = String(position.zoom / 100);
+    positionPreview.style.aspectRatio = String(aspectRatio);
+    positionVideoPreview.style.aspectRatio = String(aspectRatio);
+    const fit = getComputedStyle(element).objectFit;
+    positionPreview.style.objectFit = fit;
+    positionVideoPreview.style.objectFit = fit;
+    positionZoomLevel.textContent = `${position.zoom}%`;
+    positionZoomSlider.value = String(position.zoom);
+    if (useVideoPreview) {
+      positionVideoPreview.poster = source;
+      positionVideoPreview.src = videoSource;
+      positionPreview.removeAttribute('src');
+      positionVideoPreview.load();
+    } else if (source) {
+      positionPreview.src = source;
+      positionVideoPreview.removeAttribute('src');
+      positionVideoPreview.removeAttribute('poster');
+    } else {
+      positionVideoPreview.removeAttribute('src');
+      positionVideoPreview.removeAttribute('poster');
+    }
+    positionDialog.showModal();
   }
 
   function safeMarkup(markup) {
@@ -749,6 +934,10 @@
           (item.videoUrl !== '' && !isSecureMediaUrl(item.videoUrl)) ||
       (item.imageRevertUrl !== undefined && !safeImageSource(item.imageRevertUrl)) ||
       (item.videoRevertUrl !== undefined && !isSecureMediaUrl(item.videoRevertUrl)) ||
+      (item.imagePosition !== undefined && !normalizeManagedPosition(item.imagePosition)) ||
+      (item.videoPosition !== undefined && !normalizeManagedPosition(item.videoPosition)) ||
+      (item.imageRevertPosition !== undefined && !normalizeManagedPosition(item.imageRevertPosition)) ||
+      (item.videoRevertPosition !== undefined && !normalizeManagedPosition(item.videoRevertPosition)) ||
       (!item.imageUrl && !item.videoUrl)) {
         throw new Error('A saved Work story must have a valid image, a secure video, or both.');
       }
@@ -761,7 +950,11 @@
         imageUrl: item.imageUrl,
         videoUrl: item.videoUrl || '',
         ...(item.imageRevertUrl ? { imageRevertUrl: item.imageRevertUrl } : {}),
-        ...(item.videoRevertUrl ? { videoRevertUrl: item.videoRevertUrl } : {})
+        ...(item.videoRevertUrl ? { videoRevertUrl: item.videoRevertUrl } : {}),
+        ...(item.imagePosition ? { imagePosition: normalizeManagedPosition(item.imagePosition) } : {}),
+        ...(item.videoPosition ? { videoPosition: normalizeManagedPosition(item.videoPosition) } : {}),
+        ...(item.imageRevertPosition ? { imageRevertPosition: normalizeManagedPosition(item.imageRevertPosition) } : {}),
+        ...(item.videoRevertPosition ? { videoRevertPosition: normalizeManagedPosition(item.videoRevertPosition) } : {})
       };
     });
   }
@@ -796,10 +989,15 @@
         : media?.type === 'video-cover'
           ? media.value === '' || safeImageSource(media.value)
           : media?.type === 'video' && (/^https?:\/\//i.test(media.value) || /^[\w-]{1,80}$/.test(media.value));
-      if (!key || key.length > 500 || !validValue) {
+      if (!key || key.length > 500 || !validValue ||
+          (media.position !== undefined && !normalizeManagedPosition(media.position))) {
         throw new Error('The saved media revert state contains an invalid source.');
       }
-      checked[key] = { type: media.type, value: media.value };
+      checked[key] = {
+        type: media.type,
+        value: media.value,
+        ...(media.position ? { position: normalizeManagedPosition(media.position) } : {})
+      };
     }
     return checked;
   }
@@ -837,7 +1035,8 @@
         id: item.id,
         clientName: item.clientName.trim(),
         caption: item.caption.trim(),
-        videoUrl: item.videoUrl
+        videoUrl: item.videoUrl,
+        ...(item.position ? { position: normalizeManagedPosition(item.position) } : {})
       };
     });
     return { version: 1, enabled: data.enabled, items };
@@ -851,12 +1050,14 @@
     for (const item of videoTestimonials.items) {
       const card = document.createElement('article');
       card.className = 'video-testimonial-card';
+      card.dataset.adminVideoTestimonialId = item.id;
       const video = document.createElement('video');
       video.controls = true;
       video.playsInline = true;
       video.preload = 'none';
       video.src = item.videoUrl;
       video.setAttribute('aria-label', `Client testimonial video: ${item.clientName}`);
+      if (item.position) applyMediaPosition(video, item.position);
       const client = document.createElement('h3');
       client.textContent = item.clientName;
       card.append(video, client);
@@ -900,6 +1101,20 @@
       replace.type = 'button';
       replace.className = 'admin-tool';
       replace.textContent = 'Replace video';
+      const position = document.createElement('button');
+      position.type = 'button';
+      position.className = 'admin-tool';
+      position.textContent = 'Adjust framing';
+      position.addEventListener('click', () => {
+        const video = document.querySelector(
+          `#video-testimonial-grid .video-testimonial-card[data-admin-video-testimonial-id="${item.id}"] video`
+        );
+        if (!video) {
+          setStatus('This testimonial video preview is unavailable.', true);
+          return;
+        }
+        openPositionEditor(video);
+      });
       const picker = document.createElement('input');
       picker.type = 'file';
       picker.accept = 'video/*';
@@ -926,6 +1141,7 @@
           const currentItem = videoTestimonials.items.find(candidate => candidate.id === item.id);
           if (!currentItem) throw new Error('This testimonial was removed before its replacement finished uploading.');
           currentItem.videoUrl = uploaded.playbackUrl;
+          delete currentItem.position;
           videoTestimonialsChanged = true;
           renderVideoTestimonials();
           renderAdminVideoTestimonials();
@@ -948,7 +1164,7 @@
         renderAdminVideoTestimonials();
         setStatus('Testimonial video removed. Choose Save changes to publish the update.');
       });
-      row.append(details, replace, remove, picker);
+      row.append(details, replace, position, remove, picker);
       list.append(row);
     }
   }
@@ -1066,10 +1282,13 @@
     return card;
   }
 
-  function createManagedWorkActions(item, context = 'work') {
+  function createManagedWorkActions(item, context = 'work', image, video) {
     const actions = document.createElement('div');
     actions.className = 'admin-card-actions';
     actions.setAttribute('aria-label', `Manage ${item.title}`);
+    const mediaMenu = createMediaActionMenu();
+    const menuOptions = mediaMenu.options;
+    actions.append(mediaMenu.details);
 
     const coverLabel = item.videoUrl
       ? item.imageUrl ? 'Replace cover' : 'Add cover'
@@ -1093,7 +1312,13 @@
         const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem) throw new Error('This story was removed before its cover upload finished.');
         if (currentItem.imageUrl) currentItem.imageRevertUrl = currentItem.imageUrl;
+        if (currentItem.imageUrl && currentItem.imagePosition) {
+          currentItem.imageRevertPosition = currentItem.imagePosition;
+        } else {
+          delete currentItem.imageRevertPosition;
+        }
         currentItem.imageUrl = imageUrl;
+        delete currentItem.imagePosition;
         markManagedGalleryChanged(context);
         renderManagedWorkItems(context);
         setStatus(`${item.videoUrl ? 'Video cover' : 'Photo'} replaced. Choose Save changes to publish it to the shared website.`);
@@ -1105,11 +1330,14 @@
     });
 
     if (item.imageRevertUrl) {
-      actions.append(createMediaIconButton(item.videoUrl ? 'Revert cover' : 'Revert photo', 'undo', () => {
+      menuOptions.append(createMediaIconButton(item.videoUrl ? 'Revert cover' : 'Revert photo', 'undo', () => {
         const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem?.imageRevertUrl) return;
         currentItem.imageUrl = currentItem.imageRevertUrl;
         delete currentItem.imageRevertUrl;
+        if (currentItem.imageRevertPosition) currentItem.imagePosition = currentItem.imageRevertPosition;
+        else delete currentItem.imagePosition;
+        delete currentItem.imageRevertPosition;
         markManagedGalleryChanged(context);
         renderManagedWorkItems(context);
         renderMediaControls();
@@ -1150,7 +1378,13 @@
         const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem) throw new Error('This story was removed before its video upload finished.');
         if (currentItem.videoUrl) currentItem.videoRevertUrl = currentItem.videoUrl;
+        if (currentItem.videoUrl && currentItem.videoPosition) {
+          currentItem.videoRevertPosition = currentItem.videoPosition;
+        } else {
+          delete currentItem.videoRevertPosition;
+        }
         currentItem.videoUrl = uploaded.playbackUrl;
+        delete currentItem.videoPosition;
         markManagedGalleryChanged(context);
         renderManagedWorkItems(context);
         renderMediaControls();
@@ -1162,14 +1396,34 @@
       }
     });
 
-    actions.append(replaceImage, imagePicker, replaceVideo, videoPickerInput);
+    menuOptions.append(replaceImage, imagePicker, replaceVideo, videoPickerInput);
+
+    if (item.imageUrl && image) {
+      menuOptions.append(createMediaIconButton(
+        item.videoUrl ? 'Reposition cover' : 'Reposition photo',
+        'position',
+        () => openPositionEditor(image),
+        `Adjust the ${item.videoUrl ? 'cover' : 'photo'} framing`
+      ));
+    }
+    if (item.videoUrl && video) {
+      menuOptions.append(createMediaIconButton(
+        'Reposition video',
+        'position',
+        () => openPositionEditor(video),
+        'Adjust the video framing'
+      ));
+    }
 
     if (item.videoRevertUrl) {
-      actions.append(createMediaIconButton('Revert video', 'undo', () => {
+      menuOptions.append(createMediaIconButton('Revert video', 'undo', () => {
         const currentItem = workItemsFor(context).find(candidate => candidate.id === item.id);
         if (!currentItem?.videoRevertUrl) return;
         currentItem.videoUrl = currentItem.videoRevertUrl;
         delete currentItem.videoRevertUrl;
+        if (currentItem.videoRevertPosition) currentItem.videoPosition = currentItem.videoRevertPosition;
+        else delete currentItem.videoPosition;
+        delete currentItem.videoRevertPosition;
         markManagedGalleryChanged(context);
         renderManagedWorkItems(context);
         renderMediaControls();
@@ -1187,7 +1441,7 @@
         renderMediaControls();
         setStatus('Video removed from this story. Choose Save changes to publish the update.');
       }, 'Remove this video from the story');
-      actions.append(removeVideo);
+      menuOptions.append(removeVideo);
     }
 
     const deleteStory = createMediaIconButton('Delete story', 'delete', () => {
@@ -1198,7 +1452,7 @@
       renderMediaControls();
       setStatus(`Story removed from ${context === 'brand-work' ? 'EVR Brand Studio work' : 'Work'}. Choose Save changes to publish the update.`);
     }, 'Remove this story from the Work page', 'admin-card-delete');
-    actions.append(deleteStory);
+    menuOptions.append(deleteStory);
     return actions;
   }
 
@@ -1214,6 +1468,12 @@
     image.hidden = !item.imageUrl;
     if (item.imageUrl) image.src = item.imageUrl;
     image.alt = `${item.title} celebration`;
+    if (item.imagePosition) {
+      image.style.objectPosition = `${item.imagePosition.x}% ${item.imagePosition.y}%`;
+      image.style.scale = String(item.imagePosition.zoom / 100);
+      image.dataset.adminObjectPosition = `${item.imagePosition.x},${item.imagePosition.y}`;
+      image.dataset.adminObjectZoom = String(item.imagePosition.zoom);
+    }
     media.append(image);
     const video = document.createElement('video');
     video.hidden = !item.videoUrl;
@@ -1229,6 +1489,12 @@
       video.src = item.videoUrl;
       video.dataset.adminVideoAsset = item.videoUrl;
     }
+    if (item.videoPosition) {
+      video.style.objectPosition = `${item.videoPosition.x}% ${item.videoPosition.y}%`;
+      video.style.scale = String(item.videoPosition.zoom / 100);
+      video.dataset.adminObjectPosition = `${item.videoPosition.x},${item.videoPosition.y}`;
+      video.dataset.adminObjectZoom = String(item.videoPosition.zoom);
+    }
     media.append(video);
 
     const label = document.createElement('small');
@@ -1237,7 +1503,7 @@
     title.textContent = item.title;
     const description = document.createElement('p');
     description.textContent = item.description;
-    article.append(createManagedWorkActions(item, context), media, label, title, description);
+    article.append(createManagedWorkActions(item, context, image, video), media, label, title, description);
     return article;
   }
 
@@ -1312,6 +1578,10 @@
       document.querySelectorAll('#home [data-phone-screen="4"] .phone-gallery img'),
       phoneGalleryPositionKey
     ));
+    const mediaPositionKeys = new Set(Array.from(
+      document.querySelectorAll('body img, body video'),
+      mediaPositionKey
+    ).filter(Boolean));
     for (const [key, entry] of Object.entries(entries)) {
       if (siteCreditKeys.has(key)) continue;
       if (!entry || typeof entry.value !== 'string') throw new Error('An edit entry is incomplete.');
@@ -1320,6 +1590,12 @@
           throw new Error('A saved phone-gallery image position has an unsupported format.');
         }
         checked[key] = { type: 'text', value: JSON.stringify(parsePhoneGalleryPosition(entry.value)) };
+      }
+      else if (key.startsWith(mediaPositionPrefix)) {
+        if (!mediaPositionKeys.has(key) || entry.type !== 'text') {
+          throw new Error('A saved media framing has an unsupported format.');
+        }
+        checked[key] = { type: 'text', value: JSON.stringify(parseMediaPosition(entry.value)) };
       }
       else if (key === managedGalleryKey) {
         if (entry.type !== 'text') throw new Error('The saved Work gallery has an unsupported format.');
@@ -1363,7 +1639,7 @@
       else if (entry.type === 'image' && safeImageSource(entry.value)) checked[key] = { type: 'image', value: entry.value };
       else if (entry.type === 'video-cover' && safeImageSource(entry.value)) checked[key] = { type: 'video-cover', value: entry.value };
       else if (entry.type === 'video' && (/^https?:\/\//i.test(entry.value) || /^[\w-]{1,80}$/.test(entry.value))) checked[key] = { type: 'video', value: entry.value };
-      else if (entry.type === 'background' && CSS.supports('color', entry.value)) checked[key] = { type: 'background', value: entry.value };
+      else if (entry.type === 'background') continue;
       else throw new Error('An edit entry contains an unsupported value.');
     }
     customWorkCategories = validatedCategories;
@@ -1392,7 +1668,7 @@
     window.applyEvrBrandLogo(logoSet);
     for (const element of document.querySelectorAll('body *')) {
       if (editor.contains(element) || element.closest('.site-credit')) continue;
-      if (element.dataset.adminTextEdited || element.dataset.adminImageEdited || element.dataset.adminBackgroundEdited) continue;
+      if (element.dataset.adminTextEdited || element.dataset.adminImageEdited) continue;
       const edit = edits[elementKey(element)];
       if (!edit) continue;
       if (edit.type === 'text') element.innerHTML = edit.value;
@@ -1402,7 +1678,6 @@
         element.dataset.adminVideoAsset = edit.value;
         markUploadedVideo(element);
       }
-      else if (edit.type === 'background') element.style.backgroundColor = edit.value;
     }
     document.querySelectorAll('video').forEach(video => {
       const cover = edits[videoCoverKey(video)];
@@ -1427,6 +1702,20 @@
         image.style.objectPosition = `${x}% ${y}%`;
       }
     });
+    document.querySelectorAll('body img, body video').forEach(element => {
+      if (editor.contains(element)) return;
+      const managedProperty = managedPositionProperty(element);
+      if (managedProperty) {
+        const card = element.closest('.admin-managed-work-item');
+        const context = card?.closest('#brand-work') ? 'brand-work' : 'work';
+        const item = card && workItemsFor(context).find(candidate => candidate.id === card.dataset.adminManagedWorkItem);
+        const position = item?.[managedProperty];
+        if (position) applyMediaPosition(element, position);
+        return;
+      }
+      const entry = edits[mediaPositionKey(element)];
+      if (entry?.type === 'text') applyMediaPosition(element, parseMediaPosition(entry.value));
+    });
   }
 
   function setMode(nextMode) {
@@ -1437,11 +1726,7 @@
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', String(active));
     });
-    const descriptions = {
-      text: 'Text editing is ready. Click a heading, paragraph, or other text in the preview.',
-      background: 'Background editing is ready. Click an area in the preview, then choose a color.'
-    };
-    setStatus(descriptions[mode]);
+    setStatus('Text editing is ready. Click a heading, paragraph, or other text in the preview.');
   }
 
   function clearSelection() {
@@ -1474,7 +1759,7 @@
   function createMediaIconButton(label, iconName, onClick, title = label, className = '') {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `admin-icon-button ${className}`.trim();
+    button.className = `admin-media-menu-action ${className}`.trim();
     button.setAttribute('aria-label', label);
     button.title = title;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1490,12 +1775,68 @@
       left: '<path d="M19 12H5m7 7-7-7 7-7"/>',
       right: '<path d="M5 12h14m-7-7 7 7-7 7"/>',
       up: '<path d="M12 19V5m-7 7 7-7 7 7"/>',
-      down: '<path d="M12 5v14m-7-7 7 7 7-7"/>'
+      down: '<path d="M12 5v14m-7-7 7 7 7-7"/>',
+      settings: '<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a7.8 7.8 0 0 1-1.4.8l-.3 1.8h-2.8l-.3-1.8a7.8 7.8 0 0 1-1.4-.8l-1.7.7-1.4-2.4L8 15a7.5 7.5 0 0 1 0-1.8l-1.5-1.1 1.4-2.4 1.7.7a7.8 7.8 0 0 1 1.4-.8l.3-1.8h2.8l.3 1.8a7.8 7.8 0 0 1 1.4.8l1.7-.7 1.4 2.4-1.5 1.1a7.5 7.5 0 0 1 0 1.8Z"/>'
     };
     svg.innerHTML = icons[iconName];
     button.append(svg);
+    const text = document.createElement('span');
+    text.textContent = label;
+    button.append(text);
     button.addEventListener('click', onClick);
     return button;
+  }
+
+  let mediaMenuHandlersInstalled = false;
+  function createMediaActionMenu() {
+    const details = document.createElement('details');
+    details.className = 'admin-media-menu';
+    const trigger = document.createElement('summary');
+    trigger.className = 'admin-icon-button admin-media-menu-trigger';
+    trigger.setAttribute('aria-label', 'Media settings');
+    trigger.title = 'Media settings';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    svg.innerHTML = '<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a7.8 7.8 0 0 1-1.4.8l-.3 1.8h-2.8l-.3-1.8a7.8 7.8 0 0 1-1.4-.8l-1.7.7-1.4-2.4L8 15a7.5 7.5 0 0 1 0-1.8l-1.5-1.1 1.4-2.4 1.7.7a7.8 7.8 0 0 1 1.4-.8l.3-1.8h2.8l.3 1.8a7.8 7.8 0 0 1 1.4.8l1.7-.7 1.4 2.4-1.5 1.1a7.5 7.5 0 0 1 0 1.8Z"/>';
+    trigger.append(svg);
+    const options = document.createElement('div');
+    options.className = 'admin-media-menu-options';
+    options.setAttribute('aria-label', 'Media actions');
+    details.append(trigger, options);
+    details.addEventListener('toggle', () => {
+      if (!details.open) return;
+      document.querySelectorAll('.admin-media-menu[open]').forEach(other => {
+        if (other !== details) other.open = false;
+      });
+      const bounds = details.getBoundingClientRect();
+      const menuBounds = options.getBoundingClientRect();
+      options.classList.toggle('is-right-aligned', menuBounds.right > window.innerWidth - 8);
+      options.classList.toggle(
+        'is-above',
+        window.innerHeight - bounds.bottom < menuBounds.height && bounds.top > menuBounds.height
+      );
+    });
+    if (!mediaMenuHandlersInstalled) {
+      document.addEventListener('click', event => {
+        const target = event.target;
+        const menu = target instanceof Element ? target.closest('.admin-media-menu') : null;
+        document.querySelectorAll('.admin-media-menu[open]').forEach(openMenu => {
+          if (openMenu !== menu || target.closest?.('.admin-media-menu-action')) openMenu.open = false;
+        });
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        const openMenu = document.querySelector('.admin-media-menu[open]');
+        if (!openMenu) return;
+        event.preventDefault();
+        openMenu.open = false;
+        openMenu.querySelector('summary')?.focus();
+      });
+      mediaMenuHandlersInstalled = true;
+    }
+    return { details, options };
   }
 
   function watchMediaImage(image) {
@@ -1583,10 +1924,13 @@
       panel._mediaRoot = root;
       panel.setAttribute('role', 'group');
       panel.setAttribute('aria-label', 'Replace or manage this media');
+      const mediaMenu = createMediaActionMenu();
+      panel.append(mediaMenu.details);
+      const menuOptions = mediaMenu.options;
 
       if (media.images.length && !hasVideoMedia) {
         const image = media.images[0];
-        panel.append(createMediaIconButton(
+        menuOptions.append(createMediaIconButton(
           'Replace photo',
           'image',
           () => selectPhoto(image),
@@ -1594,21 +1938,16 @@
         ));
         if (image.matches('.phone-gallery img')) {
           panel.dataset.galleryImageControls = 'true';
-          panel.setAttribute('aria-label', 'Replace or reposition this wedding photo');
-          panel.append(createMediaIconButton(
-            'Reposition photo',
-            'position',
-            () => {
-              activePositionImage = image;
-              positionPreview.src = image.currentSrc || image.src;
-              positionPreview.style.objectPosition = image.style.objectPosition || getComputedStyle(image).objectPosition;
-              positionDialog.showModal();
-            },
-            'Adjust this photo’s framing'
-          ));
+          panel.setAttribute('aria-label', 'Replace or adjust this wedding photo');
         }
+        menuOptions.append(createMediaIconButton(
+          'Reposition photo',
+          'position',
+          () => openPositionEditor(image),
+          'Adjust this photo’s framing'
+        ));
         if (mediaRevertState[elementKey(image)]) {
-          panel.append(createMediaIconButton(
+          menuOptions.append(createMediaIconButton(
             'Revert photo',
             'undo',
             () => revokeMediaReplacement(image),
@@ -1618,7 +1957,7 @@
       }
       if (hasVideoMedia) {
         const video = media.videos[0] || root.querySelector('video');
-        panel.append(createMediaIconButton(
+        menuOptions.append(createMediaIconButton(
           'Replace video',
           'video',
           () => {
@@ -1631,14 +1970,29 @@
           'Replace video · MP4 (H.264) recommended · MOV/WebM/MKV/AVI · match card shape · max 1 GB'
         ));
         if (video) {
-          panel.append(createMediaIconButton(
+          menuOptions.append(createMediaIconButton(
             'Replace cover',
             'image',
             () => selectVideoCover(video),
             `Replace video cover · ${recommendedImageSize(root)} · JPG/PNG/WebP/GIF · max 30 MB · optimized to WebP`
           ));
+          const coverImage = root.querySelector(':scope > img');
+          if (coverImage && !coverImage.hidden) {
+            menuOptions.append(createMediaIconButton(
+              'Reposition cover',
+              'position',
+              () => openPositionEditor(coverImage),
+              'Adjust this video cover’s framing'
+            ));
+          }
+          menuOptions.append(createMediaIconButton(
+            'Reposition video',
+            'position',
+            () => openPositionEditor(video),
+            'Adjust this video’s framing'
+          ));
           if (mediaRevertState[videoCoverKey(video)]) {
-            panel.append(createMediaIconButton(
+            menuOptions.append(createMediaIconButton(
               'Revert cover',
               'undo',
               () => revokeMediaReplacement(video, 'video-cover'),
@@ -1647,7 +2001,7 @@
           }
         }
         if (video && mediaRevertState[elementKey(video)]) {
-          panel.append(createMediaIconButton(
+          menuOptions.append(createMediaIconButton(
             'Revert video',
             'undo',
             () => revokeMediaReplacement(video),
@@ -1661,7 +2015,7 @@
         const card = root.closest(`#${context} .story-library > article:not(.admin-managed-work-item)`);
         const id = card && workCardId(card, context);
         if (card && id) {
-          panel.append(createMediaIconButton('Delete story', 'delete', () => {
+          menuOptions.append(createMediaIconButton('Delete story', 'delete', () => {
             const label = context === 'brand-work' ? 'EVR Brand Studio work' : 'Work';
             if (!window.confirm(`Remove this story from the ${label} page?`)) return;
             hiddenCardIdsFor(context).add(id);
@@ -1750,22 +2104,20 @@
     delete element.dataset.adminVideoEdited;
     if (previous.type === 'image' && element instanceof HTMLImageElement) {
       element.src = previous.value;
+      setMediaPosition(element, previous.position || { x: 50, y: 50, zoom: 100 });
     } else if (previous.type === 'video' && element instanceof HTMLVideoElement) {
       element.dataset.adminVideoAsset = previous.value;
       setVideoSource(element, videoUrls.get(previous.value) || previous.value);
+      setMediaPosition(element, previous.position || { x: 50, y: 50, zoom: 100 });
       markUploadedVideo(element);
     } else if (previous.type === 'video-cover' && element instanceof HTMLVideoElement) {
       applyVideoCover(element, previous.value);
+      const cover = element.closest('.preview-media')?.querySelector(':scope > img');
+      setMediaPosition(cover || element, previous.position || { x: 50, y: 50, zoom: 100 });
       delete element.dataset.adminVideoCoverEdited;
     }
     renderMediaControls();
     setStatus('Previous media restored. Choose Save changes to publish the update.');
-  }
-
-  function hexColor(color) {
-    const channels = color.match(/\d+/g);
-    if (!channels || channels.length < 3) return '#243338';
-    return `#${channels.slice(0, 3).map(channel => Number(channel).toString(16).padStart(2, '0')).join('')}`;
   }
 
   document.querySelectorAll('[data-admin-mode]').forEach(button => {
@@ -1773,20 +2125,31 @@
   });
   positionDialog.querySelectorAll('[data-position-direction]').forEach(button => {
     button.addEventListener('click', () => {
-      if (activePositionImage) movePhoneGalleryImage(activePositionImage, button.dataset.positionDirection);
+      if (activePositionMedia) moveMedia(activePositionMedia, button.dataset.positionDirection);
     });
   });
+  positionZoomSlider.addEventListener('input', () => {
+    if (activePositionMedia) adjustMediaZoom(activePositionMedia, positionZoomSlider.value);
+  });
   document.getElementById('admin-position-center').addEventListener('click', () => {
-    if (!activePositionImage) return;
-    setPhoneGalleryPosition(activePositionImage, { x: 50, y: 50 });
-    setStatus('Photo centered. Choose Save changes to publish the update.');
+    if (!activePositionMedia) return;
+    setMediaPosition(activePositionMedia, { x: 50, y: 50, zoom: 100 });
+    setStatus('Media framing centered. Choose Save changes to publish the update.');
   });
   document.getElementById('admin-position-close').addEventListener('click', () => positionDialog.close());
   document.getElementById('admin-position-done').addEventListener('click', () => positionDialog.close());
   positionDialog.addEventListener('close', () => {
-    activePositionImage = null;
+    activePositionMedia = null;
     positionPreview.removeAttribute('src');
     positionPreview.style.removeProperty('object-position');
+    positionPreview.style.removeProperty('scale');
+    positionVideoPreview.pause();
+    positionVideoPreview.removeAttribute('src');
+    positionVideoPreview.style.removeProperty('object-position');
+    positionVideoPreview.style.removeProperty('scale');
+    positionVideoPreview.load();
+    positionPreview.hidden = false;
+    positionVideoPreview.hidden = true;
   });
   document.querySelectorAll('[data-filter]').forEach(button => {
     button.addEventListener('click', () => requestAnimationFrame(positionMediaControls));
@@ -1830,27 +2193,16 @@
       return;
     }
 
-    if (mode === 'text') {
-      const textElement = target.closest(textSelector);
-      if (!textElement || !textElement.textContent.trim()) {
-        setStatus('Click a heading, paragraph, link, or other text to edit it.');
-        return;
-      }
-      selectElement(textElement);
-      textElement.contentEditable = 'true';
-      textElement.dataset.adminTextEdited = 'true';
-      textElement.focus();
-      setStatus('Edit the selected text in place, then choose Save changes.');
-    } else {
-      const area = target.closest(backgroundSelector);
-      if (!area || editor.contains(area)) {
-        setStatus('Click a section, card, or other area in the preview.');
-        return;
-      }
-      selectElement(area);
-      colorPicker.value = hexColor(getComputedStyle(area).backgroundColor);
-      setStatus('Choose a background color. Select Save changes when you are done.');
+    const textElement = target.closest(textSelector);
+    if (!textElement || !textElement.textContent.trim()) {
+      setStatus('Click a heading, paragraph, link, or other text to edit it.');
+      return;
     }
+    selectElement(textElement);
+    textElement.contentEditable = 'true';
+    textElement.dataset.adminTextEdited = 'true';
+    textElement.focus();
+    setStatus('Edit the selected text in place, then choose Save changes.');
   }, true);
 
   document.addEventListener('input', event => {
@@ -1893,16 +2245,6 @@
     markManagedGalleryChanged(activeWorkContext);
     input.value = '';
     status.textContent = `${label} added. Save changes after adding the story to publish this category.`;
-  });
-
-  colorPicker.addEventListener('input', () => {
-    if (!selectedElement || mode !== 'background') {
-      setStatus('Choose Change background, then click an area in the preview.');
-      return;
-    }
-    selectedElement.style.backgroundColor = colorPicker.value;
-    selectedElement.dataset.adminBackgroundEdited = 'true';
-    setStatus('Unsaved background edit. Choose Save changes to publish it to the shared website.');
   });
 
   workForm.addEventListener('submit', async event => {
@@ -1999,13 +2341,24 @@
       if (previousSource && !safeImageSource(previousSource)) {
         throw new Error(`The previous ${isVideoCover ? 'video cover' : 'photo'} could not be restored safely.`);
       }
-      mediaRevertState[key] = { type: isVideoCover ? 'video-cover' : 'image', value: previousSource };
+      const positionTarget = isVideoCover
+        ? selectedElement.closest('.preview-media')?.querySelector(':scope > img') || selectedElement
+        : selectedElement;
+      mediaRevertState[key] = {
+        type: isVideoCover ? 'video-cover' : 'image',
+        value: previousSource,
+        ...(positionTarget ? { position: currentMediaPosition(positionTarget) } : {})
+      };
       if (isVideoCover) {
         applyVideoCover(selectedElement, uploadedSource);
         selectedElement.dataset.adminVideoCoverEdited = 'true';
+        const coverImage = selectedElement.closest('.preview-media')?.querySelector(':scope > img');
+        if (coverImage) resetMediaPosition(coverImage);
+        else resetMediaPosition(selectedElement);
       } else {
         selectedElement.src = uploadedSource;
         selectedElement.dataset.adminImageEdited = 'true';
+        resetMediaPosition(selectedElement);
       }
       renderMediaControls();
       setStatus(`${isVideoCover ? 'Video cover' : 'Photo'} uploaded. Choose Save changes to publish it to the shared website.`);
@@ -2065,10 +2418,15 @@
       if (!/^https?:\/\//i.test(previousSource) && !/^[\w-]{1,80}$/.test(previousSource)) {
         throw new Error('The previous video could not be restored safely.');
       }
-      mediaRevertState[elementKeyValue] = { type: 'video', value: previousSource };
+      mediaRevertState[elementKeyValue] = {
+        type: 'video',
+        value: previousSource,
+        position: currentMediaPosition(selectedElement)
+      };
       selectedElement.dataset.adminVideoEdited = 'true';
       selectedElement.dataset.adminVideoAsset = uploaded.playbackUrl;
       setVideoSource(selectedElement, uploaded.playbackUrl);
+      resetMediaPosition(selectedElement);
       markUploadedVideo(selectedElement);
       pendingVideos.set(elementKeyValue, uploaded);
       renderMediaControls();
@@ -2101,8 +2459,11 @@
       if (position.x === 50 && position.y === 50) delete next[key];
       else next[key] = { type: 'text', value: JSON.stringify(position) };
     });
-    document.querySelectorAll('[data-admin-background-edited="true"]').forEach(element => {
-      next[elementKey(element)] = { type: 'background', value: element.style.backgroundColor };
+    document.querySelectorAll('body img[data-admin-position-edited="true"], body video[data-admin-position-edited="true"]').forEach(element => {
+      if (managedPositionProperty(element)) return;
+      const position = currentMediaPosition(element);
+      const key = mediaPositionKey(element);
+      if (key) next[key] = { type: 'text', value: JSON.stringify(position) };
     });
     try {
       for (const [key, video] of pendingVideos) {
@@ -2159,10 +2520,6 @@
       });
       document.querySelectorAll('[data-admin-position-edited="true"]').forEach(element => {
         delete element.dataset.adminPositionEdited;
-        delete element.dataset.adminObjectPosition;
-      });
-      document.querySelectorAll('[data-admin-background-edited="true"]').forEach(element => {
-        delete element.dataset.adminBackgroundEdited;
       });
       document.querySelectorAll('[data-admin-video-edited="true"]').forEach(element => {
         const key = elementKey(element);
