@@ -1,8 +1,9 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { get, put } = require('@vercel/blob');
+const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { createInvitationId, getInvitationStorageId } = require('../server/invitation-links');
+const { getR2Configuration } = require('../server/r2-storage');
 const {
   hasInvitationEditorSession,
   isInvitationEditorAuthenticated,
@@ -76,12 +77,16 @@ module.exports = async function invitationHandler(request, response) {
         return errorResponse(response, 'This invitation is too large to store. Use smaller photos or music.', 413);
       }
 
+      const storage = getR2Configuration();
+      if (storage.error) return errorResponse(response, storage.error, 503);
       const id = createInvitationId(config.coupleNames, randomUUID());
-      await put(`invitations/${getInvitationStorageId(id)}.json`, JSON.stringify(config), {
-        access: 'private',
-        addRandomSuffix: false,
-        contentType: 'application/json'
-      });
+      await storage.client.send(new PutObjectCommand({
+        Bucket: storage.bucket,
+        Key: `invitations/${getInvitationStorageId(id)}.json`,
+        Body: JSON.stringify(config),
+        ContentType: 'application/json; charset=utf-8',
+        CacheControl: 'no-store'
+      }));
       return response.status(201).json({ id });
     }
 
@@ -90,12 +95,26 @@ module.exports = async function invitationHandler(request, response) {
       const storageId = getInvitationStorageId(id);
       if (!storageId) return errorResponse(response, 'Invitation link is invalid.', 400);
 
-      const stored = await get(`invitations/${storageId}.json`, { access: 'private' });
-      if (!stored || stored.statusCode !== 200) {
+      const storage = getR2Configuration();
+      if (storage.error) return errorResponse(response, storage.error, 503);
+      let stored;
+      try {
+        stored = await storage.client.send(new GetObjectCommand({
+          Bucket: storage.bucket,
+          Key: `invitations/${storageId}.json`
+        }));
+      } catch (error) {
+        if (error.name === 'NoSuchKey' || error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+          response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          return response.status(404).end('Invitation not found.');
+        }
+        throw error;
+      }
+      if (!stored?.Body) {
         response.setHeader('Content-Type', 'text/plain; charset=utf-8');
         return response.status(404).end('Invitation not found.');
       }
-      const config = await new Response(stored.stream).json();
+      const config = JSON.parse(await stored.Body.transformToString());
       if (!isValidInvitation(config)) return errorResponse(response, 'Stored invitation data is invalid.', 500);
 
       const templateUrl = new URL('/invitation/index.html', getDeploymentOrigin(request));
@@ -135,6 +154,6 @@ module.exports = async function invitationHandler(request, response) {
     return errorResponse(response, 'Method not allowed.', 405);
   } catch (error) {
     console.error('Unable to load or save a wedding invitation:', error);
-    return errorResponse(response, 'Invitation storage failed. Check the Vercel Blob connection.', 500);
+    return errorResponse(response, 'Invitation storage failed. Check the Cloudflare R2 configuration and connection.', 500);
   }
 };

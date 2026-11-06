@@ -33,6 +33,16 @@ const environmentKeys = [
   'UPSTASH_REDIS_REST_TOKEN',
   'NODE_ENV'
 ];
+const invitation = {
+  coupleNames: 'Ananya & Aarav',
+  date: '2027-02-14T10:30:00',
+  welcomeMessage: 'Join us for our wedding.',
+  venueName: 'The Garden Pavilion',
+  venueAddress: 'Hyderabad',
+  heroImage: 'https://images.example.test/wedding.jpg',
+  gallery: [],
+  events: []
+};
 const originalEnvironment = Object.fromEntries(environmentKeys.map(key => [key, process.env[key]]));
 process.env.CLOUDFLARE_ACCOUNT_ID = 'a'.repeat(32);
 process.env.R2_ACCESS_KEY_ID = 'test-access-key';
@@ -108,6 +118,70 @@ test('protects invitation saves and passcode settings with separate sessions', a
     headers: { host: 'evr.example' }
   }, settingsResponse);
   assert.equal(settingsResponse.statusCode, 401);
+});
+
+test('stores invitation JSON in R2 and loads it through its public unique link', async () => {
+  const originalSend = S3Client.prototype.send;
+  const originalFetch = global.fetch;
+  const objects = new Map();
+  const commands = [];
+  S3Client.prototype.send = async function send(command) {
+    commands.push(command);
+    if (command instanceof GetObjectCommand) {
+      const body = objects.get(command.input.Key);
+      if (!body) {
+        const error = new Error('Object not found');
+        error.name = 'NoSuchKey';
+        throw error;
+      }
+      return { Body: { transformToString: async () => body } };
+    }
+    if (command instanceof PutObjectCommand) {
+      objects.set(command.input.Key, command.input.Body);
+      return {};
+    }
+    throw new Error('Unexpected storage command.');
+  };
+  global.fetch = async url => {
+    assert.equal(new URL(url).pathname, '/invitation/index.html');
+    return new Response('<!doctype html><!-- INVITATION_META_START --><title>Sample</title><!-- INVITATION_META_END --><script>/* WEDDING_CONFIG_START */\nconst DEFAULT_WEDDING = {};\n/* WEDDING_CONFIG_END */</script>');
+  };
+
+  try {
+    await setInvitationPasscode('1020');
+    const savedPasscode = await readInvitationPasscode();
+    const editorSession = createResponse();
+    setInvitationEditorCookie(editorSession, savedPasscode.hash);
+    const cookie = editorSession.headers['Set-Cookie'].split(';')[0];
+
+    const saveResponse = createResponse();
+    await invitationHandler({
+      method: 'POST',
+      headers: { host: 'evr.example', origin: 'https://evr.example', cookie },
+      body: invitation
+    }, saveResponse);
+    assert.equal(saveResponse.statusCode, 201);
+    assert.match(saveResponse.body.id, /^ananya-aarav-[\da-f-]{36}$/);
+    const objectKey = `invitations/${saveResponse.body.id.slice(-36)}.json`;
+    assert.equal(JSON.parse(objects.get(objectKey)).coupleNames, invitation.coupleNames);
+    const write = commands.find(command => command instanceof PutObjectCommand && command.input.Key === objectKey);
+    assert.equal(write.input.Bucket, process.env.R2_BUCKET_NAME);
+    assert.equal(write.input.ContentType, 'application/json; charset=utf-8');
+
+    const url = new URL(`https://evr.example/invitation/${saveResponse.body.id}`);
+    const loadResponse = createResponse();
+    await invitationHandler({
+      method: 'GET',
+      url: `${url.pathname}?id=${encodeURIComponent(saveResponse.body.id)}`,
+      headers: { host: 'www.evrproductions.in' }
+    }, loadResponse);
+    assert.equal(loadResponse.statusCode, 200);
+    assert.equal(loadResponse.headers['Content-Type'], 'text/html; charset=utf-8');
+    assert.match(loadResponse.body, /const WEDDING = \{"coupleNames":"Ananya & Aarav"/);
+  } finally {
+    S3Client.prototype.send = originalSend;
+    global.fetch = originalFetch;
+  }
 });
 
 test('admin can change the passcode and it unlocks the editor with a short-lived session', async () => {
