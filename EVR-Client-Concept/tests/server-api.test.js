@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const authHandler = require('../api/auth');
 const quoteAccessHandler = require('../api/quote-maker/access');
+const deployedQuoteAccessHandler = require('../../api/quote-maker/access');
 const brandLogoHandler = require('../api/brand-logo');
 const r2ImageUploadHandler = require('../api/r2-image-upload');
 const r2VideoUploadHandler = require('../api/r2-video-upload');
@@ -270,6 +271,7 @@ test('admin API rejects cross-origin sign-in code requests', async () => {
 });
 
 test('quote passcode issues a quote-only HttpOnly session', async () => {
+  assert.equal(deployedQuoteAccessHandler, quoteAccessHandler);
   await withMockedAuthServices(async () => {
     const request = {
       method: 'POST',

@@ -5,8 +5,8 @@ const path = require('node:path');
 const { test, expect } = require('@playwright/test');
 
 test('direct /quote route opens the authenticated shareable quote maker', async ({ page }) => {
-  const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
-  expect(vercelConfig.routes).toContainEqual({ src: '^/quote/?$', dest: '/quote-maker.html' });
+  const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
+  expect(vercelConfig.rewrites).toContainEqual({ source: '/quote', destination: '/quote-maker.html' });
 
   await mockQuotePasscode(page);
   await page.route('**/quote', route => route.fulfill({

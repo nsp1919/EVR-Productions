@@ -8,6 +8,7 @@
     }
   },
   "rewrites": [
+    { "source": "/quote", "destination": "/quote-maker.html" },
     { "source": "/quote-maker", "destination": "/quote-maker.html" },
     { "source": "/quotes/:id([a-f0-9]{48})", "destination": "/proposal.html?id=:id&view=quote" },
     { "source": "/proposals/:id([a-f0-9]{48})", "destination": "/proposal.html?id=:id&view=proposal" }
