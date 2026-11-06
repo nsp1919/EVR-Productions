@@ -158,12 +158,16 @@ test('stores invitation JSON in R2 and loads it through its public unique link',
     await invitationHandler({
       method: 'POST',
       headers: { host: 'evr.example', origin: 'https://evr.example', cookie },
-      body: invitation
+      body: { ...invitation, heroImage: 'data:image/jpeg;base64,/9j/2Q==' }
     }, saveResponse);
     assert.equal(saveResponse.statusCode, 201);
     assert.match(saveResponse.body.id, /^ananya-aarav-invitation-[\da-f-]{36}$/);
     const objectKey = `invitations/${saveResponse.body.id.slice(-36)}.json`;
-    assert.equal(JSON.parse(objects.get(objectKey)).coupleNames, invitation.coupleNames);
+    const savedInvitation = JSON.parse(objects.get(objectKey));
+    assert.equal(savedInvitation.coupleNames, invitation.coupleNames);
+    assert.equal(savedInvitation.heroImage, `${process.env.R2_PUBLIC_BASE_URL}/evr-images/${commands.find(command => command instanceof PutObjectCommand && command.input.Key.startsWith('evr-images/')).input.Key.split('/').at(-1)}`);
+    const uploadedHero = commands.find(command => command instanceof PutObjectCommand && command.input.Key.startsWith('evr-images/'));
+    assert.equal(uploadedHero.input.ContentType, 'image/jpeg');
     const write = commands.find(command => command instanceof PutObjectCommand && command.input.Key === objectKey);
     assert.equal(write.input.Bucket, process.env.R2_BUCKET_NAME);
     assert.equal(write.input.ContentType, 'application/json; charset=utf-8');
@@ -182,6 +186,8 @@ test('stores invitation JSON in R2 and loads it through its public unique link',
     assert.match(loadResponse.body, /<meta property="og:title" content="Ananya &amp; Aarav Invitation \| EVR Productions">/);
     assert.match(loadResponse.body, /<meta property="og:description" content="Join Ananya &amp; Aarav as they celebrate their wedding\./);
     assert.match(loadResponse.body, /<meta property="og:url" content="https:\/\/www\.evrproductions\.in\/invitation\/ananya-aarav-invitation-/);
+    assert.match(loadResponse.body, /<meta property="og:image" content="https:\/\/media\.example\.test\/evr-images\/[\da-f-]+\.jpg">/);
+    assert.match(loadResponse.body, /<meta name="twitter:card" content="summary_large_image">/);
   } finally {
     S3Client.prototype.send = originalSend;
     global.fetch = originalFetch;

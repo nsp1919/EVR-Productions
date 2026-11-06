@@ -3,7 +3,7 @@
 const { randomUUID } = require('node:crypto');
 const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { createInvitationId, getInvitationStorageId } = require('../server/invitation-links');
-const { getR2Configuration } = require('../server/r2-storage');
+const { getR2Configuration, publicObjectUrl } = require('../server/r2-storage');
 const {
   hasInvitationEditorSession,
   isInvitationEditorAuthenticated,
@@ -13,6 +13,7 @@ const {
 const { readInvitationPasscode } = require('../server/invitation-passcode');
 
 const maxInviteBytes = 4 * 1024 * 1024;
+const maxInvitationHeroBytes = 3 * 1024 * 1024;
 const startMarker = '/* WEDDING_CONFIG_START */';
 const endMarker = '/* WEDDING_CONFIG_END */';
 const metaStartMarker = '<!-- INVITATION_META_START -->';
@@ -55,6 +56,33 @@ function getInvitationId(request) {
   return url.searchParams.get('id');
 }
 
+async function storeInvitationHero(config, storage) {
+  const match = /^data:image\/(jpeg|png|webp);base64,([a-z\d+/]+=*)$/i.exec(config.heroImage);
+  if (!match) return config;
+
+  const image = Buffer.from(match[2], 'base64');
+  if (!image.length || image.length > maxInvitationHeroBytes || image.toString('base64') !== match[2]) {
+    throw new Error('The invitation cover photo must be a valid JPEG, PNG, or WebP under 3 MB.');
+  }
+  const contentType = `image/${match[1].toLowerCase()}`;
+  const validSignature = contentType === 'image/jpeg'
+    ? image.length >= 3 && image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff
+    : contentType === 'image/png'
+      ? image.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      : image.length >= 12 && image.toString('ascii', 0, 4) === 'RIFF' && image.toString('ascii', 8, 12) === 'WEBP';
+  if (!validSignature) throw new Error('The invitation cover photo format does not match its image data.');
+  const extension = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+  const key = `evr-images/${randomUUID()}.${extension}`;
+  await storage.client.send(new PutObjectCommand({
+    Bucket: storage.bucket,
+    Key: key,
+    Body: image,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable'
+  }));
+  return { ...config, heroImage: publicObjectUrl(storage.publicBaseUrl, key) };
+}
+
 module.exports = async function invitationHandler(request, response) {
   setPrivateHeaders(response);
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -80,10 +108,11 @@ module.exports = async function invitationHandler(request, response) {
       const storage = getR2Configuration();
       if (storage.error) return errorResponse(response, storage.error, 503);
       const id = createInvitationId(config.coupleNames, randomUUID());
+      const invitationConfig = await storeInvitationHero(config, storage);
       await storage.client.send(new PutObjectCommand({
         Bucket: storage.bucket,
         Key: `invitations/${getInvitationStorageId(id)}.json`,
-        Body: JSON.stringify(config),
+        Body: JSON.stringify(invitationConfig),
         ContentType: 'application/json; charset=utf-8',
         CacheControl: 'no-store'
       }));

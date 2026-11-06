@@ -48,16 +48,26 @@
     .intro__button {
       display: grid;
       justify-items: center;
-      gap: 22px;
-      padding: 36px;
+      gap: 14px;
+      width: min(460px, calc(100vw - 40px));
+      padding: 34px 26px;
       border: 0;
       background: transparent;
       cursor: pointer;
       animation: arrive .8s both;
     }
-    .intro__seal { font-size: 54px; filter: drop-shadow(0 6px 5px #c8b9d3); transition: transform .35s; }
-    .intro__button:hover .intro__seal { transform: translateY(-5px) rotate(-6deg); }
-    .intro__title { font: 500 31px var(--serif); letter-spacing: .12em; }
+    .intro__envelope { position: relative; display: grid; width: 76px; height: 54px; margin-bottom: 12px; place-items: center; border-radius: 4px; background: linear-gradient(145deg, #ead7bc, #cfad7a); box-shadow: 0 11px 22px rgba(90, 60, 38, .2); transition: transform .5s ease, box-shadow .5s ease; }
+    .intro__envelope::before { position: absolute; z-index: 1; inset: 0; background: linear-gradient(145deg, transparent 49%, #f6e8d2 50%) left / 50% 100% no-repeat, linear-gradient(215deg, transparent 49%, #ead8bd 50%) right / 50% 100% no-repeat; content: ''; }
+    .intro__flap { position: absolute; z-index: 2; top: 0; left: 0; width: 100%; height: 58%; transform-origin: top center; clip-path: polygon(0 0, 100% 0, 50% 100%); background: linear-gradient(180deg, #d6b98f, #f3e5ce); transition: transform .55s cubic-bezier(.2,.7,.25,1); }
+    .intro__seal { position: relative; z-index: 3; display: grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; background: #9e6d50; color: #fff8eb; font-size: 12px; transition: opacity .25s, transform .35s; }
+    .intro__button:hover .intro__envelope { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(90, 60, 38, .24); }
+    .intro__button.is-opening .intro__flap { transform: rotateX(180deg); }
+    .intro__button.is-opening .intro__seal { opacity: 0; transform: scale(.7); }
+    .intro__button.is-opening .intro__envelope { transform: translateY(-9px) scale(1.05); }
+    .intro__eyebrow { color: var(--gold); font-size: 10px; font-weight: 600; letter-spacing: .24em; }
+    .intro__names { max-width: 100%; font: 500 clamp(29px, 7vw, 40px)/1.08 var(--serif); }
+    .intro__title { color: #75655c; font: 500 19px var(--serif); }
+    .intro__date { color: var(--muted); font-size: 11px; letter-spacing: .12em; }
     .intro__hearts { color: var(--gold); font-size: 17px; }
     .intro__hint { color: #a79b94; font-size: 12px; letter-spacing: .12em; }
     .confetti-rain { position: fixed; z-index: 11; inset: 0; overflow: hidden; pointer-events: none; }
@@ -159,6 +169,10 @@
     .countdown__value { display: block; color: #a75e22; font: 500 35px/1 var(--serif); }
     .countdown__unit { display: block; color: #d88c26; font-size: 9px; letter-spacing: .12em; }
     .countdown__date { margin: 22px 0 0; color: #995321; font: 500 15px/1.4 var(--sans); letter-spacing: .03em; }
+    .countdown__message { display: none; margin: 24px 0 5px; color: #995321; font: 500 clamp(27px, 6vw, 38px)/1.2 var(--serif); }
+    .countdown-section.is-celebration .countdown { display: none; }
+    .countdown-section.is-celebration .countdown__message { display: block; }
+    .countdown-section.is-celebration .countdown__date { margin-top: 16px; }
 
     .events-section { padding-top: 35px; padding-bottom: 34px; background: transparent; }
     .events { width: min(580px, 100%); margin: 22px auto 0; }
@@ -223,10 +237,13 @@
 <body class="is-locked" data-load-shared-logo="true">
   <div class="intro" id="intro">
     <button class="intro__button" id="openInvite" type="button" aria-label="Open wedding invitation">
-      <span class="intro__seal" aria-hidden="true">💌</span>
-      <span class="intro__title">You're Invited</span>
+      <span class="intro__envelope" aria-hidden="true"><span class="intro__flap"></span><span class="intro__seal">♥</span></span>
+      <span class="intro__eyebrow">A CELEBRATION OF LOVE</span>
+      <span class="intro__names" id="introNames"></span>
+      <span class="intro__title">invite you to celebrate with them</span>
+      <span class="intro__date" id="introDate"></span>
       <span class="intro__hearts" aria-hidden="true">♥ ✦ ♥</span>
-      <span class="intro__hint">tap the seal to open</span>
+      <span class="intro__hint">tap the invitation to open</span>
     </button>
   </div>
 
@@ -290,6 +307,7 @@
           <div class="countdown__item"><span class="countdown__value" id="minutes">00</span><span class="countdown__unit">MINUTES</span></div>
           <div class="countdown__item"><span class="countdown__value" id="seconds">00</span><span class="countdown__unit">SECONDS</span></div>
         </div>
+        <p class="countdown__message" id="countdownMessage" role="status" aria-live="polite"></p>
         <p class="countdown__date" id="countdownDate"></p>
       </div>
     </section>
@@ -414,6 +432,8 @@
       element.textContent = WEDDING[element.dataset.bind];
     });
     document.querySelector('.hero').style.backgroundImage = `url("${WEDDING.heroImage}")`;
+    document.getElementById('introNames').textContent = WEDDING.coupleNames;
+    document.getElementById('introDate').textContent = formatDate(weddingDate);
     document.getElementById('dateLabel').textContent = formatDate(weddingDate);
     document.getElementById('timeLabel').textContent = `${new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(weddingDate)} at ${formatTime(weddingDate)}`;
     document.getElementById('countdownDate').textContent = `🎊 ${formatDate(weddingDate)} · ${formatTime(weddingDate)} 🎊`;
@@ -460,12 +480,16 @@
       window.setTimeout(() => layer.remove(), 5200);
     }
 
-    document.getElementById('openInvite').addEventListener('click', () => {
-      startConfettiRain();
+    document.getElementById('openInvite').addEventListener('click', event => {
+      const button = event.currentTarget;
+      button.classList.add('is-opening');
       startWeddingMusic();
-      document.body.classList.remove('is-locked');
-      intro.classList.add('is-open');
-      window.setTimeout(() => intro.remove(), 850);
+      window.setTimeout(() => {
+        startConfettiRain();
+        document.body.classList.remove('is-locked');
+        intro.classList.add('is-open');
+        window.setTimeout(() => intro.remove(), 850);
+      }, 520);
     });
 
     const dateCard = document.getElementById('dateCard');
@@ -515,7 +539,19 @@
     showPhoto(0);
 
     function updateCountdown() {
-      const remaining = Math.max(0, weddingDate.getTime() - Date.now());
+      const now = new Date();
+      const sameDay = now.getFullYear() === weddingDate.getFullYear()
+        && now.getMonth() === weddingDate.getMonth()
+        && now.getDate() === weddingDate.getDate();
+      const countdownSection = document.querySelector('.countdown-section');
+      if (sameDay) {
+        countdownSection.classList.add('is-celebration');
+        document.getElementById('countdownMessage').textContent = "Today's the day! We can't wait to celebrate with you.";
+      } else if (now > weddingDate) {
+        countdownSection.classList.add('is-celebration');
+        document.getElementById('countdownMessage').textContent = 'The celebration has begun. Thank you for being part of our story.';
+      }
+      const remaining = Math.max(0, weddingDate.getTime() - now.getTime());
       const totalSeconds = Math.floor(remaining / 1000);
       document.getElementById('days').textContent = String(Math.floor(totalSeconds / 86400)).padStart(2, '0');
       document.getElementById('hours').textContent = String(Math.floor(totalSeconds % 86400 / 3600)).padStart(2, '0');

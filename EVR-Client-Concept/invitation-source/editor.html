@@ -64,6 +64,7 @@
     .local-link-panel__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
     .local-link-panel__row input { min-width: 0; }
     .local-link-panel__open { color: var(--green); font-size: 11px; font-weight: 600; }
+    .share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .invitation-login { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(31, 39, 31, .76); }
     .invitation-login[hidden] { display: none; }
     .invitation-login__card { width: min(420px, 100%); padding: 34px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 24px 80px rgba(0,0,0,.2); }
@@ -185,7 +186,11 @@
             <button class="button button--secondary" id="copyInviteLink" type="button">Copy link</button>
           </div>
           <a class="local-link-panel__open" id="openInviteLink" target="_blank" rel="noopener">Open invitation ↗</a>
-          <span class="hint">Anyone with this link can view the invitation. Use public photo and music URLs to keep the link short.</span>
+          <div class="share-actions">
+            <button class="button button--secondary" id="shareWhatsApp" type="button">Share on WhatsApp ↗</button>
+            <button class="button button--secondary" id="shareNative" type="button">More sharing options</button>
+          </div>
+          <span class="hint">The link preview includes the couple's names and cover photo. Anyone with the link can view the invitation.</span>
         </section>
         <p class="export-note">The share link contains the invitation details. Anyone you send it to can view them.</p>
       </form>
@@ -545,10 +550,48 @@
         await navigator.clipboard.writeText(input.value);
       } catch {
         input.select();
-        document.execCommand('copy');
+        const copied = document.execCommand('copy');
         input.setSelectionRange(0, 0);
+        if (!copied) {
+          status.textContent = 'Could not copy the link. Select and copy it manually.';
+          return;
+        }
       }
       status.textContent = 'Shareable invitation link copied.';
+    });
+
+    function getShareMessage() {
+      const date = new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      }).format(new Date(settings.date));
+      return `${settings.coupleNames} invite you to celebrate their wedding!\\n${date}\\n\\n${$('#shareInviteUrl').value}`;
+    }
+
+    $('#shareWhatsApp').addEventListener('click', () => {
+      if (!$('#shareInviteUrl').value) return;
+      window.open(`https://wa.me/?text=${encodeURIComponent(getShareMessage())}`, '_blank', 'noopener,noreferrer');
+    });
+
+    $('#shareNative').addEventListener('click', async () => {
+      if (!$('#shareInviteUrl').value) return;
+      if (!navigator.share) {
+        $('#shareWhatsApp').click();
+        return;
+      }
+      try {
+        await navigator.share({
+          title: `${settings.coupleNames} Invitation`,
+          text: `${settings.coupleNames} invite you to celebrate their wedding!`,
+          url: $('#shareInviteUrl').value
+        });
+      } catch (error) {
+        if (error.name !== 'AbortError') status.textContent = `Could not share the invitation: ${error.message}`;
+      }
     });
 
     form.addEventListener('submit', event => {
