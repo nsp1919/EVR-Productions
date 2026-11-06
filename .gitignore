@@ -14,6 +14,8 @@ Untitled*
 *.mkv
 *.wav
 *.mp3
+!EVR-Client-Concept/invitation-source/assets/Marriage.mp3
 *.webm
 *.zip
 Pics and vid/
+EVR-Client-Concept/invitation/

@@ -16,6 +16,7 @@ quote-maker.html
 *.mkv
 *.wav
 *.mp3
+!invitation-source/assets/Marriage.mp3
 *.webm
 *.zip
 

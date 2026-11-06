@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f3ef">
+  <!-- INVITATION_META_START -->
+  <title>Aarav &amp; Ananya | Wedding Invitation</title>
+  <meta name="description" content="A little invitation to a very big day.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Aarav &amp; Ananya | Wedding Invitation">
+  <meta property="og:description" content="A little invitation to a very big day.">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Aarav &amp; Ananya | Wedding Invitation">
+  <meta name="twitter:description" content="A little invitation to a very big day.">
+  <!-- INVITATION_META_END -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f7f3ef;
+      --paper-deep: #eee7df;
+      --ink: #38261f;
+      --muted: #88786f;
+      --gold: #a47745;
+      --line: rgba(91, 65, 49, .2);
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    body.is-locked { overflow: hidden; }
+    button { color: inherit; font: inherit; }
+    .intro {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: var(--paper);
+      transition: opacity .8s ease, visibility .8s ease;
+    }
+    .intro.is-open { opacity: 0; visibility: hidden; }
+    .intro__button {
+      display: grid;
+      justify-items: center;
+      gap: 22px;
+      padding: 36px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      animation: arrive .8s both;
+    }
+    .intro__seal { font-size: 54px; filter: drop-shadow(0 6px 5px #c8b9d3); transition: transform .35s; }
+    .intro__button:hover .intro__seal { transform: translateY(-5px) rotate(-6deg); }
+    .intro__title { font: 500 31px var(--serif); letter-spacing: .12em; }
+    .intro__hearts { color: var(--gold); font-size: 17px; }
+    .intro__hint { color: #a79b94; font-size: 12px; letter-spacing: .12em; }
+    .confetti-rain { position: fixed; z-index: 11; inset: 0; overflow: hidden; pointer-events: none; }
+    .confetti-rain__piece {
+      position: absolute;
+      top: -20px;
+      left: var(--confetti-x);
+      display: grid;
+      place-items: center;
+      font-size: var(--confetti-size);
+      color: var(--confetti-color);
+      text-shadow: 0 0 12px rgba(255,255,255,.35);
+      opacity: .9;
+      animation: confetti-fall var(--confetti-duration) linear var(--confetti-delay) forwards;
+    }
+
+    .hero {
+      position: relative;
+      display: grid;
+      min-height: 100svh;
+      place-items: center;
+      overflow: hidden;
+      background-color: #55453d;
+      background-position: center 43%;
+      background-size: cover;
+      color: #fffaf5;
+      text-align: center;
+    }
+    .hero::before { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(23, 18, 17, .32), rgba(23, 18, 17, .58)); content: ''; }
+    .hero__content { position: relative; width: min(900px, 100%); padding: 70px 24px; animation: rise .9s .1s both; }
+    .eyebrow, .section-label { font-size: 10px; font-weight: 600; letter-spacing: .28em; text-transform: uppercase; }
+    .hero__spark { display: block; margin-bottom: 26px; font-size: 34px; }
+    .hero h1 { margin: 0; font: 500 clamp(43px, 8vw, 82px)/.96 var(--serif); }
+    .hero__ornament { margin: 24px 0 28px; font-size: 19px; letter-spacing: .45em; }
+    .hero__names { margin: 0; font: 500 clamp(36px, 7vw, 75px)/1 var(--serif); }
+    .hero__scroll { display: inline-flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 68px; color: #fffaf5; font-size: 11px; text-decoration: none; }
+    .hero__scroll span:last-child { font-size: 20px; animation: bob 1.6s infinite; }
+
+    .page-section { padding: 100px 24px; text-align: center; }
+    .section-inner { width: min(760px, 100%); margin: 0 auto; }
+    .intro-copy { padding-top: 105px; padding-bottom: 76px; }
+    .intro-copy__heart { display: block; color: var(--gold); font-size: 25px; }
+    .intro-copy p { max-width: 590px; margin: 20px auto 0; color: #65574f; font: 400 25px/1.45 var(--serif); }
+    .divider { display: flex; align-items: center; gap: 15px; width: min(220px, 60%); margin: 36px auto 0; color: var(--gold); }
+    .divider::before, .divider::after { height: 1px; flex: 1; background: var(--line); content: ''; }
+
+    .date-section { padding: 20px 24px 100px; }
+    .date-card {
+      position: relative;
+      display: grid;
+      width: min(410px, 100%);
+      min-height: 270px;
+      margin: 0 auto;
+      place-items: center;
+      padding: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 14px;
+      background: #2c1810;
+      box-shadow: 0 14px 45px rgba(80, 56, 37, .08);
+      cursor: pointer;
+      transition: transform .35s, background .35s;
+    }
+    .date-card:hover { transform: translateY(-4px); }
+    .date-card__inner { display: grid; width: 100%; min-height: 270px; align-content: center; justify-items: center; gap: 12px; padding: 36px; border-radius: 14px; background: #fef8f0; }
+    .date-card__label, .date-card__date, .date-card__time { opacity: 1; transform: none; }
+    .date-card__label { color: #c97e1a; font-size: 10px; font-weight: 600; letter-spacing: .26em; }
+    .date-card__date { margin: 0; color: #8b4513; font: 600 clamp(32px, 7vw, 43px)/1 var(--serif); }
+    .date-card__time { color: #c97e1a; font-size: 16px; letter-spacing: .08em; }
+    .date-card__hint { margin-top: 8px; color: var(--muted); font-size: 11px; letter-spacing: .1em; transition: opacity .25s; }
+    .date-card.is-revealed .date-card__hint { visibility: hidden; }
+    .date-card__cover { position: absolute; z-index: 1; inset: 0; display: flex; overflow: hidden; border-radius: 14px; background: transparent; }
+    .date-card__panel { display: grid; width: 50%; height: 100%; place-items: center; background: #d4af7a; transition: transform 1.1s cubic-bezier(.65, 0, .35, 1); }
+    .date-card__panel--left { transform-origin: left center; }
+    .date-card__panel--right { transform-origin: right center; }
+    .date-card__panel strong { color: #2c1810; font: 500 15px var(--serif); letter-spacing: .2em; writing-mode: vertical-rl; }
+    .date-card.is-revealed .date-card__panel--left { transform: translateX(-100%); }
+    .date-card.is-revealed .date-card__panel--right { transform: translateX(100%); }
+    .date-card__cover { transition: visibility 0s 1.1s; }
+    .date-card.is-revealed .date-card__cover { visibility: hidden; }
+    .gallery-section { padding: 0; background: #eee7df; }
+    .gallery__track { position: relative; }
+    .gallery__stage { position: sticky; top: 0; display: grid; min-height: 100svh; align-content: center; padding: 48px 24px; text-align: center; }
+    .section-title { margin: 10px 0 28px; font: 500 42px/1 var(--serif); }
+    .section-label { color: var(--gold); }
+    .gallery { position: relative; width: min(420px, 100%); margin: auto; }
+    .gallery__image-wrap { width: 100%; aspect-ratio: 4 / 5; overflow: hidden; background: #d4c8bd; }
+    .gallery__image { width: 100%; height: 100%; object-fit: cover; transition: opacity .35s; }
+    .gallery__count { display: block; margin-top: 20px; color: var(--muted); font-size: 11px; letter-spacing: .1em; }
+    .gallery__progress { width: min(150px, 42vw); height: 2px; margin: 13px auto 0; background: #d2c5b8; }
+    .gallery__progress span { display: block; width: 100%; height: 100%; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform .3s ease; }
+
+    .countdown-section { padding-top: 45px; padding-bottom: 38px; }
+    .countdown-section .section-inner { width: min(560px, 100%); padding: 30px 26px 27px; border: 1px solid #f0c522; border-radius: 28px; background: linear-gradient(135deg, #fffaf0, #fff1dc); box-shadow: 0 16px 36px rgba(187, 140, 42, .14); }
+    .countdown-section .section-label, .events-section .section-label, .venue-section .section-label { margin: 0; color: #e89c25; font-size: 12px; letter-spacing: .25em; }
+    .countdown-section .section-title, .events-section .section-title { display: none; }
+    .countdown { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; width: 100%; margin: 22px auto 0; }
+    .countdown__item { display: grid; min-height: 102px; align-content: center; gap: 7px; padding: 14px 6px; border: 1px solid #efc522; border-radius: 21px; background: rgba(255, 255, 255, .67); box-shadow: 0 9px 20px rgba(184, 139, 44, .13); }
+    .countdown__value { display: block; color: #a75e22; font: 500 35px/1 var(--serif); }
+    .countdown__unit { display: block; color: #d88c26; font-size: 9px; letter-spacing: .12em; }
+    .countdown__date { margin: 22px 0 0; color: #995321; font: 500 15px/1.4 var(--sans); letter-spacing: .03em; }
+
+    .events-section { padding-top: 35px; padding-bottom: 34px; background: transparent; }
+    .events { width: min(580px, 100%); margin: 22px auto 0; }
+    .event { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 15px 0; border-bottom: 1px solid rgba(151, 115, 76, .16); text-align: left; }
+    .event:first-child { border-top: 0; }
+    .event__name { font: 400 16px var(--sans); }
+    .event__date { color: #c79c69; font-size: 14px; text-align: right; white-space: nowrap; }
+
+    .venue-section { padding-top: 0; padding-bottom: 70px; }
+    .venue-section .section-inner { padding-top: 26px; border-top: 1px solid rgba(151, 115, 76, .16); }
+    .venue__name { margin: 18px 0 10px; font: 500 27px var(--serif); }
+    .venue__address { margin: 0 auto 24px; color: var(--muted); font-size: 14px; line-height: 1.75; white-space: pre-line; }
+    .map-link { display: inline-block; padding: 12px 18px; border: 1px solid var(--gold); border-radius: 3px; color: var(--ink); font-size: 10px; letter-spacing: .16em; text-decoration: none; transition: background .2s, color .2s; }
+    .map-link:hover { background: var(--gold); color: white; }
+
+    .closing { padding: 92px 24px 70px; background: #49352d; color: #fffaf5; text-align: center; }
+    .closing__line { margin: 0 0 22px; font: 500 34px var(--serif); }
+    .closing__names { margin: 0; font: 500 43px var(--serif); }
+    .closing__heart { display: block; margin-top: 19px; color: #d8b781; }
+    .footer { display: grid; justify-items: center; gap: 12px; padding: 34px 20px 24px; background: #38261f; color: #cbb9a7; text-align: center; }
+    .footer__brand { display: inline-flex; align-items: center; justify-content: center; }
+    .footer__brand img { display: block; width: 144px; height: 58px; object-fit: contain; }
+    .footer__tagline { margin: 0; color: #fffaf5; font: 500 21px var(--serif); }
+    .footer__link { color: #e6c997; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-decoration: none; }
+    .footer__link:hover { color: white; }
+    .footer__credit, .footer__families { color: #cbb9a7; font-size: 9px; letter-spacing: .15em; }
+    .music-button { position: fixed; z-index: 4; right: 18px; bottom: 18px; display: none; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(56, 38, 31, .75); color: white; cursor: pointer; }
+    .music-button.is-visible { display: block; }
+    .music-button.is-playing { animation: pulse 1.8s infinite; }
+    .music-status { position: fixed; z-index: 4; right: 72px; bottom: 26px; max-width: min(280px, calc(100vw - 100px)); color: var(--ink); font-size: 11px; }
+    .music-status:empty { display: none; }
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s ease; }
+    .reveal.is-visible { opacity: 1; transform: none; }
+
+    @keyframes arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    @keyframes bob { 50% { transform: translateY(4px); } }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,255,255,.12); } }
+    @keyframes confetti-fall {
+      from { transform: translate3d(0, -16px, 0) rotate(0); }
+      to { transform: translate3d(var(--confetti-drift), var(--confetti-fall), 0) rotate(var(--confetti-rotate)); }
+    }
+    @media (max-width: 540px) {
+      .page-section { padding-right: 20px; padding-left: 20px; }
+      .intro-copy p { font-size: 22px; }
+      .countdown-section .section-inner { padding: 25px 16px 22px; border-radius: 22px; }
+      .countdown { gap: 7px; margin-top: 18px; }
+      .countdown__item { min-height: 86px; padding: 12px 3px; border-radius: 17px; }
+      .countdown__value { font-size: 31px; }
+      .countdown__unit { font-size: 8px; letter-spacing: .08em; }
+      .countdown__date { font-size: 13px; }
+      .event { gap: 10px; padding: 14px 0; }
+      .event__name { font-size: 14px; }
+      .event__date { font-size: 11px; }
+      .closing__names { font-size: 35px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body class="is-locked" data-load-shared-logo="true">
+  <div class="intro" id="intro">
+    <button class="intro__button" id="openInvite" type="button" aria-label="Open wedding invitation">
+      <span class="intro__seal" aria-hidden="true">💌</span>
+      <span class="intro__title">You're Invited</span>
+      <span class="intro__hearts" aria-hidden="true">♥ ✦ ♥</span>
+      <span class="intro__hint">tap the seal to open</span>
+    </button>
+  </div>
+
+  <main>
+    <section class="hero" id="top" aria-label="Wedding invitation cover">
+      <div class="hero__content">
+        <span class="hero__spark" aria-hidden="true">✦</span>
+        <p class="eyebrow">We're getting married</p>
+        <p class="hero__ornament" aria-hidden="true">♥ ✦ ♥</p>
+        <h1 class="hero__names" data-bind="coupleNames"></h1>
+        <a class="hero__scroll" href="#welcome"><span>scroll</span><span aria-hidden="true">⌄</span></a>
+      </div>
+    </section>
+
+    <section class="page-section intro-copy reveal" id="welcome">
+      <div class="section-inner">
+        <span class="intro-copy__heart" aria-hidden="true">♥</span>
+        <p data-bind="welcomeMessage"></p>
+        <div class="divider" aria-hidden="true">✦</div>
+      </div>
+    </section>
+
+    <section class="date-section reveal" aria-label="Wedding date">
+      <button class="date-card" id="dateCard" type="button" aria-expanded="false">
+        <span class="date-card__inner">
+          <span class="date-card__label">✦ SAVE THE DATE ✦</span>
+          <span class="date-card__date" id="dateLabel"></span>
+          <span class="date-card__time" id="timeLabel"></span>
+          <span class="date-card__hint">✨ tap to reveal the date ✨</span>
+        </span>
+        <span class="date-card__cover" aria-hidden="true">
+          <span class="date-card__panel date-card__panel--left"><strong>✦ REVEAL ✦</strong></span>
+          <span class="date-card__panel date-card__panel--right"><strong>✦ REVEAL ✦</strong></span>
+        </span>
+      </button>
+    </section>
+
+    <section class="gallery-section" id="gallerySection" aria-label="Wedding photo gallery">
+      <div class="gallery__track" id="galleryTrack">
+       <div class="gallery__stage">
+        <div class="section-inner">
+        <p class="section-label">✦ OUR GALLERY ✦</p>
+        <h2 class="section-title">A few favorite moments</h2>
+        <div class="gallery">
+          <div class="gallery__image-wrap"><img class="gallery__image" id="galleryImage" alt="Wedding gallery photo"></div>
+          <span class="gallery__count" id="galleryCount" aria-live="polite"></span>
+          <div class="gallery__progress" aria-hidden="true"><span id="galleryProgress"></span></div>
+        </div>
+        </div>
+       </div>
+      </div>
+    </section>
+
+    <section class="page-section countdown-section reveal" aria-label="Countdown to the wedding">
+      <div class="section-inner">
+        <p class="section-label">✦ COUNTING DOWN TO OUR BIG DAY ✦</p>
+        <h2 class="section-title">The day is getting closer</h2>
+        <div class="countdown" aria-live="off">
+          <div class="countdown__item"><span class="countdown__value" id="days">00</span><span class="countdown__unit">DAYS</span></div>
+          <div class="countdown__item"><span class="countdown__value" id="hours">00</span><span class="countdown__unit">HOURS</span></div>
+          <div class="countdown__item"><span class="countdown__value" id="minutes">00</span><span class="countdown__unit">MINUTES</span></div>
+          <div class="countdown__item"><span class="countdown__value" id="seconds">00</span><span class="countdown__unit">SECONDS</span></div>
+        </div>
+        <p class="countdown__date" id="countdownDate"></p>
+      </div>
+    </section>
+
+    <section class="page-section events-section reveal" aria-label="Wedding events">
+      <div class="section-inner">
+        <p class="section-label">✦ WEDDING EVENTS ✦</p>
+        <h2 class="section-title">Celebrate with us</h2>
+        <div class="events" id="events"></div>
+      </div>
+    </section>
+
+    <section class="page-section venue-section reveal" aria-label="Wedding venue">
+      <div class="section-inner">
+        <p class="section-label">✦ VENUE ✦</p>
+        <h2 class="venue__name" data-bind="venueName"></h2>
+        <p class="venue__address" data-bind="venueAddress"></p>
+        <a class="map-link" id="mapLink" target="_blank" rel="noreferrer">VIEW MAP <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+
+    <section class="closing reveal">
+      <p class="closing__line">We can't wait to celebrate with you!</p>
+      <p class="closing__names" data-bind="coupleNames"></p>
+      <span class="closing__heart" aria-hidden="true">♥</span>
+    </section>
+  </main>
+  <footer class="footer">
+    <a class="footer__brand" href="https://www.evrproductions.in/" aria-label="Visit EVR Productions">
+      <img data-brand-logo="light" src="/assets/evr-productions-logo-light.png" alt="EVR Productions">
+    </a>
+    <p class="footer__tagline">Your story deserves to be remembered.</p>
+    <a class="footer__link" href="https://www.evrproductions.in/">EXPLORE THE STORIES WE TELL <span aria-hidden="true">↗</span></a>
+    <span class="footer__credit">WEDDING PHOTOGRAPHY &amp; FILMS · HYDERABAD, INDIA</span>
+    <span class="footer__families">WITH LOVE FROM BOTH FAMILIES</span>
+  </footer>
+  <audio id="weddingMusic" loop preload="none"></audio>
+  <button class="music-button" id="musicButton" type="button" aria-label="Mute wedding music" title="Mute wedding music" aria-pressed="false">🔊</button>
+  <span class="music-status" id="musicStatus" role="status" aria-live="polite"></span>
+
+  <script src="/brand-logo.js" defer></script>
+  <script>
+    /* WEDDING_CONFIG_START */
+    const DEFAULT_MUSIC_URL = new URL('assets/Marriage.mp3', window.location.href).href;
+    const DEFAULT_WEDDING = {
+      coupleNames: 'Aarav & Ananya',
+      date: '2027-02-14T10:30:00',
+      welcomeMessage: 'With hearts full of love and joy, we warmly invite you to share in the celebration of our union. Your presence would mean the world to us as we begin this beautiful journey together.',
+      venueName: 'The Garden Pavilion',
+      venueAddress: 'Lakeview Road, Jubilee Hills\nHyderabad, Telangana - 500033',
+      mapUrl: '',
+      musicUrl: DEFAULT_MUSIC_URL,
+      heroImage: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=2000&q=85',
+      gallery: [
+        'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=85',
+        'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1400&q=85',
+        'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1400&q=85',
+        'https://images.unsplash.com/photo-1523438885200-e635ba2c371e?auto=format&fit=crop&w=1400&q=85'
+      ],
+      events: [
+        { name: 'Mehendi', date: '2027-02-12T18:00:00' },
+        { name: 'Sangeet', date: '2027-02-13T18:30:00' },
+        { name: 'Wedding Ceremony', date: '2027-02-14T10:30:00' }
+      ]
+    };
+    const WEDDING_STORAGE_KEY = 'weddingInviteConfig';
+    let linkedWedding = null;
+    try {
+      const encoded = new URLSearchParams(window.location.hash.slice(1)).get('invite');
+      if (encoded) {
+        const base64 = encoded.replaceAll('-', '+').replaceAll('_', '/');
+        const binary = atob(base64);
+        const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+        linkedWedding = JSON.parse(new TextDecoder().decode(bytes));
+      }
+    } catch {
+      linkedWedding = null;
+    }
+    let WEDDING = DEFAULT_WEDDING;
+    try {
+      const isPreview = window.parent !== window;
+      const storage = isPreview ? sessionStorage : localStorage;
+      const storageKey = isPreview ? 'weddingInvitePreviewConfig' : WEDDING_STORAGE_KEY;
+      const savedWedding = linkedWedding || JSON.parse(storage.getItem(storageKey));
+      if (savedWedding && typeof savedWedding === 'object') {
+        WEDDING = {
+          ...DEFAULT_WEDDING,
+          ...savedWedding,
+          musicUrl: savedWedding.musicUrl || DEFAULT_WEDDING.musicUrl,
+          gallery: Array.isArray(savedWedding.gallery) && savedWedding.gallery.length ? savedWedding.gallery.slice(0, 4) : DEFAULT_WEDDING.gallery,
+          events: Array.isArray(savedWedding.events) ? savedWedding.events : DEFAULT_WEDDING.events
+        };
+      }
+    } catch {
+      WEDDING = DEFAULT_WEDDING;
+    }
+    if (window.parent !== window) {
+      window.addEventListener('message', event => {
+        if (event.source !== window.parent || event.data?.type !== 'wedding-preview') return;
+        try {
+          const previewData = JSON.stringify(event.data.config);
+          if (JSON.stringify(WEDDING) === previewData) return;
+          sessionStorage.setItem('weddingInvitePreviewConfig', previewData);
+          window.location.reload();
+        } catch {
+          return;
+        }
+      });
+    }
+    /* WEDDING_CONFIG_END */
+
+    const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    const timeOptions = { hour: 'numeric', minute: '2-digit' };
+    const weddingDate = new Date(WEDDING.date);
+    const formatDate = date => new Intl.DateTimeFormat(undefined, dateOptions).format(date);
+    const formatTime = date => new Intl.DateTimeFormat(undefined, timeOptions).format(date);
+
+    document.title = `${WEDDING.coupleNames} | Wedding Invitation`;
+    document.querySelectorAll('[data-bind]').forEach(element => {
+      element.textContent = WEDDING[element.dataset.bind];
+    });
+    document.querySelector('.hero').style.backgroundImage = `url("${WEDDING.heroImage}")`;
+    document.getElementById('dateLabel').textContent = formatDate(weddingDate);
+    document.getElementById('timeLabel').textContent = `${new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(weddingDate)} at ${formatTime(weddingDate)}`;
+    document.getElementById('countdownDate').textContent = `🎊 ${formatDate(weddingDate)} · ${formatTime(weddingDate)} 🎊`;
+
+    const mapLink = document.getElementById('mapLink');
+    mapLink.href = WEDDING.mapUrl || `https://maps.google.com/?q=${encodeURIComponent(`${WEDDING.venueName} ${WEDDING.venueAddress.replaceAll('\n', ' ')}`)}`;
+    const eventsList = document.getElementById('events');
+    WEDDING.events.forEach(event => {
+      const eventDate = new Date(event.date);
+      const row = document.createElement('div');
+      const name = document.createElement('span');
+      const date = document.createElement('span');
+      row.className = 'event';
+      name.className = 'event__name';
+      name.textContent = event.name;
+      date.className = 'event__date';
+      date.textContent = `${formatDate(eventDate)} · ${formatTime(eventDate)}`;
+      row.append(name, date);
+      eventsList.append(row);
+    });
+
+    const intro = document.getElementById('intro');
+    function startConfettiRain() {
+      const layer = document.createElement('div');
+      layer.className = 'confetti-rain';
+      layer.setAttribute('aria-hidden', 'true');
+      const symbols = ['♥'];
+      const colors = ['#f5b5c9', '#f08bb5', '#ffbfd6', '#d86e8e', '#e19ab2'];
+      for (let index = 0; index < 60; index += 1) {
+        const piece = document.createElement('span');
+        piece.className = 'confetti-rain__piece';
+        piece.textContent = symbols[index % symbols.length];
+        piece.style.setProperty('--confetti-x', `${Math.round(Math.random() * 100)}vw`);
+        piece.style.setProperty('--confetti-drift', `${Math.round(Math.random() * 120 - 60)}px`);
+        piece.style.setProperty('--confetti-fall', `${window.innerHeight + 60}px`);
+        piece.style.setProperty('--confetti-size', `${14 + Math.round(Math.random() * 18)}px`);
+        piece.style.setProperty('--confetti-color', colors[index % colors.length]);
+        piece.style.setProperty('--confetti-duration', `${(3.5 + Math.random() * 1.8).toFixed(2)}s`);
+        piece.style.setProperty('--confetti-delay', `${(Math.random() * .8).toFixed(2)}s`);
+        piece.style.setProperty('--confetti-rotate', `${Math.round(Math.random() * 900 - 450)}deg`);
+        layer.append(piece);
+      }
+      document.body.append(layer);
+      window.setTimeout(() => layer.remove(), 5200);
+    }
+
+    document.getElementById('openInvite').addEventListener('click', () => {
+      startConfettiRain();
+      startWeddingMusic();
+      document.body.classList.remove('is-locked');
+      intro.classList.add('is-open');
+      window.setTimeout(() => intro.remove(), 850);
+    });
+
+    const dateCard = document.getElementById('dateCard');
+    dateCard.addEventListener('click', () => {
+      if (dateCard.classList.contains('is-revealed')) return;
+      let panelsRemaining = dateCard.querySelectorAll('.date-card__panel').length;
+      dateCard.querySelectorAll('.date-card__panel').forEach(panel => {
+        panel.addEventListener('transitionend', event => {
+          if (event.propertyName !== 'transform') return;
+          panelsRemaining -= 1;
+          if (panelsRemaining === 0) startConfettiRain();
+        }, { once: true });
+      });
+      dateCard.classList.add('is-revealed');
+      dateCard.setAttribute('aria-expanded', 'true');
+    });
+
+    let activePhoto = 0;
+    const image = document.getElementById('galleryImage');
+    const galleryCount = document.getElementById('galleryCount');
+    const galleryTrack = document.getElementById('galleryTrack');
+    const galleryProgress = document.getElementById('galleryProgress');
+    galleryTrack.style.height = `${100 + Math.max(0, WEDDING.gallery.length - 1) * 75}svh`;
+    function showPhoto(index) {
+      activePhoto = (index + WEDDING.gallery.length) % WEDDING.gallery.length;
+      image.style.opacity = '0';
+      window.setTimeout(() => {
+        image.src = WEDDING.gallery[activePhoto];
+        image.alt = `Wedding gallery photo ${activePhoto + 1}`;
+        image.style.opacity = '1';
+      }, 120);
+      galleryCount.textContent = `${String(activePhoto + 1).padStart(2, '0')} / ${String(WEDDING.gallery.length).padStart(2, '0')}`;
+      galleryProgress.style.transform = `scaleX(${WEDDING.gallery.length > 1 ? activePhoto / (WEDDING.gallery.length - 1) : 1})`;
+    }
+    let galleryScrollQueued = false;
+    window.addEventListener('scroll', () => {
+      if (galleryScrollQueued) return;
+      galleryScrollQueued = true;
+      window.requestAnimationFrame(() => {
+        const scrollDistance = galleryTrack.offsetHeight - window.innerHeight;
+        const progress = Math.max(0, Math.min(1, (window.scrollY - galleryTrack.offsetTop) / scrollDistance));
+        const nextPhoto = Math.round(progress * (WEDDING.gallery.length - 1));
+        if (nextPhoto !== activePhoto) showPhoto(nextPhoto);
+        galleryScrollQueued = false;
+      });
+    }, { passive: true });
+    showPhoto(0);
+
+    function updateCountdown() {
+      const remaining = Math.max(0, weddingDate.getTime() - Date.now());
+      const totalSeconds = Math.floor(remaining / 1000);
+      document.getElementById('days').textContent = String(Math.floor(totalSeconds / 86400)).padStart(2, '0');
+      document.getElementById('hours').textContent = String(Math.floor(totalSeconds % 86400 / 3600)).padStart(2, '0');
+      document.getElementById('minutes').textContent = String(Math.floor(totalSeconds % 3600 / 60)).padStart(2, '0');
+      document.getElementById('seconds').textContent = String(totalSeconds % 60).padStart(2, '0');
+    }
+    updateCountdown();
+    window.setInterval(updateCountdown, 1000);
+
+    const revealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach(section => revealObserver.observe(section));
+    const music = document.getElementById('weddingMusic');
+    const musicButton = document.getElementById('musicButton');
+    const musicStatus = document.getElementById('musicStatus');
+    function syncMusicButton() {
+      const paused = music.paused;
+      const muted = music.muted;
+      musicButton.textContent = paused ? '▶' : muted ? '🔇' : '🔊';
+      musicButton.setAttribute('aria-label', paused ? 'Play wedding music' : muted ? 'Unmute wedding music' : 'Mute wedding music');
+      musicButton.setAttribute('title', paused ? 'Play wedding music' : muted ? 'Unmute wedding music' : 'Mute wedding music');
+      musicButton.setAttribute('aria-pressed', String(!paused && muted));
+      musicButton.classList.toggle('is-playing', !paused && !muted);
+    }
+    function showMusicError() {
+      musicStatus.textContent = 'Music could not play. Check the MP3 file and tap ▶ to retry.';
+      musicButton.setAttribute('aria-label', 'Retry wedding music');
+      musicButton.setAttribute('title', 'Retry wedding music');
+    }
+    function startWeddingMusic() {
+      if (!WEDDING.musicUrl) return;
+      music.muted = false;
+      musicStatus.textContent = '';
+      music.play().then(syncMusicButton).catch(showMusicError);
+    }
+    if (WEDDING.musicUrl) {
+      music.src = WEDDING.musicUrl;
+      music.muted = false;
+      musicButton.classList.add('is-visible');
+      musicButton.addEventListener('click', async () => {
+        if (music.paused) {
+          try {
+            music.muted = false;
+            musicStatus.textContent = '';
+            await music.play();
+            syncMusicButton();
+          } catch {
+            showMusicError();
+          }
+          return;
+        }
+        music.muted = !music.muted;
+        syncMusicButton();
+      });
+      music.addEventListener('play', syncMusicButton);
+      music.addEventListener('pause', syncMusicButton);
+      music.addEventListener('volumechange', syncMusicButton);
+      music.addEventListener('error', showMusicError);
+      syncMusicButton();
+    }
+  </script>
+</body>
+</html>

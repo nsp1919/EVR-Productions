@@ -2,15 +2,16 @@
   "name": "evr-client-concept",
   "private": true,
   "scripts": {
-    "build": "npm run build:admin-media && node scripts/copy-quote-maker.js",
+    "build": "npm run build:admin-media && node scripts/copy-quote-maker.js && node scripts/copy-wedding-invitation.js",
     "build:admin-media": "esbuild admin-media-client-entry.js --bundle --platform=browser --target=es2020 --format=iife --outfile=admin-media-client.js && esbuild hls-client-entry.js --bundle --platform=browser --target=es2020 --format=iife --outfile=hls-client.js",
     "test": "npm run build && npm run test:server && playwright test",
-    "test:server": "node --test tests/server-api.test.js tests/content-store.test.js tests/quote-proposals.test.js",
+    "test:server": "node --test tests/server-api.test.js tests/content-store.test.js tests/quote-proposals.test.js tests/invitation-links.test.js",
     "test:admin-media": "npm run build && playwright test tests/admin-media.spec.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",
     "@aws-sdk/s3-request-presigner": "^3.1161.0",
+    "@vercel/blob": "^2.8.2",
     "hls.js": "^1.7.4"
   },
   "overrides": {
@@ -18,7 +19,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
-    "@vercel/blob": "^2.8.2",
     "esbuild": "^0.25.0"
   }
 }
