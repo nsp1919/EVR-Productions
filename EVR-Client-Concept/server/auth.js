@@ -85,8 +85,8 @@ function configurationError() {
 function quoteAccessConfigurationError() {
   const passcode = process.env.QUOTE_ACCESS_CODE?.trim();
   if (!passcode) return 'Configure the QUOTE_ACCESS_CODE server environment variable.';
-  if (passcode.length < 8 || passcode.length > 128) {
-    return 'QUOTE_ACCESS_CODE must contain between 8 and 128 characters.';
+  if (passcode.length < 4 || passcode.length > 128) {
+    return 'QUOTE_ACCESS_CODE must contain between 4 and 128 characters.';
   }
   if (!process.env.EVR_SESSION_SECRET?.trim() || process.env.EVR_SESSION_SECRET.length < 32) {
     return 'EVR_SESSION_SECRET must contain at least 32 characters.';

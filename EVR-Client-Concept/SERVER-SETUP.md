@@ -35,7 +35,7 @@ The site uses Vercel Functions for the editor and Cloudflare R2 for uploaded ima
    - `UPSTASH_REDIS_REST_TOKEN`
 
    Redis stores only a keyed digest of the short-lived sign-in code and rate-limit counters. Codes expire after 10 minutes, can be attempted at most five times, and are deleted when successfully used. Code requests are limited to three per 15 minutes.
-4. Set `EVR_SESSION_SECRET` to a randomly generated secret with at least 32 characters. For example, generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"` and store it only in Vercel. Set `QUOTE_ACCESS_CODE` to a separate, unique passphrase of at least 8 characters (16 or more is recommended); keep it private and store it only in Vercel.
+4. Set `EVR_SESSION_SECRET` to a randomly generated secret with at least 32 characters. For example, generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"` and store it only in Vercel. Set `QUOTE_ACCESS_CODE` to a private passcode of 4 to 128 characters; longer passcodes are more secure. Store it only in Vercel.
 5. Create an R2 API token scoped to this bucket with object read/write access. Add these values to Vercel Environment Variables:
    - `CLOUDFLARE_ACCOUNT_ID`
    - `R2_ACCESS_KEY_ID`

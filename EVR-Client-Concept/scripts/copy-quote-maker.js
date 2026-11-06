@@ -55,7 +55,7 @@ html = replaceBlock(
   <h1 id="quote-auth-title">EVR Quote Maker</h1>
   <p>Enter the quote access passcode to create client quotations and proposal links.</p>
   <form id="quote-auth-form">
-    <label for="quote-auth-passcode">Passcode<input id="quote-auth-passcode" type="password" minlength="8" maxlength="128" autocomplete="current-password" required></label>
+    <label for="quote-auth-passcode">Passcode<input id="quote-auth-passcode" type="password" minlength="4" maxlength="128" autocomplete="current-password" required></label>
     <button id="quote-auth-submit" type="submit">Unlock quote maker</button>
   </form>
   <p id="quote-auth-status" role="status" aria-live="polite">Checking quote access…</p>

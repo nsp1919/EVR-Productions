@@ -312,10 +312,12 @@ test('quote passcode rejects attempts over its per-IP rate limit', async () => {
   });
 });
 
-test('quote passcode configuration reports missing and weak secrets', () => {
+test('quote passcode configuration accepts four characters and rejects shorter codes', () => {
   const passcode = process.env.QUOTE_ACCESS_CODE;
-  process.env.QUOTE_ACCESS_CODE = 'short';
-  assert.match(quoteAccessConfigurationError(), /between 8 and 128 characters/);
+  process.env.QUOTE_ACCESS_CODE = '123';
+  assert.match(quoteAccessConfigurationError(), /between 4 and 128 characters/);
+  process.env.QUOTE_ACCESS_CODE = '1234';
+  assert.equal(quoteAccessConfigurationError(), null);
   process.env.QUOTE_ACCESS_CODE = passcode;
   assert.equal(quoteAccessConfigurationError(), null);
 });
