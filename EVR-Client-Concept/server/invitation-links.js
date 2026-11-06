@@ -16,7 +16,7 @@ function createInvitationId(coupleNames, uuid) {
     .slice(0, 64)
     .replace(/-$/g, '') || 'wedding';
 
-  return `${slug}-${uuid.toLowerCase()}`;
+  return `${slug}-invitation-${uuid.toLowerCase()}`;
 }
 
 function getInvitationStorageId(id) {

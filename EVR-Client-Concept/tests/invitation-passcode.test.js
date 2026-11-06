@@ -161,7 +161,7 @@ test('stores invitation JSON in R2 and loads it through its public unique link',
       body: invitation
     }, saveResponse);
     assert.equal(saveResponse.statusCode, 201);
-    assert.match(saveResponse.body.id, /^ananya-aarav-[\da-f-]{36}$/);
+    assert.match(saveResponse.body.id, /^ananya-aarav-invitation-[\da-f-]{36}$/);
     const objectKey = `invitations/${saveResponse.body.id.slice(-36)}.json`;
     assert.equal(JSON.parse(objects.get(objectKey)).coupleNames, invitation.coupleNames);
     const write = commands.find(command => command instanceof PutObjectCommand && command.input.Key === objectKey);
@@ -178,6 +178,10 @@ test('stores invitation JSON in R2 and loads it through its public unique link',
     assert.equal(loadResponse.statusCode, 200);
     assert.equal(loadResponse.headers['Content-Type'], 'text/html; charset=utf-8');
     assert.match(loadResponse.body, /const WEDDING = \{"coupleNames":"Ananya & Aarav"/);
+    assert.match(loadResponse.body, /<title>Ananya &amp; Aarav Invitation \| EVR Productions<\/title>/);
+    assert.match(loadResponse.body, /<meta property="og:title" content="Ananya &amp; Aarav Invitation \| EVR Productions">/);
+    assert.match(loadResponse.body, /<meta property="og:description" content="Join Ananya &amp; Aarav as they celebrate their wedding\./);
+    assert.match(loadResponse.body, /<meta property="og:url" content="https:\/\/www\.evrproductions\.in\/invitation\/ananya-aarav-invitation-/);
   } finally {
     S3Client.prototype.send = originalSend;
     global.fetch = originalFetch;

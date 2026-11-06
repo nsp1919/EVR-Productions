@@ -41,7 +41,7 @@ function isValidInvitation(config) {
 
 function getDeploymentOrigin(request) {
   const headers = request.headers || {};
-  const host = (process.env.VERCEL_URL || headers.host || '').split(',')[0].trim();
+  const host = (headers.host || process.env.VERCEL_URL || '').split(',')[0].trim();
   const localHost = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
   if (!localHost && !/^(?:[a-z\d-]+\.)*(?:evrproductions\.in|vercel\.app)(?::\d+)?$/i.test(host)) {
     throw new Error('Invitation request host is not trusted.');
@@ -130,18 +130,30 @@ module.exports = async function invitationHandler(request, response) {
 
       const safeConfig = JSON.stringify(config).replaceAll('<', '\\u003c');
       const configuredTemplate = `${template.slice(0, start)}const WEDDING = ${safeConfig};${template.slice(end + endMarker.length)}`;
-      const title = escapeHtml(`${config.coupleNames} | Wedding Invitation`);
-      const description = escapeHtml(`Join ${config.coupleNames} for their wedding celebration.`);
+      const title = escapeHtml(`${config.coupleNames} Invitation | EVR Productions`);
+      const description = escapeHtml(`Join ${config.coupleNames} as they celebrate their wedding. View their invitation, event details, and venue.`);
+      const invitationUrl = new URL(`/invitation/${encodeURIComponent(id)}`, getDeploymentOrigin(request)).href;
+      let heroImage = '';
+      try {
+        const imageUrl = new URL(config.heroImage);
+        if (imageUrl.protocol === 'https:') heroImage = imageUrl.href;
+      } catch {
+        heroImage = '';
+      }
       const metadata = [
         metaStartMarker,
         `<title>${title}</title>`,
         `<meta name="description" content="${description}">`,
         '<meta property="og:type" content="website">',
+        '<meta property="og:site_name" content="EVR Productions">',
+        `<meta property="og:url" content="${escapeHtml(invitationUrl)}">`,
         `<meta property="og:title" content="${title}">`,
         `<meta property="og:description" content="${description}">`,
-        '<meta name="twitter:card" content="summary">',
+        ...(heroImage ? [`<meta property="og:image" content="${escapeHtml(heroImage)}">`] : []),
+        `<meta name="twitter:card" content="${heroImage ? 'summary_large_image' : 'summary'}">`,
         `<meta name="twitter:title" content="${title}">`,
         `<meta name="twitter:description" content="${description}">`,
+        ...(heroImage ? [`<meta name="twitter:image" content="${escapeHtml(heroImage)}">`] : []),
         metaEndMarker
       ].join('\n  ');
       const page = `${configuredTemplate.slice(0, metaStart)}${metadata}${configuredTemplate.slice(metaEnd + metaEndMarker.length)}`;
