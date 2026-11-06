@@ -3,11 +3,14 @@
 const crypto = require('node:crypto');
 
 const cookieName = 'evr_admin_session';
+const quoteCookieName = 'evr_quote_session';
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
+const quoteSessionLifetimeSeconds = 60 * 60 * 12;
 const otpLifetimeSeconds = 60 * 10;
 const requestWindowSeconds = 60 * 15;
 const maxCodeRequests = 3;
 const maxCodeAttempts = 5;
+const maxQuotePasscodeAttempts = 10;
 
 function localAdminBypassEnabled() {
   return process.env.EVR_LOCAL_ADMIN_BYPASS === '1' &&
@@ -79,23 +82,45 @@ function configurationError() {
   return null;
 }
 
+function quoteAccessConfigurationError() {
+  const passcode = process.env.QUOTE_ACCESS_CODE?.trim();
+  if (!passcode) return 'Configure the QUOTE_ACCESS_CODE server environment variable.';
+  if (passcode.length < 8 || passcode.length > 128) {
+    return 'QUOTE_ACCESS_CODE must contain between 8 and 128 characters.';
+  }
+  if (!process.env.EVR_SESSION_SECRET?.trim() || process.env.EVR_SESSION_SECRET.length < 32) {
+    return 'EVR_SESSION_SECRET must contain at least 32 characters.';
+  }
+  const required = ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+  const missing = required.filter(name => !process.env[name]?.trim());
+  if (missing.length) {
+    return `Configure these server environment variables for quote passcode protection: ${missing.join(', ')}.`;
+  }
+  try {
+    if (new URL(process.env.UPSTASH_REDIS_REST_URL).protocol !== 'https:') {
+      return 'UPSTASH_REDIS_REST_URL must use HTTPS.';
+    }
+  } catch {
+    return 'UPSTASH_REDIS_REST_URL must be a valid HTTPS URL.';
+  }
+  return null;
+}
+
 function signature(expiresAt) {
   return crypto.createHmac('sha256', process.env.EVR_SESSION_SECRET)
     .update(String(expiresAt))
     .digest('base64url');
 }
 
-function isAuthenticated(request) {
-  if (localAdminBypassEnabled() && isLocalRequest(request)) return true;
-
+function hasValidSession(request, name, sign) {
   const cookieHeader = request.headers.cookie || '';
   const sessionCookie = cookieHeader.split(';').map(part => part.trim())
-    .find(part => part.startsWith(`${cookieName}=`));
+    .find(part => part.startsWith(`${name}=`));
   if (!sessionCookie) return false;
 
   let token;
   try {
-    token = decodeURIComponent(sessionCookie.slice(cookieName.length + 1));
+    token = decodeURIComponent(sessionCookie.slice(name.length + 1));
   } catch {
     return false;
   }
@@ -104,15 +129,36 @@ function isAuthenticated(request) {
   const expiresAt = Number(token.slice(0, separator));
   if (!Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return false;
 
-  const expected = Buffer.from(signature(expiresAt));
+  const expected = Buffer.from(sign(expiresAt));
   const actual = Buffer.from(token.slice(separator + 1));
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+function isAuthenticated(request) {
+  if (localAdminBypassEnabled() && isLocalRequest(request)) return true;
+  return hasValidSession(request, cookieName, signature);
+}
+
+function quoteSignature(expiresAt) {
+  return crypto.createHmac('sha256', process.env.EVR_SESSION_SECRET)
+    .update(`quote:${expiresAt}`)
+    .digest('base64url');
+}
+
+function isQuoteAuthenticated(request) {
+  return hasValidSession(request, quoteCookieName, quoteSignature);
 }
 
 function setSessionCookie(response) {
   const expiresAt = Math.floor(Date.now() / 1000) + sessionLifetimeSeconds;
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   response.setHeader('Set-Cookie', `${cookieName}=${expiresAt}.${signature(expiresAt)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${sessionLifetimeSeconds}${secure}`);
+}
+
+function setQuoteSessionCookie(response) {
+  const expiresAt = Math.floor(Date.now() / 1000) + quoteSessionLifetimeSeconds;
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  response.setHeader('Set-Cookie', `${quoteCookieName}=${expiresAt}.${quoteSignature(expiresAt)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${quoteSessionLifetimeSeconds}${secure}`);
 }
 
 function clearSessionCookie(response) {
@@ -268,15 +314,45 @@ async function verifyAdminCode(email, code) {
   )) === 1;
 }
 
+function quotePasscodeLimitKey(request) {
+  const forwardedFor = request.headers['x-forwarded-for'];
+  const clientAddress = (typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : '') ||
+    request.socket?.remoteAddress ||
+    'unknown';
+  const digest = crypto.createHash('sha256').update(clientAddress).digest('hex');
+  return `evr:quote:passcode:attempts:${digest}`;
+}
+
+async function verifyQuoteAccessCode(passcode, request) {
+  if (typeof passcode !== 'string' || passcode.length > 128) return false;
+  const attempts = Number(await redisCommand(
+    'EVAL',
+    requestLimitScript,
+    '1',
+    quotePasscodeLimitKey(request),
+    String(requestWindowSeconds)
+  ));
+  if (attempts > maxQuotePasscodeAttempts) {
+    const error = new Error('Too many quote passcode attempts. Please try again in 15 minutes.');
+    error.statusCode = 429;
+    throw error;
+  }
+  return safeEqual(process.env.QUOTE_ACCESS_CODE.trim(), passcode.trim());
+}
+
 module.exports = {
   clearSessionCookie,
   configurationError,
   isAuthenticated,
+  isQuoteAuthenticated,
   localAdminBypassEnabled,
+  quoteAccessConfigurationError,
   requestAdminCode,
   rejectCrossOrigin,
   safeEqual,
   setPrivateHeaders,
+  setQuoteSessionCookie,
   setSessionCookie,
-  verifyAdminCode
+  verifyAdminCode,
+  verifyQuoteAccessCode
 };

@@ -35,7 +35,7 @@ The site uses Vercel Functions for the editor and Cloudflare R2 for uploaded ima
    - `UPSTASH_REDIS_REST_TOKEN`
 
    Redis stores only a keyed digest of the short-lived sign-in code and rate-limit counters. Codes expire after 10 minutes, can be attempted at most five times, and are deleted when successfully used. Code requests are limited to three per 15 minutes.
-4. Set `EVR_SESSION_SECRET` to a randomly generated secret with at least 32 characters. For example, generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"` and store it only in Vercel.
+4. Set `EVR_SESSION_SECRET` to a randomly generated secret with at least 32 characters. For example, generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"` and store it only in Vercel. Set `QUOTE_ACCESS_CODE` to a separate, unique passphrase of at least 8 characters (16 or more is recommended); keep it private and store it only in Vercel.
 5. Create an R2 API token scoped to this bucket with object read/write access. Add these values to Vercel Environment Variables:
    - `CLOUDFLARE_ACCOUNT_ID`
    - `R2_ACCESS_KEY_ID`
@@ -49,13 +49,17 @@ The site uses Vercel Functions for the editor and Cloudflare R2 for uploaded ima
 
 The browser uploads images and signed 64 MiB multipart video chunks directly to R2, so media bytes do not pass through Vercel. Only the authenticated admin can request upload URLs; R2 credentials stay server-side. Video uploads support files up to 1 GB and can resume in the same browser after an interruption. R2's public custom domain serves the original video (not adaptive HLS); use MP4/H.264 for the broadest browser support. Shared website content is stored in the R2 object `evr/site-content-v1.json`.
 
+## Direct quote maker
+
+Open `https://www.evrproductions.in/quote` and enter the `QUOTE_ACCESS_CODE` configured in Vercel. This passcode protects only the hosted shareable quote maker; it does not unlock `/admin`. The passcode is checked server-side, attempts are rate limited using Upstash Redis, and successful access lasts 12 hours in a separate HTTP-only session cookie. The quote maker saves client quotation and proposal links in R2.
+
 ## Private quotation studio
 
 Open the site and navigate to `#/studio`, or sign in at `#/admin` and choose **Open the EVR quotation studio**. The studio uses the EVR admin login and provides separate wedding/celebration and corporate production scopes, editable rates and terms, browser-only drafts, and a print-ready quotation that can be saved as PDF.
 
 EVR's approved rates are not prefilled. Configure and review rates and terms before issuing a quotation; the studio blocks previews when an included service has no rate. Rates, terms, and drafts are stored only in that browser's local storage. They are not uploaded or synchronized, and client details remain on the device until you print or save the PDF. This tool does not create hosted client links or send quotations automatically. Use a secure device and sign out when finished.
 
-The admin email allowlist, email-provider credentials, Redis credentials, and session signing key are never sent to the browser. Editing, photo-upload authorization, and R2 upload authorization require an authenticated session. State-changing API calls reject cross-origin requests and requests without an Origin header. Admin sessions use an HTTP-only, SameSite=Strict cookie that expires after seven days; signing out clears it, and rotating `EVR_SESSION_SECRET` invalidates existing sessions.
+The admin email allowlist, quote passcode, email-provider credentials, Redis credentials, and session signing key are never sent to the browser. Editing, photo-upload authorization, and R2 upload authorization require an admin session; creating shareable quotations requires the separate quote passcode session. State-changing API calls reject cross-origin requests and requests without an Origin header. Admin sessions use an HTTP-only, SameSite=Strict cookie that expires after seven days; quote sessions use a separate HTTP-only cookie that expires after 12 hours. Rotating `EVR_SESSION_SECRET` invalidates both kinds of session.
 
 Shared content is kept at `evr/site-content-v1.json` in the R2 bucket. Photos and videos upload directly from the browser to R2 using short-lived signed upload URLs. The editor can migrate the previous `evr-site-content` browser edits when the server-side document is still empty. Legacy browser-local videos must be uploaded again with the R2 video uploader before migrating; existing remote video links, including Cloudinary URLs, do not need to be re-uploaded. If the current live content document or images still reside in Vercel Blob, migrate them to R2 before disconnecting or deleting that store.
 
@@ -72,6 +76,7 @@ On Windows, run `run-project.bat` from File Explorer or a Command Prompt to buil
    ```dotenv
    EVR_ADMIN_EMAIL="your-admin-email@example.com"
    EVR_SESSION_SECRET="paste-a-random-secret-generated-locally"
+   QUOTE_ACCESS_CODE="choose-a-separate-local-passphrase"
    RESEND_API_KEY="your-resend-api-key"
    RESEND_FROM_EMAIL="EVR Productions <admin@example.com>"
    UPSTASH_REDIS_REST_URL="https://your-database.upstash.io"
@@ -89,7 +94,7 @@ On Windows, run `run-project.bat` from File Explorer or a Command Prompt to buil
    node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
    ```
 
-   Copy the generated value into `.env.local`. Use a separate development database and sender if preferred. Obtain the Resend key and verified sender from Resend, the Redis REST values from Upstash, and the R2 credentials and custom domain from your Cloudflare account. Never commit `.env.local` or share its contents.
+   Copy the generated value into `.env.local`. Use a separate development database and sender if preferred. Obtain the Resend key and verified sender from Resend, the Redis REST values from Upstash, and the R2 credentials and custom domain from your Cloudflare account. Use a separate quote passphrase for development. Never commit `.env.local` or share its contents.
 2. From the project folder, build the browser uploader and start the local Vercel development server with `run-project.bat` (or `node run-vercel-dev.js`). This launcher loads `.env.local` into the local server process:
 
    ```powershell

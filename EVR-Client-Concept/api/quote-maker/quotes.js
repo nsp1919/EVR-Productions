@@ -3,8 +3,8 @@
 const crypto = require('node:crypto');
 const { getR2Configuration } = require('../../server/r2-storage');
 const {
-  configurationError,
-  isAuthenticated,
+  isQuoteAuthenticated,
+  quoteAccessConfigurationError,
   rejectCrossOrigin,
   setPrivateHeaders
 } = require('../../server/auth');
@@ -127,8 +127,8 @@ module.exports = async function handler(request, response) {
   }
 
   if (body.action !== 'create') return response.status(400).json({ error: 'Choose a valid quotation action.' });
-  if (!isAuthenticated(request)) return response.status(401).json({ error: 'Sign in to create a shareable quotation.' });
-  const setupError = configurationError() || getR2Configuration().error;
+  if (!isQuoteAuthenticated(request)) return response.status(401).json({ error: 'Enter the quote access passcode to create a shareable quotation.' });
+  const setupError = quoteAccessConfigurationError() || getR2Configuration().error;
   if (setupError) return response.status(503).json({ error: setupError });
 
   const quote = body.quote;

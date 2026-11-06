@@ -38,6 +38,22 @@ test('homepage exposes search and social metadata plus business structured data'
 });
 
 test('crawler instructions and sitemap publish the official canonical site', async ({ request }) => {
+  const faviconResponse = await request.get('/favicon.svg');
+  expect(faviconResponse.ok()).toBe(true);
+  expect(await faviconResponse.text()).toContain('<svg');
+
+  const pngFaviconResponse = await request.get('/favicon-32x32.png');
+  expect(pngFaviconResponse.ok()).toBe(true);
+  expect(pngFaviconResponse.headers()['content-type']).toContain('image/png');
+
+  const appleIconResponse = await request.get('/apple-touch-icon.png');
+  expect(appleIconResponse.ok()).toBe(true);
+  expect(appleIconResponse.headers()['content-type']).toContain('image/png');
+
+  const icoResponse = await request.get('/favicon.ico');
+  expect(icoResponse.ok()).toBe(true);
+  expect(icoResponse.headers()['content-type']).toMatch(/^image\/(?:x-icon|vnd\.microsoft\.icon)/);
+
   const robotsResponse = await request.get('/robots.txt');
   expect(robotsResponse.ok()).toBe(true);
   const robots = await robotsResponse.text();

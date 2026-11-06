@@ -3,15 +3,23 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const authHandler = require('../api/auth');
+const quoteAccessHandler = require('../api/quote-maker/access');
 const brandLogoHandler = require('../api/brand-logo');
 const r2ImageUploadHandler = require('../api/r2-image-upload');
 const r2VideoUploadHandler = require('../api/r2-video-upload');
 const { validateContent } = require('../server/content-store');
-const { configurationError, isAuthenticated, setSessionCookie } = require('../server/auth');
+const {
+  configurationError,
+  isAuthenticated,
+  isQuoteAuthenticated,
+  setSessionCookie,
+  quoteAccessConfigurationError
+} = require('../server/auth');
 
 const originalEnvironment = {
   adminEmail: process.env.EVR_ADMIN_EMAIL,
   secret: process.env.EVR_SESSION_SECRET,
+  quoteAccessCode: process.env.QUOTE_ACCESS_CODE,
   resendApiKey: process.env.RESEND_API_KEY,
   resendFromEmail: process.env.RESEND_FROM_EMAIL,
   redisUrl: process.env.UPSTASH_REDIS_REST_URL,
@@ -27,6 +35,7 @@ const originalEnvironment = {
 };
 process.env.EVR_ADMIN_EMAIL = 'admin@example.com';
 process.env.EVR_SESSION_SECRET = 'test-only-session-signing-secret-with-enough-entropy';
+process.env.QUOTE_ACCESS_CODE = 'test-quote-passcode';
 process.env.RESEND_API_KEY = 'test-only-resend-key';
 process.env.RESEND_FROM_EMAIL = 'EVR Productions <admin@example.com>';
 process.env.UPSTASH_REDIS_REST_URL = 'https://redis.example.test';
@@ -260,6 +269,55 @@ test('admin API rejects cross-origin sign-in code requests', async () => {
   assert.equal(response.statusCode, 403);
 });
 
+test('quote passcode issues a quote-only HttpOnly session', async () => {
+  await withMockedAuthServices(async () => {
+    const request = {
+      method: 'POST',
+      headers: { host: 'evr.example', origin: 'https://evr.example', 'x-forwarded-for': '203.0.113.8' }
+    };
+    const incorrect = createResponse();
+    await quoteAccessHandler({ ...request, body: { action: 'verify', passcode: 'wrong-passcode' } }, incorrect);
+    assert.equal(incorrect.statusCode, 401);
+    assert.equal(incorrect.headers['Set-Cookie'], undefined);
+
+    const response = createResponse();
+    await quoteAccessHandler({ ...request, body: { action: 'verify', passcode: process.env.QUOTE_ACCESS_CODE } }, response);
+    assert.equal(response.statusCode, 200);
+    assert.match(response.headers['Set-Cookie'], /^evr_quote_session=/);
+    assert.match(response.headers['Set-Cookie'], /HttpOnly; SameSite=Strict; Max-Age=43200/);
+    assert.match(response.headers['Set-Cookie'], /; Secure/);
+    const cookie = response.headers['Set-Cookie'].split(';')[0];
+    assert.equal(isQuoteAuthenticated({ headers: { cookie } }), true);
+    assert.equal(isAuthenticated({ headers: { cookie } }), false);
+  });
+});
+
+test('quote passcode rejects attempts over its per-IP rate limit', async () => {
+  await withMockedAuthServices(async () => {
+    const request = {
+      method: 'POST',
+      headers: { host: 'evr.example', origin: 'https://evr.example', 'x-forwarded-for': '203.0.113.9' },
+      body: { action: 'verify', passcode: 'wrong-passcode' }
+    };
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = createResponse();
+      await quoteAccessHandler(request, response);
+      assert.equal(response.statusCode, 401);
+    }
+    const limited = createResponse();
+    await quoteAccessHandler(request, limited);
+    assert.equal(limited.statusCode, 429);
+  });
+});
+
+test('quote passcode configuration reports missing and weak secrets', () => {
+  const passcode = process.env.QUOTE_ACCESS_CODE;
+  process.env.QUOTE_ACCESS_CODE = 'short';
+  assert.match(quoteAccessConfigurationError(), /between 8 and 128 characters/);
+  process.env.QUOTE_ACCESS_CODE = passcode;
+  assert.equal(quoteAccessConfigurationError(), null);
+});
+
 test('admin configuration identifies the exact missing environment settings', () => {
   const email = process.env.EVR_ADMIN_EMAIL;
   delete process.env.EVR_ADMIN_EMAIL;
@@ -473,6 +531,8 @@ test.after(() => {
   else process.env.EVR_ADMIN_EMAIL = originalEnvironment.adminEmail;
   if (originalEnvironment.secret === undefined) delete process.env.EVR_SESSION_SECRET;
   else process.env.EVR_SESSION_SECRET = originalEnvironment.secret;
+  if (originalEnvironment.quoteAccessCode === undefined) delete process.env.QUOTE_ACCESS_CODE;
+  else process.env.QUOTE_ACCESS_CODE = originalEnvironment.quoteAccessCode;
   if (originalEnvironment.resendApiKey === undefined) delete process.env.RESEND_API_KEY;
   else process.env.RESEND_API_KEY = originalEnvironment.resendApiKey;
   if (originalEnvironment.resendFromEmail === undefined) delete process.env.RESEND_FROM_EMAIL;

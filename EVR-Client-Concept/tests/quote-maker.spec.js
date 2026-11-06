@@ -1,6 +1,52 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { test, expect } = require('@playwright/test');
+
+test('direct /quote route opens the authenticated shareable quote maker', async ({ page }) => {
+  const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+  expect(vercelConfig.routes).toContainEqual({ src: '^/quote/?$', dest: '/quote-maker.html' });
+
+  await mockQuotePasscode(page);
+  await page.route('**/quote', route => route.fulfill({
+    path: path.join(__dirname, '..', 'quote-maker.html'),
+    contentType: 'text/html'
+  }));
+  await page.goto('/quote');
+
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
+  await expect(page.locator('.quote-auth-gate')).toBeVisible();
+  await expect(page.locator('#qclient')).toBeHidden();
+  await page.locator('#quote-auth-passcode').fill('valid-test-passcode');
+  await page.locator('#quote-auth-submit').click();
+
+  await expect(page.locator('.quote-auth-gate')).toBeHidden();
+  await expect(page.locator('#qclient')).toBeVisible();
+  await expect(page.locator('#generateQuote')).toBeVisible();
+  await expect(page.locator('#quoteLinkResult')).toBeHidden();
+
+  const quoteId = 'a'.repeat(48);
+  let savedAction;
+  await page.route('**/api/quote-maker/quotes', async route => {
+    savedAction = route.request().postDataJSON().action;
+    await route.fulfill({
+      json: {
+        url: `https://www.evrproductions.in/quotes/${quoteId}`,
+        proposalUrl: `https://www.evrproductions.in/proposals/${quoteId}`
+      }
+    });
+  });
+  await page.evaluate(() => { window.createQuotationPDF = async () => new Blob(); });
+  await page.locator('#qclient').fill('Asha Rao');
+  await page.locator('#evGrid label').filter({ hasText: 'Engagement' }).click();
+  await page.locator('#generateQuote').click();
+
+  await expect(page.locator('#quoteLinkResult')).toBeVisible();
+  await expect(page.locator('#quoteLink')).toHaveValue(`https://www.evrproductions.in/quotes/${quoteId}`);
+  await expect(page.locator('#proposalQuoteLink')).toHaveValue(`https://www.evrproductions.in/proposals/${quoteId}`);
+  expect(savedAction).toBe('create');
+});
 
 async function mockQuoteAuth(page) {
   let authenticated = false;
@@ -21,6 +67,21 @@ async function mockQuoteAuth(page) {
     return route.fulfill({
       status: authenticated ? 200 : 401,
       json: authenticated ? { authenticated } : { error: 'That code is invalid or expired.' }
+    });
+  });
+}
+
+async function mockQuotePasscode(page) {
+  let authenticated = false;
+  await page.route('**/api/quote-maker/access', async route => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ json: { configured: true, authenticated } });
+    }
+    const body = route.request().postDataJSON();
+    authenticated = body.action === 'verify' && body.passcode === 'valid-test-passcode';
+    return route.fulfill({
+      status: authenticated ? 200 : 401,
+      json: authenticated ? { authenticated } : { error: 'That passcode is incorrect. Try again.' }
     });
   });
 }

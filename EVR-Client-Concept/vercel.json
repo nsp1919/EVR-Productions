@@ -14,6 +14,10 @@
       "dest": "/api/$1"
     },
     {
+      "src": "^/quote/?$",
+      "dest": "/quote-maker.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
