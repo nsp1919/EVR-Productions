@@ -268,6 +268,15 @@ html.admin-route-pending > body > header {
    <p class="admin-settings-note">Restoring replaces the shared website content. Preview the site after restoring to check the result.</p>
   </div>
   <div class="admin-settings-card">
+   <h3>Invitation editor access</h3>
+   <p>Set or change the four-digit passcode for <code>/admin/invitation</code>. Wedding invitation links stay public. The passcode is stored as a one-way hash and is never shown here.</p>
+   <div class="admin-password-fields">
+    <label for="invitation-editor-passcode">New four-digit passcode<input id="invitation-editor-passcode" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" aria-describedby="invitation-editor-passcode-status"></label>
+    <button type="button" class="admin-tool" id="invitation-editor-passcode-save">Save invitation passcode</button>
+   </div>
+   <p id="invitation-editor-passcode-status" class="admin-settings-note" role="status" aria-live="polite">Checking passcode settings…</p>
+  </div>
+  <div class="admin-settings-card">
    <h3>Admin access</h3>
    <p>Admin access uses one-time email codes and an HTTP-only server session. Manage the authorized admin email and email/Redis provider credentials in your Vercel environment settings.</p>
    <button type="button" class="admin-tool" id="admin-logout">Sign out</button>

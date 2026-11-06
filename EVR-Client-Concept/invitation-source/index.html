@@ -333,7 +333,9 @@
   <script src="/brand-logo.js" defer></script>
   <script>
     /* WEDDING_CONFIG_START */
-    const DEFAULT_MUSIC_URL = new URL('assets/Marriage.mp3', window.location.href).href;
+    const DEFAULT_MUSIC_URL = window.location.protocol === 'file:'
+      ? new URL('assets/Marriage.mp3', window.location.href).href
+      : new URL('/invitation/assets/Marriage.mp3', window.location.origin).href;
     const DEFAULT_WEDDING = {
       coupleNames: 'Aarav & Ananya',
       date: '2027-02-14T10:30:00',

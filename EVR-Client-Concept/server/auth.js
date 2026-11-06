@@ -4,8 +4,10 @@ const crypto = require('node:crypto');
 
 const cookieName = 'evr_admin_session';
 const quoteCookieName = 'evr_quote_session';
+const invitationCookieName = 'evr_invitation_editor_session';
 const sessionLifetimeSeconds = 60 * 60 * 24 * 7;
 const quoteSessionLifetimeSeconds = 60 * 60 * 12;
+const invitationSessionLifetimeSeconds = 60 * 60 * 12;
 const otpLifetimeSeconds = 60 * 10;
 const requestWindowSeconds = 60 * 15;
 const maxCodeRequests = 3;
@@ -149,6 +151,50 @@ function isQuoteAuthenticated(request) {
   return hasValidSession(request, quoteCookieName, quoteSignature);
 }
 
+function invitationSignature(expiresAt, fingerprint) {
+  return crypto.createHmac('sha256', process.env.EVR_SESSION_SECRET)
+    .update(`invitation-editor:${expiresAt}:${fingerprint}`)
+    .digest('base64url');
+}
+
+function invitationPasscodeFingerprint(passcodeHash) {
+  return crypto.createHash('sha256').update(passcodeHash).digest('hex');
+}
+
+function getInvitationSessionFingerprint(request) {
+  const cookieHeader = request.headers.cookie || '';
+  const sessionCookie = cookieHeader.split(';').map(part => part.trim())
+    .find(part => part.startsWith(`${invitationCookieName}=`));
+  if (!sessionCookie) return null;
+
+  let token;
+  try {
+    token = decodeURIComponent(sessionCookie.slice(invitationCookieName.length + 1));
+  } catch {
+    return null;
+  }
+  const [expiresAtValue, fingerprint, providedSignature, ...extra] = token.split('.');
+  const expiresAt = Number(expiresAtValue);
+  if (extra.length || !Number.isSafeInteger(expiresAt) ||
+      expiresAt <= Math.floor(Date.now() / 1000) ||
+      !/^[a-f\d]{64}$/i.test(fingerprint || '')) return null;
+
+  const expected = Buffer.from(invitationSignature(expiresAt, fingerprint));
+  const actual = Buffer.from(providedSignature || '');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual)
+    ? fingerprint
+    : null;
+}
+
+function hasInvitationEditorSession(request) {
+  return Boolean(getInvitationSessionFingerprint(request));
+}
+
+function isInvitationEditorAuthenticated(request, passcodeHash) {
+  if (typeof passcodeHash !== 'string' || !/^[a-f\d]{128}$/i.test(passcodeHash)) return false;
+  return getInvitationSessionFingerprint(request) === invitationPasscodeFingerprint(passcodeHash);
+}
+
 function setSessionCookie(response) {
   const expiresAt = Math.floor(Date.now() / 1000) + sessionLifetimeSeconds;
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
@@ -159,6 +205,16 @@ function setQuoteSessionCookie(response) {
   const expiresAt = Math.floor(Date.now() / 1000) + quoteSessionLifetimeSeconds;
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   response.setHeader('Set-Cookie', `${quoteCookieName}=${expiresAt}.${quoteSignature(expiresAt)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${quoteSessionLifetimeSeconds}${secure}`);
+}
+
+function setInvitationEditorCookie(response, passcodeHash) {
+  if (typeof passcodeHash !== 'string' || !/^[a-f\d]{128}$/i.test(passcodeHash)) {
+    throw new TypeError('A valid invitation passcode hash is required to create an editor session.');
+  }
+  const expiresAt = Math.floor(Date.now() / 1000) + invitationSessionLifetimeSeconds;
+  const fingerprint = invitationPasscodeFingerprint(passcodeHash);
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  response.setHeader('Set-Cookie', `${invitationCookieName}=${expiresAt}.${fingerprint}.${invitationSignature(expiresAt, fingerprint)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${invitationSessionLifetimeSeconds}${secure}`);
 }
 
 function clearSessionCookie(response) {
@@ -340,10 +396,28 @@ async function verifyQuoteAccessCode(passcode, request) {
   return safeEqual(process.env.QUOTE_ACCESS_CODE.trim(), passcode.trim());
 }
 
+async function checkInvitationPasscodeRateLimit(request) {
+  const attempts = Number(await redisCommand(
+    'EVAL',
+    requestLimitScript,
+    '1',
+    quotePasscodeLimitKey(request).replace('evr:quote:', 'evr:invitation:'),
+    String(requestWindowSeconds)
+  ));
+  if (attempts > 5) {
+    const error = new Error('Too many invitation passcode attempts. Please try again in 15 minutes.');
+    error.statusCode = 429;
+    throw error;
+  }
+}
+
 module.exports = {
+  checkInvitationPasscodeRateLimit,
   clearSessionCookie,
   configurationError,
+  hasInvitationEditorSession,
   isAuthenticated,
+  isInvitationEditorAuthenticated,
   isQuoteAuthenticated,
   localAdminBypassEnabled,
   quoteAccessConfigurationError,
@@ -351,6 +425,7 @@ module.exports = {
   rejectCrossOrigin,
   safeEqual,
   setPrivateHeaders,
+  setInvitationEditorCookie,
   setQuoteSessionCookie,
   setSessionCookie,
   verifyAdminCode,

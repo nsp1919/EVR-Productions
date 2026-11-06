@@ -3,6 +3,13 @@
 const { randomUUID } = require('node:crypto');
 const { get, put } = require('@vercel/blob');
 const { createInvitationId, getInvitationStorageId } = require('../server/invitation-links');
+const {
+  hasInvitationEditorSession,
+  isInvitationEditorAuthenticated,
+  rejectCrossOrigin,
+  setPrivateHeaders
+} = require('../server/auth');
+const { readInvitationPasscode } = require('../server/invitation-passcode');
 
 const maxInviteBytes = 4 * 1024 * 1024;
 const startMarker = '/* WEDDING_CONFIG_START */';
@@ -48,16 +55,19 @@ function getInvitationId(request) {
 }
 
 module.exports = async function invitationHandler(request, response) {
-  response.setHeader('Cache-Control', 'no-store');
+  setPrivateHeaders(response);
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
+  if (request.method === 'POST' && rejectCrossOrigin(request, response)) return;
 
   try {
     if (request.method === 'POST') {
-      const adminKey = process.env.INVITATION_ADMIN_KEY;
-      if (!adminKey) return errorResponse(response, 'Invitation storage is not configured yet.', 503);
-      if (request.headers.authorization !== `Bearer ${adminKey}`) {
-        return errorResponse(response, 'The invitation admin key is incorrect.', 401);
+      if (!hasInvitationEditorSession(request)) {
+        return errorResponse(response, 'Enter the invitation editor passcode to save wedding invitations.', 401);
+      }
+      const savedPasscode = await readInvitationPasscode();
+      if (!savedPasscode || !isInvitationEditorAuthenticated(request, savedPasscode.hash)) {
+        return errorResponse(response, 'Enter the invitation editor passcode to save wedding invitations.', 401);
       }
 
       const config = request.body;

@@ -8,8 +8,9 @@
     }
   },
   "rewrites": [
-    { "source": "/invitation", "destination": "/invitation/index.html" },
+    { "source": "/admin/invitation", "destination": "/invitation/editor.html" },
     { "source": "/invitation/editor", "destination": "/invitation/editor.html" },
+    { "source": "/invitation", "destination": "/invitation/index.html" },
     { "source": "/invitation/:id([a-z0-9-]+)", "destination": "/api/invitations?id=:id" },
     { "source": "/quote", "destination": "/quote-maker.html" },
     { "source": "/quote-maker", "destination": "/quote-maker.html" },

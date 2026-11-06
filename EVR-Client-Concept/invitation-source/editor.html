@@ -64,6 +64,15 @@
     .local-link-panel__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
     .local-link-panel__row input { min-width: 0; }
     .local-link-panel__open { color: var(--green); font-size: 11px; font-weight: 600; }
+    .invitation-login { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(31, 39, 31, .76); }
+    .invitation-login[hidden] { display: none; }
+    .invitation-login__card { width: min(420px, 100%); padding: 34px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 24px 80px rgba(0,0,0,.2); }
+    .invitation-login__card h1 { margin-top: 8px; font: 500 31px/1.15 var(--serif); }
+    .invitation-login__card p { color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .invitation-login__form { display: grid; gap: 12px; margin-top: 22px; }
+    .invitation-login__form input { width: 100%; padding: 13px; border: 1px solid var(--line); background: var(--white); font: 600 20px var(--sans); letter-spacing: .35em; }
+    .invitation-login__form input:focus { border-color: var(--green); outline: 2px solid rgba(70,98,76,.12); }
+    .invitation-login__status { min-height: 18px; margin-bottom: 0; }
     .preview-column { position: sticky; top: 22px; min-width: 0; }
     .preview-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 12px; }
     .preview-heading h2 { margin: 0; font: 500 21px var(--serif); }
@@ -77,9 +86,23 @@
   </style>
 </head>
 <body>
+  <section class="invitation-login" id="invitationLogin" aria-labelledby="invitationLoginTitle">
+    <div class="invitation-login__card">
+      <span class="eyebrow">EVR PRODUCTIONS · PRIVATE STUDIO</span>
+      <h1 id="invitationLoginTitle">Invitation editor</h1>
+      <p>Enter the four-digit studio passcode to continue. Need access? Contact the EVR administrator.</p>
+      <form class="invitation-login__form" id="invitationLoginForm">
+        <label for="invitationPasscode">Studio passcode</label>
+        <input id="invitationPasscode" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" aria-describedby="invitationLoginStatus" required>
+        <button class="button" id="invitationLoginSubmit" type="submit">Unlock invitation editor</button>
+      </form>
+      <p class="invitation-login__status" id="invitationLoginStatus" role="status" aria-live="polite"></p>
+      <a href="https://www.evrproductions.in/" class="hint">← Back to EVR Productions</a>
+    </div>
+  </section>
   <header class="topbar">
-    <a class="brand" href="editor.html"><span class="brand-mark" aria-hidden="true">✦</span> Invitation Studio</a>
-    <a href="index.html" target="_blank" rel="noreferrer">Open invitation ↗</a>
+    <a class="brand" href="/admin/invitation"><span class="brand-mark" aria-hidden="true">✦</span> Invitation Studio</a>
+    <a href="/invitation" target="_blank" rel="noreferrer">Open invitation ↗</a>
   </header>
   <main class="workspace">
     <div class="intro">
@@ -147,11 +170,7 @@
           </div>
         </fieldset>
 
-        <div class="field field--wide">
-          <label for="storageAccessKey">Invitation admin key</label>
-          <input id="storageAccessKey" type="password" autocomplete="off" spellcheck="false">
-          <span class="hint">Set INVITATION_ADMIN_KEY in Vercel. This key is used only to save invitations and is never included in share links.</span>
-        </div>
+        <p class="hint field--wide">Your EVR invitation editor access is protected by the studio passcode.</p>
         <div class="actions">
           <button class="button" type="submit">Save & update preview</button>
           <button class="button button--secondary" id="generateInviteLink" type="button">Generate share link</button>
@@ -173,15 +192,63 @@
 
       <aside class="preview-column" aria-label="Live invitation preview">
         <div class="preview-heading"><h2>Live preview</h2><span>Updates when you save</span></div>
-        <iframe class="preview-frame" id="invitePreview" src="index.html" title="Live wedding invitation preview"></iframe>
+        <iframe class="preview-frame" id="invitePreview" src="/invitation/index.html" title="Live wedding invitation preview"></iframe>
         <p class="export-note">Your preview is private to this browser until you generate and share a link.</p>
       </aside>
     </div>
   </main>
 
   <script>
+    const invitationLogin = document.getElementById('invitationLogin');
+    const invitationLoginForm = document.getElementById('invitationLoginForm');
+    const invitationPasscode = document.getElementById('invitationPasscode');
+    const invitationLoginStatus = document.getElementById('invitationLoginStatus');
+    const invitationLoginSubmit = document.getElementById('invitationLoginSubmit');
+
+    async function checkInvitationEditorAccess() {
+      try {
+        const response = await fetch('/api/invitation-access', { credentials: 'same-origin', cache: 'no-store' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Access check failed (${response.status}).`);
+        if (result.authenticated) {
+          invitationLogin.hidden = true;
+          return;
+        }
+        invitationLoginStatus.textContent = result.error || 'Enter the four-digit studio passcode to continue.';
+        if (!result.configured) invitationLoginForm.hidden = true;
+      } catch (error) {
+        invitationLoginStatus.textContent = `Could not check editor access: ${error.message}`;
+        invitationLoginForm.hidden = true;
+      }
+    }
+
+    invitationLoginForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!invitationLoginForm.reportValidity()) return;
+      invitationLoginSubmit.disabled = true;
+      invitationLoginStatus.textContent = 'Checking passcode…';
+      try {
+        const response = await fetch('/api/invitation-access', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passcode: invitationPasscode.value })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Access check failed (${response.status}).`);
+        invitationPasscode.value = '';
+        invitationLogin.hidden = true;
+      } catch (error) {
+        invitationLoginStatus.textContent = error.message || 'Could not verify the passcode.';
+      } finally {
+        invitationLoginSubmit.disabled = false;
+      }
+    });
+
     const STORAGE_KEY = 'weddingInviteConfig';
-    const DEFAULT_MUSIC_URL = new URL('assets/Marriage.mp3', window.location.href).href;
+    const DEFAULT_MUSIC_URL = window.location.protocol === 'file:'
+      ? new URL('assets/Marriage.mp3', window.location.href).href
+      : new URL('/invitation/assets/Marriage.mp3', window.location.origin).href;
     const DEFAULTS = {
       coupleNames: 'Aarav & Ananya',
       date: '2027-02-14T10:30:00',
@@ -510,12 +577,6 @@
     $('#generateInviteLink').addEventListener('click', async () => {
       const next = collectSettings();
       if (!validateSettings(next)) return;
-      const adminKey = $('#storageAccessKey').value.trim();
-      if (!adminKey) {
-        status.textContent = 'Enter the invitation admin key to save this invitation.';
-        $('#storageAccessKey').focus();
-        return;
-      }
       settings = next;
       const contents = JSON.stringify(settings);
       if (new TextEncoder().encode(contents).byteLength > 4 * 1024 * 1024) {
@@ -528,13 +589,18 @@
       try {
         const response = await fetch('/api/invitations', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
-            'Authorization': `Bearer ${adminKey}`,
             'Content-Type': 'application/json'
           },
           body: contents
         });
         const result = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          invitationLogin.hidden = false;
+          invitationLoginForm.hidden = false;
+          invitationLoginStatus.textContent = 'Your editor session expired or the passcode changed. Sign in again.';
+        }
         if (!response.ok) throw new Error(result.error || 'Could not save the invitation.');
         const shareUrl = new URL(`/invitation/${encodeURIComponent(result.id)}`, window.location.origin);
         $('#shareInviteUrl').value = shareUrl.href;
@@ -561,6 +627,7 @@
     fillForm();
     preview.addEventListener('load', sendPreview);
     if (preview.contentDocument?.readyState === 'complete') sendPreview();
+    checkInvitationEditorAccess();
   </script>
 </body>
 </html>

@@ -20,6 +20,9 @@
   const importPicker = document.getElementById('admin-import-file');
   const status = document.getElementById('admin-status');
   const settingsStatus = document.getElementById('admin-settings-status');
+  const invitationPasscodeInput = document.getElementById('invitation-editor-passcode');
+  const invitationPasscodeSave = document.getElementById('invitation-editor-passcode-save');
+  const invitationPasscodeStatus = document.getElementById('invitation-editor-passcode-status');
   const settingsPanel = document.getElementById('admin-settings');
   const settingsOpen = document.getElementById('admin-settings-open');
   const loginPanel = document.getElementById('admin-login');
@@ -268,6 +271,40 @@
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status}).`);
     return result;
   }
+
+  async function loadInvitationPasscodeSettings() {
+    invitationPasscodeStatus.textContent = 'Checking passcode settings…';
+    try {
+      const result = await apiRequest('/api/invitation-admin-passcode');
+      invitationPasscodeStatus.textContent = result.configured
+        ? 'A passcode is set. Saving a new one replaces it immediately.'
+        : 'No passcode is set yet. Set one to enable the invitation editor.';
+    } catch (error) {
+      invitationPasscodeStatus.textContent = `Could not load passcode settings: ${error.message}`;
+    }
+  }
+
+  invitationPasscodeSave.addEventListener('click', async () => {
+    if (!/^\d{4}$/.test(invitationPasscodeInput.value)) {
+      invitationPasscodeStatus.textContent = 'Enter exactly four digits.';
+      invitationPasscodeInput.focus();
+      return;
+    }
+    invitationPasscodeSave.disabled = true;
+    invitationPasscodeStatus.textContent = 'Saving passcode…';
+    try {
+      await apiRequest('/api/invitation-admin-passcode', {
+        method: 'PUT',
+        body: JSON.stringify({ passcode: invitationPasscodeInput.value })
+      });
+      invitationPasscodeInput.value = '';
+      invitationPasscodeStatus.textContent = 'Passcode saved. The new passcode is active now.';
+    } catch (error) {
+      invitationPasscodeStatus.textContent = `Could not save passcode: ${error.message}`;
+    } finally {
+      invitationPasscodeSave.disabled = false;
+    }
+  });
 
   async function uploadMedia(file, type) {
     if (typeof window.evrUploadMedia !== 'function') throw new Error('The secure media uploader did not load. Reload the page and try again.');
@@ -2578,6 +2615,7 @@
     controls.hidden = true;
     settingsPanel.hidden = false;
     settingsOpen.setAttribute('aria-expanded', 'true');
+    loadInvitationPasscodeSettings();
   });
   document.getElementById('admin-settings-close').addEventListener('click', () => {
     settingsPanel.hidden = true;
